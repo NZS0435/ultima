@@ -1,9 +1,9 @@
 #ifndef U2_WINDOW_H
 #define U2_WINDOW_H
 
-#include <ncurses.h>
+#include "platform_curses.h"
 #include <string>
-#include <pthread.h>
+#include "platform_threads.h"
 
 class U2_window {
 private:

@@ -43,7 +43,7 @@ void U2_window::write_text(const char* text) {
     // Critical Section
     pthread_mutex_lock(&screen_mutex);
 
-    wprintw(win, text);
+    wprintw(win, "%s", text);
     box(win, 0, 0); // Restore borders in case text overwrote them
     mvwprintw(win, 0, 2, " %s ", window_title.c_str());
     wrefresh(win);
@@ -55,7 +55,7 @@ void U2_window::write_text_at(int y, int x, const char* text) {
     // Critical Section
     pthread_mutex_lock(&screen_mutex);
 
-    mvwprintw(win, y, x, text);
+    mvwprintw(win, y, x, "%s", text);
     box(win, 0, 0);
     mvwprintw(win, 0, 2, " %s ", window_title.c_str());
     wrefresh(win);
