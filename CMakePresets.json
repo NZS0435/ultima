@@ -27,6 +27,16 @@
       }
     },
     {
+      "name": "cygwin-debug",
+      "displayName": "Cygwin Debug (local cache)",
+      "description": "Use with CLion Cygwin toolchain; build outside SharePoint.",
+      "generator": "Ninja",
+      "binaryDir": "$env{USERPROFILE}/.ultima2/build/cygwin-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
       "name": "linux-debug",
       "displayName": "Linux Debug (local cache)",
       "description": "Build outside SharePoint to avoid CMake cache collisions.",
@@ -45,6 +55,10 @@
     {
       "name": "windows-debug",
       "configurePreset": "windows-debug"
+    },
+    {
+      "name": "cygwin-debug",
+      "configurePreset": "cygwin-debug"
     },
     {
       "name": "linux-debug",

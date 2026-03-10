@@ -30,7 +30,7 @@ target_include_directories(ultima_os PRIVATE "${SCHEDULER_DIR}")
 find_package(Threads REQUIRED)
 target_link_libraries(ultima_os PRIVATE Threads::Threads)
 
-if(WIN32)
+if(WIN32 AND NOT CYGWIN)
     set(PDCURSES_ROOT "" CACHE PATH "Root path of a PDCurses install (optional)")
 
     set(ULTIMA_CURSES_INCLUDE_HINTS

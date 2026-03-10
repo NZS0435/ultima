@@ -1,4 +1,4 @@
-# Cross-Platform Build Guide (macOS + Windows)
+# Cross-Platform Build Guide (macOS + Windows + Cygwin)
 
 ## Important for SharePoint Collaborators
 
@@ -45,7 +45,7 @@ Run:
 ~/.ultima2/build/macos-debug/ultima_os
 ```
 
-### Windows (MSYS2 MinGW64 recommended)
+### Windows (MSYS2 MinGW64)
 
 Install dependencies from `MSYS2 MinGW x64` shell:
 
@@ -72,14 +72,56 @@ If CMake cannot find PDCurses, add:
 -DPDCURSES_ROOT=C:/msys64/mingw64
 ```
 
+### Windows (Cygwin)
+
+Install packages in Cygwin Setup (`setup-x86_64.exe`):
+
+- `gcc-g++`
+- `cmake`
+- `ninja`
+- `gdb`
+- `libncurses-devel`
+
+Configure + build from a Cygwin shell:
+
+```bash
+cmake --preset cygwin-debug
+cmake --build --preset cygwin-debug
+```
+
+Run:
+
+```bash
+/cygdrive/c/Users/<YourUser>/.ultima2/build/cygwin-debug/ultima_os.exe
+```
+
 ## CLion Setup (Recommended)
 
 1. `Settings > Build, Execution, Deployment > CMake`.
 2. Enable `Load CMake presets`.
-3. Select `macos-debug` on Mac, `windows-debug` on Windows.
+3. Select:
+   - `macos-debug` on Mac
+   - `windows-debug` for MSYS2/MinGW or MSVC workflows
+   - `cygwin-debug` for Cygwin workflows
 4. Do not use `cmake-build-debug` inside the SharePoint project tree.
+
+### CLion Cygwin Toolchain/Profile Setup
+
+1. Open `Settings > Build, Execution, Deployment > Toolchains`.
+2. Add a new toolchain and set environment to `Cygwin`.
+3. Set paths (adjust if your Cygwin root differs):
+   - `C Compiler`: `C:\\cygwin64\\bin\\gcc.exe`
+   - `C++ Compiler`: `C:\\cygwin64\\bin\\g++.exe`
+   - `Debugger`: `C:\\cygwin64\\bin\\gdb.exe`
+   - `CMake`: `C:\\cygwin64\\bin\\cmake.exe`
+   - `Build Tool`: `C:\\cygwin64\\bin\\ninja.exe`
+4. Open `Settings > Build, Execution, Deployment > CMake`.
+5. Enable `Load CMake presets`.
+6. Select preset `cygwin-debug`.
+7. Ensure the selected toolchain is the Cygwin toolchain created above.
 
 ## Notes on ncurses / pthread portability
 
 - macOS/Linux: CMake uses `find_package(Curses)` and links native pthreads via `Threads::Threads`.
-- Windows: CMake links PDCurses. Threading links through `Threads::Threads`; if native `pthread.h` is unavailable, the code automatically uses the local mutex compatibility shim in `platform_threads.h`.
+- Cygwin: CMake uses `find_package(Curses)` with Cygwin ncurses and links pthreads via `Threads::Threads` (no manual path wiring).
+- Non-Cygwin Windows (MSYS2/MinGW/MSVC): CMake links PDCurses. Threading links through `Threads::Threads`; if native `pthread.h` is unavailable, the code automatically uses the local mutex compatibility shim in `platform_threads.h`.
