@@ -24,7 +24,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(ultima_os PRIVATE Threads::Threads)
 
 if(WIN32)
-    set(PDCURSES_ROOT "C:/msys64/mingw64" CACHE PATH "Root path of a PDCurses install")
+    set(PDCURSES_ROOT "C:/msys64/mingw64" CACHE PATH "Root path of a PDCurses install" FORCE)
 
     find_path(ULTIMA_CURSES_INCLUDE_DIR
         NAMES curses.h ncurses.h

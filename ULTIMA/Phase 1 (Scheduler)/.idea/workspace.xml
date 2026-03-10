@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="38c20a19-1ad3-48f9-81c0-6696d32afc26" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../Introduction/Combined Design Diagram.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Introduction/Cover Page.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Introduction/Project Abstract.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Introduction/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Introduction/Team Resumes.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Phase 1 Abstract.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Phase 1 Diagram.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Sched.cpp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Sched.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Sema.cpp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Sema.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Test Plan and Output.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/U2_UI.cpp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/U2_UI.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/U2_Window.cpp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/U2_Window.h" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 5
+}]]></component>
+  <component name="ProjectId" id="3AjDKIC825iCYiDBNqIngFRfvCP" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.RadMigrateCodeStyle": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.first.attach.projects": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="38c20a19-1ad3-48f9-81c0-6696d32afc26" name="Changes" comment="" />
+      <created>1773097020585</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1773097020585</updated>
+      <workItem from="1773097021587" duration="716000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
