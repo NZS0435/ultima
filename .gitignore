@@ -1,0 +1,19 @@
+# JetBrains
+.idea/
+**/.idea/
+*.iml
+
+# CMake / build outputs
+cmake-build-*/
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# C/C++ artifacts
+*.o
+*.obj
+*.exe
+*.out
+ultima_os
