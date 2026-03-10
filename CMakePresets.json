@@ -1,0 +1,54 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "macos-debug",
+      "displayName": "macOS Debug (local cache)",
+      "description": "Build outside SharePoint to avoid CMake cache collisions.",
+      "generator": "Ninja",
+      "binaryDir": "$env{HOME}/.ultima2/build/macos-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "windows-debug",
+      "displayName": "Windows Debug (local cache)",
+      "description": "Build outside SharePoint to avoid CMake cache collisions.",
+      "generator": "Ninja",
+      "binaryDir": "$env{USERPROFILE}/.ultima2/build/windows-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "displayName": "Linux Debug (local cache)",
+      "description": "Build outside SharePoint to avoid CMake cache collisions.",
+      "generator": "Ninja",
+      "binaryDir": "$env{HOME}/.ultima2/build/linux-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "macos-debug",
+      "configurePreset": "macos-debug"
+    },
+    {
+      "name": "windows-debug",
+      "configurePreset": "windows-debug"
+    },
+    {
+      "name": "linux-debug",
+      "configurePreset": "linux-debug"
+    }
+  ]
+}

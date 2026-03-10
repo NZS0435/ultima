@@ -1,63 +1,85 @@
 # Cross-Platform Build Guide (macOS + Windows)
 
-This project uses CMake and supports `ncurses`/`pthreads` behavior on:
+## Important for SharePoint Collaborators
 
-- macOS via `ncurses` + native pthreads
-- Windows via `PDCurses` + either native `pthread.h` (MinGW/winpthreads) or the built-in mutex compatibility shim
+`CMakeCache.txt` stores absolute paths, so a build directory generated on one machine cannot be reused on another. To prevent path collisions between macOS and Windows collaborators:
 
-## 1) macOS (Apple Silicon or Intel)
+- Keep source files in SharePoint.
+- Keep build directories **outside** SharePoint.
+- Use the shared CMake presets in this repo.
+
+## One-Time Cleanup (if you already hit the cache mismatch)
+
+From the project root, remove the shared stale build folder:
+
+```bash
+rm -rf cmake-build-debug
+```
+
+On Windows PowerShell:
+
+```powershell
+Remove-Item -Recurse -Force .\\cmake-build-debug
+```
+
+## Build with CMake Presets
+
+### macOS
 
 Install dependencies:
 
 ```bash
-brew install cmake ncurses
+brew install cmake ninja ncurses
 ```
 
-Configure and build:
+Configure + build:
 
 ```bash
-cmake -S . -B build/macos -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH="$(brew --prefix ncurses)"
-cmake --build build/macos
+cmake --preset macos-debug
+cmake --build --preset macos-debug
 ```
 
 Run:
 
 ```bash
-./build/macos/ultima_os
+~/.ultima2/build/macos-debug/ultima_os
 ```
 
-## 2) Windows with MSYS2 (recommended)
+### Windows (MSYS2 MinGW64 recommended)
 
-Install MSYS2 packages in `MSYS2 MinGW x64` shell:
+Install dependencies from `MSYS2 MinGW x64` shell:
 
 ```bash
-pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-pdcurses
+pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-pdcurses
 ```
 
-Configure and build:
+Configure + build:
 
 ```bash
-cmake -S . -B build/windows-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug -DPDCURSES_ROOT=C:/msys64/mingw64
-cmake --build build/windows-mingw
+cmake --preset windows-debug
+cmake --build --preset windows-debug
 ```
 
 Run:
-
-```bash
-build\\windows-mingw\\ultima_os.exe
-```
-
-## 3) Windows with Visual Studio + prebuilt PDCurses
-
-If you use MSVC, install/build PDCurses and pass its root folder:
 
 ```powershell
-cmake -S . -B build/windows-msvc -G "Visual Studio 17 2022" -A x64 -DPDCURSES_ROOT=C:/path/to/pdcurses
-cmake --build build/windows-msvc --config Debug
+$env:USERPROFILE\\.ultima2\\build\\windows-debug\\ultima_os.exe
 ```
 
-## Notes
+If CMake cannot find PDCurses, add:
 
-- On non-Windows platforms CMake resolves curses through `find_package(Curses)`.
-- On Windows, CMake searches for `pdcurses`/`pdcursesw` and can be pointed with `-DPDCURSES_ROOT=...`.
-- Threading is linked via `Threads::Threads`. If `pthread.h` is unavailable on Windows, the code automatically uses a local compatibility shim.
+```bash
+-DPDCURSES_ROOT=C:/msys64/mingw64
+```
+
+## CLion Setup (Recommended)
+
+1. `Settings > Build, Execution, Deployment > CMake`.
+2. Enable `Load CMake presets`.
+3. Select `macos-debug` on Mac, `windows-debug` on Windows.
+4. Do not use `cmake-build-debug` inside the SharePoint project tree.
+
+## Notes on ncurses / pthread portability
+
+- macOS/Linux: CMake uses `find_package(Curses)` and links native pthreads via `Threads::Threads`.
+- Windows: CMake links PDCurses. Threading links through `Threads::Threads`; if native `pthread.h` is unavailable, the code automatically uses the local mutex compatibility shim in `platform_threads.h`.

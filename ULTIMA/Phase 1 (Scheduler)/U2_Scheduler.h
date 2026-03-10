@@ -1,5 +1,5 @@
-#ifndef SCHED_H
-#define SCHED_H
+#ifndef U2_SCHEDULER_H
+#define U2_SCHEDULER_H
 
 #include <string>
 #include <list>
@@ -56,4 +56,4 @@ public:
     void unblock_task(int t_id);
 };
 
-#endif // SCHED_H
+#endif // U2_SCHEDULER_H

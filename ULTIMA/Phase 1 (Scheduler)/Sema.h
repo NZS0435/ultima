@@ -1,7 +1,7 @@
 #ifndef SEMA_H
 #define SEMA_H
 
-#include "Sched.h"
+#include "U2_Scheduler.h"
 
 class Semaphore {
 private:
