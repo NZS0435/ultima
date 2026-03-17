@@ -1,1 +1,54 @@
-Placeholder for Test Plan and Output.docx
+Phase 1: Scheduler and Semaphore
+
+System Test Plan & Expected Output
+
+Objective:
+Prove that the integrated scheduler and semaphore handle shared resource contention flawlessly without deadlocks.
+
+Testing Scenario:
+We designed a cooperative multi-tasking simulation via the main driver (Ultima.cpp). The simulation features a global semaphore, screen_mutex (representing a shared printer/console), and three distinct mock tasks (Task_A, Task_B, and Task_C).
+
+Step 1 (Acquisition):
+Task A initiates, calls down(), and successfully acquires the semaphore (sema_value changes from 1 to 0). Task A then yields control back to the scheduler to simulate ongoing background work while holding the resource lock.
+
+Step 2 (Contention & Queuing):
+The scheduler passes execution to Task B, and then Task C. Both attempt to call down() on screen_mutex. Because the value is 0, the semaphore delegates to the scheduler, changing Task B and Task C's states from READY to BLOCKED, and pushes their task IDs into the sema_queue.
+
+Step 3 (Proof of Queue):
+A mid-execution dump() is triggered. The output clearly shows:
+
+Scheduler Table:
+Task A is RUNNING/READY, while Task B and Task C display as BLOCKED.
+
+Semaphore Data:
+Sema_value is 0, and Sema_queue displays T-2 --> T-3.
+
+Step 4 (Release & Wake):
+Task A resumes, finishes its logic, and calls up(). The semaphore pops Task B from the queue and instructs the scheduler to transition Task B to READY. Task B subsequently runs, finishes, and passes the resource to Task C.
+
+Expected Output Markers:
+- --- INITIAL SYSTEM STATE ---
+- --- MID-EXECUTION STATE DUMP (Proving Queueing) ---
+- Task_A 1 Ready or Running
+- Task_B 2 Blocked
+- Task_C 3 Blocked
+- Sema_value:  0
+- Sema_queue:  T-2 --> T-3
+- [Task 2] Acquired Printer! Writing data...
+- [Task 3] Acquired Printer! Writing data...
+- System shutting down safely.
+
+Observed Output Snapshot:
+--- MID-EXECUTION STATE DUMP (Proving Queueing) ---
+
+Task Name        Task ID         State           etc.
+------------------------------------------------------------
+Task_A           1               Ready
+Task_B           2               Blocked
+Task_C           3               Blocked
+------------------------------------------------------------
+
+Semaphore Dump:
+Resource:    Printer_Output
+Sema_value:  0
+Sema_queue:  T-2 --> T-3

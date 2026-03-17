@@ -1,30 +1,49 @@
-# Base Makefile for ULTIMA 2.0 - Phase 1
-# Prepared for Phase C Integration
+SHELL := /bin/sh
 
-CXX = g++
-CXXFLAGS = -Wall -g -std=c++11
-TARGET = ultima_os
+CXX ?= c++
+CXXFLAGS ?= -Wall -Wextra -pedantic -g -std=c++17
+TARGET := ultima_os
+OBJS := Ultima.o Sched.o Sema.o
+TEST_OUTPUT := phase1_test_output.txt
 
-# Object files needed for the final compilation
-OBJS = Ultima.o Sched.o Sema.o
+.PHONY: all build run test clean rebuild
 
-all: $(TARGET)
+all: build
+
+build: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
 
-# Zander's main driver
-Ultima.o: Ultima.cpp U2_Scheduler.h Sema.h
+Ultima.o: Ultima.cpp Sched.h U2_Scheduler.h Sema.h
 	$(CXX) $(CXXFLAGS) -c Ultima.cpp
 
-# Stewart's Scheduler module
 Sched.o: Sched.cpp U2_Scheduler.h
 	$(CXX) $(CXXFLAGS) -c Sched.cpp
 
-# Nicholas's Semaphore module
-Sema.o: Sema.cpp Sema.h U2_Scheduler.h
+Sema.o: Sema.cpp Sema.h Sched.h U2_Scheduler.h
 	$(CXX) $(CXXFLAGS) -c Sema.cpp
 
-# Cleanup rule
+run: $(TARGET)
+	./$(TARGET)
+
+test: $(TARGET)
+	@./$(TARGET) > $(TEST_OUTPUT)
+	@grep -F -- "--- INITIAL SYSTEM STATE ---" $(TEST_OUTPUT) >/dev/null
+	@grep -F -- "--- MID-EXECUTION STATE DUMP (Proving Queueing) ---" $(TEST_OUTPUT) >/dev/null
+	@grep -E -- "Task_A[[:space:]]+1[[:space:]]+(Running|Ready)" $(TEST_OUTPUT) >/dev/null
+	@grep -E -- "Task_B[[:space:]]+2[[:space:]]+Blocked" $(TEST_OUTPUT) >/dev/null
+	@grep -E -- "Task_C[[:space:]]+3[[:space:]]+Blocked" $(TEST_OUTPUT) >/dev/null
+	@grep -F -- "Sema_value:  0" $(TEST_OUTPUT) >/dev/null
+	@grep -F -- "Sema_queue:  T-2 --> T-3" $(TEST_OUTPUT) >/dev/null
+	@grep -F -- "[Task 1] Finished writing. Releasing Printer..." $(TEST_OUTPUT) >/dev/null
+	@grep -F -- "[Task 2] Acquired Printer! Writing data..." $(TEST_OUTPUT) >/dev/null
+	@grep -F -- "[Task 3] Acquired Printer! Writing data..." $(TEST_OUTPUT) >/dev/null
+	@grep -F -- "System shutting down safely." $(TEST_OUTPUT) >/dev/null
+	@rm -f $(TEST_OUTPUT)
+	@printf '%s\n' "Phase 1 scheduler/semaphore tests passed."
+
+rebuild: clean build
+
 clean:
-	rm -f *.o $(TARGET)
+	rm -f $(OBJS) $(TARGET) $(TEST_OUTPUT)
