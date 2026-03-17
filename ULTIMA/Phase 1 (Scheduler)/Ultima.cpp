@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <pthread.h>
+#include "pthread.h"
 #include <ncurses.h>
 
 #include "Sched.h"
@@ -131,6 +131,7 @@ int main() {
 
     while (sys_scheduler.has_active_tasks()) {
         sys_scheduler.yield();
+        ui_manager.refresh_all();
         // Brief pause to allow human reading of the UI
         napms(200);
     }
