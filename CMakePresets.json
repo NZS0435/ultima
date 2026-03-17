@@ -31,7 +31,7 @@
       "displayName": "Cygwin Debug (local cache)",
       "description": "Use with CLion Cygwin toolchain; build outside SharePoint.",
       "generator": "Ninja",
-      "binaryDir": "$env{USERPROFILE}/.ultima2/build/cygwin-debug",
+      "binaryDir": "$env{HOME}/.ultima2/build/cygwin-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
