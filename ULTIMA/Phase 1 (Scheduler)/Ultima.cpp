@@ -1,9 +1,7 @@
 #include <iostream>
 #include <string>
-#include <vector>
-#include "pthread.h"
 #include <ncurses.h>
-
+#include <pthread.h>
 #include "Sched.h"
 #include "Sema.h"
 #include "U2_UI.h"
@@ -30,6 +28,7 @@ int task_3_phase = 0;
 void log_to_window(const std::string& message) {
     if (log_window) {
         log_window->write_text((message + "\n").c_str());
+        ui_manager.refresh_all();
     }
     // Also log to stdout for debugging if needed, but ncurses might hide it.
 }
