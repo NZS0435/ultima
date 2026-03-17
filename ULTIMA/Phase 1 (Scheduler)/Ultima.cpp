@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <pthread.h>
+#include <ncurses.h>
 
 #include "Sched.h"
 #include "Sema.h"

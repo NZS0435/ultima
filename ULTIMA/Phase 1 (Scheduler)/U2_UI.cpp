@@ -1,5 +1,8 @@
 #include "U2_UI.h"
 #include "platform_curses.h"
+#include <clocale>
+#include <pthread.h>
+#include <ncurses.h>
 
 /**
  * ULTIMA 2.0 - Phase 1
@@ -20,6 +23,7 @@ U2_ui::~U2_ui() {
 }
 
 void U2_ui::init_ncurses_env() {
+    setlocale(LC_ALL, "");
     initscr();
     cbreak();
     noecho();

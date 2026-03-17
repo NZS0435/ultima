@@ -1,6 +1,8 @@
 #include "U2_Scheduler.h"
 #include <iomanip>
 #include <iostream>
+#include <pthread.h
+#include <ncurses.h>
 
 /**
  * ULTIMA 2.0 - Phase 1

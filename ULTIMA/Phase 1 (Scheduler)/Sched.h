@@ -2,6 +2,8 @@
 #define SCHED_H
 
 #include "U2_Scheduler.h"
+#include <pthread.h>
+#include <ncurses.h>
 
 
 /**

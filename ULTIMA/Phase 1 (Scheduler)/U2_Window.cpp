@@ -1,4 +1,6 @@
 #include "U2_Window.h"
+#include <pthread.h>
+#include <ncurses.h>
 
 // Initialize the global mutual exclusion semaphore for thread-safe UI rendering
 /**
@@ -19,13 +21,15 @@ U2_window::U2_window(int height, int width, int starty, int startx, const std::s
     pthread_mutex_lock(&screen_mutex);
 
     win = newwin(h, w, start_y, start_x);
-    if (scroll_enabled) {
-        scrollok(win, TRUE);
-    }
-
     box(win, 0, 0);
     // Print title nicely at the top of the box border
     mvwprintw(win, 0, 2, " %s ", window_title.c_str());
+
+    text_win = derwin(win, h - 2, w - 2, 1, 1);
+    if (scroll_enabled) {
+        scrollok(text_win, TRUE);
+    }
+
     wrefresh(win);
 
     pthread_mutex_unlock(&screen_mutex);
@@ -33,6 +37,7 @@ U2_window::U2_window(int height, int width, int starty, int startx, const std::s
 
 U2_window::~U2_window() {
     pthread_mutex_lock(&screen_mutex);
+    delwin(text_win);
     delwin(win);
     pthread_mutex_unlock(&screen_mutex);
 }
@@ -40,6 +45,7 @@ U2_window::~U2_window() {
 void U2_window::render() {
     pthread_mutex_lock(&screen_mutex);
     wrefresh(win);
+    wrefresh(text_win);
     pthread_mutex_unlock(&screen_mutex);
 }
 
@@ -47,10 +53,8 @@ void U2_window::write_text(const char* text) {
     // Critical Section
     pthread_mutex_lock(&screen_mutex);
 
-    wprintw(win, "%s", text);
-    box(win, 0, 0); // Restore borders in case text overwrote them
-    mvwprintw(win, 0, 2, " %s ", window_title.c_str());
-    wrefresh(win);
+    wprintw(text_win, "%s", text);
+    wrefresh(text_win);
 
     pthread_mutex_unlock(&screen_mutex);
 }
@@ -59,10 +63,8 @@ void U2_window::write_text_at(int y, int x, const char* text) {
     // Critical Section
     pthread_mutex_lock(&screen_mutex);
 
-    mvwprintw(win, y, x, "%s", text);
-    box(win, 0, 0);
-    mvwprintw(win, 0, 2, " %s ", window_title.c_str());
-    wrefresh(win);
+    mvwprintw(text_win, y, x, "%s", text);
+    wrefresh(text_win);
 
     pthread_mutex_unlock(&screen_mutex);
 }
@@ -76,9 +78,7 @@ void U2_window::box_window() {
 
 void U2_window::clear_window() {
     pthread_mutex_lock(&screen_mutex);
-    wclear(win);
-    box(win, 0, 0);
-    mvwprintw(win, 0, 2, " %s ", window_title.c_str());
-    wrefresh(win);
+    wclear(text_win);
+    wrefresh(text_win);
     pthread_mutex_unlock(&screen_mutex);
 }

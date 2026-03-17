@@ -3,7 +3,8 @@
 
 #include "platform_curses.h"
 #include <string>
-#include "platform_threads.h"
+#include <pthread.h>
+#include <ncurses.h>
 
 /**
  * ULTIMA 2.0 - Phase 1
@@ -14,6 +15,7 @@
 class U2_window {
 private:
     WINDOW *win;
+    WINDOW *text_win;
     std::string window_title;
     int h, w, start_y, start_x;
     bool scroll_enabled;

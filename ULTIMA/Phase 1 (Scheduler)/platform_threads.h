@@ -1,6 +1,9 @@
 #ifndef ULTIMA_PLATFORM_THREADS_H
 #define ULTIMA_PLATFORM_THREADS_H
 
+#include <pthread.h>
+#include <ncurses.h>
+
 #if defined(_WIN32) && !defined(ULTIMA_USE_NATIVE_PTHREADS)
 #include <mutex>
 

@@ -1,6 +1,9 @@
 #ifndef ULTIMA_PLATFORM_CURSES_H
 #define ULTIMA_PLATFORM_CURSES_H
 
+#include <pthread.h>
+#include <ncurses.h>
+
 #if defined(__has_include)
 #if __has_include(<ncurses.h>)
 #include <ncurses.h>
