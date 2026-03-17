@@ -1,1 +1,10 @@
-Placeholder for Cover Page.docx
+ULTIMA 2.0
+CS-435 Operating System
+Phase # - Assignment 1
+By:Team Team Thunder and # 0001
+Team Members Up to 3 Members
+Stewart Pawley   spawley@iu.edu
+Nicholas Kobs   nikobs@iu.edu
+Zander Hayes   zanhayes@iu.edu
+
+Date 03/17/2026
