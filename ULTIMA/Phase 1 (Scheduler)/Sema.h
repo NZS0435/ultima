@@ -1,17 +1,29 @@
 #ifndef SEMA_H
 #define SEMA_H
 
-#include "U2_Scheduler.h"
+#include <queue>
+#include <iostream>
 
+/**
+ * Class semaphore
+ * Designed by: Nicholas Kobs
+ * Manages access to shared resources without busy-waiting.
+ */
 class Semaphore {
 private:
-    int value;
-    Scheduler* scheduler;
+    char resource_name[64];
+    int sema_value;
+    std::queue<int>* sema_queue;
 
 public:
-    Semaphore(int init_val, Scheduler* sched);
-    void P(); // Down / Wait
-    void V(); // Up / Signal
+    Semaphore(const char* name, int initial_value = 1);
+    ~Semaphore();
+
+    void down();
+    void up();
+    void dump(int level = 0) const;
+    bool has_waiters() const;
+    int waiting_task_count() const;
 };
 
 #endif // SEMA_H

@@ -17,7 +17,7 @@ include(CheckIncludeFileCXX)
 
 set(SCHEDULER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ULTIMA/Phase 1 (Scheduler)")
 set(ULTIMA_SOURCES
-    main.cpp
+    "${SCHEDULER_DIR}/Ultima.cpp"
     "${SCHEDULER_DIR}/Sched.cpp"
     "${SCHEDULER_DIR}/Sema.cpp"
     "${SCHEDULER_DIR}/U2_UI.cpp"
@@ -25,7 +25,6 @@ set(ULTIMA_SOURCES
 )
 
 add_executable(ultima_os ${ULTIMA_SOURCES})
-target_include_directories(ultima_os PRIVATE "${SCHEDULER_DIR}")
 
 find_package(Threads REQUIRED)
 target_link_libraries(ultima_os PRIVATE Threads::Threads)
