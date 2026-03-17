@@ -44,8 +44,8 @@ U2_window::~U2_window() {
 
 void U2_window::render() {
     pthread_mutex_lock(&screen_mutex);
-    wrefresh(win);
-    wrefresh(text_win);
+    wnoutrefresh(win);
+    wnoutrefresh(text_win);
     pthread_mutex_unlock(&screen_mutex);
 }
 

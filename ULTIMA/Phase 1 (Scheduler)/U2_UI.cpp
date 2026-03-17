@@ -63,6 +63,8 @@ void U2_ui::refresh_all() {
     for (auto* win : window_list) {
         win->render();
     }
+    // Final update to physical screen
+    doupdate();
 }
 
 void U2_ui::clear_all() {

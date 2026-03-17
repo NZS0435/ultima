@@ -140,6 +140,9 @@ int main() {
     sys_scheduler.garbage_collect();
     log_to_window("System shutting down safely. Press any key to exit.");
     
+    // Ensure all changes are rendered on stdscr as well
+    refresh();
+    
     // Refresh to show final state
     ui_manager.refresh_all();
     
