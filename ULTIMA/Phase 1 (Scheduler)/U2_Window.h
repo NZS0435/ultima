@@ -5,6 +5,12 @@
 #include <string>
 #include "platform_threads.h"
 
+/**
+ * ULTIMA 2.0 - Phase 1
+ * Designed by: ZANDER HAYES
+ */
+
+
 class U2_window {
 private:
     WINDOW *win;

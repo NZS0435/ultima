@@ -5,6 +5,12 @@
 #include <iostream>
 
 /**
+ * ULTIMA 2.0 - Phase 1
+ * Designed by: NICHOLAS KOBS
+ */
+
+
+/**
  * Class semaphore
  * Designed by: Nicholas Kobs
  * Manages access to shared resources without busy-waiting.

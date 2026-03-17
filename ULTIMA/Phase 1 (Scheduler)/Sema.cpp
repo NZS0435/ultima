@@ -3,6 +3,11 @@
 
 #include "Sched.h"
 
+/**
+ * ULTIMA 2.0 - Phase 1
+ * Designed by: NICHOLAS KOBS
+ */
+
 Semaphore::Semaphore(const char* name, int initial_value) {
     std::strncpy(resource_name, name, sizeof(resource_name) - 1);
     resource_name[sizeof(resource_name) - 1] = '\0';

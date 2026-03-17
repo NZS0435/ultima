@@ -4,6 +4,11 @@
 #include "U2_Window.h"
 #include <list>
 
+/**
+ * ULTIMA 2.0 - Phase 1
+ * Designed by: NICHOLAS KOBS
+ */
+
 class U2_ui {
 private:
     // Dynamic linked list to hold pointers to our UI windows

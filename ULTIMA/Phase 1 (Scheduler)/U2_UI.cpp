@@ -1,6 +1,12 @@
 #include "U2_UI.h"
 #include "platform_curses.h"
 
+/**
+ * ULTIMA 2.0 - Phase 1
+ * Designed by: NICHOLAS KOBS
+ */
+
+
 U2_ui::U2_ui() {
     // Left empty, environment initialization separated to init_ncurses_env()
 }

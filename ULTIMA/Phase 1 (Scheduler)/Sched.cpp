@@ -2,6 +2,12 @@
 #include <iomanip>
 #include <iostream>
 
+/**
+ * ULTIMA 2.0 - Phase 1
+ * Designed by: STEWART PAWLEY
+ */
+
+
 Scheduler::Scheduler() :
     current_running_task(-1),
     next_task_id(1),

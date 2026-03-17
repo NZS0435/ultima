@@ -1,6 +1,10 @@
 #include "U2_Window.h"
 
 // Initialize the global mutual exclusion semaphore for thread-safe UI rendering
+/**
+ * ULTIMA 2.0 - Phase 1
+ * Designed by: ZANDER HAYES
+ */
 pthread_mutex_t U2_window::screen_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 U2_window::U2_window(int height, int width, int starty, int startx, const std::string& title, bool scroll) {

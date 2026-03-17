@@ -5,6 +5,12 @@
 #include <string>
 #include <vector>
 
+/**
+ * ULTIMA 2.0 - Phase 1
+ * Designed by: STEWART PAWLEY
+ */
+
+
 enum State {
     RUNNING,
     READY,
