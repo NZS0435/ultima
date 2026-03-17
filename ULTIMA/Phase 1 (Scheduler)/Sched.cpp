@@ -1,7 +1,8 @@
 #include "U2_Scheduler.h"
 #include <iomanip>
 #include <iostream>
-#include <pthread.h
+#include <algorithm>
+#include <pthread.h>
 #include <ncurses.h>
 
 /**
@@ -52,7 +53,7 @@ int Scheduler::find_next_ready_index() const {
     return -1;
 }
 
-const char* Scheduler::state_to_string(State state) const {
+const char* Scheduler::state_to_string(State state) {
     switch (state) {
         case RUNNING:
             return "Running";
@@ -190,12 +191,9 @@ int Scheduler::get_active_task_count() const {
 }
 
 bool Scheduler::has_active_tasks() const {
-    for (const TCB* task : process_table) {
-        if (task->task_state != DEAD) {
-            return true;
-        }
-    }
-    return false;
+    return std::any_of(process_table.begin(), process_table.end(), [](const TCB* task) {
+        return task->task_state != DEAD;
+    });
 }
 
 bool Scheduler::is_task_blocked(int task_id) const {

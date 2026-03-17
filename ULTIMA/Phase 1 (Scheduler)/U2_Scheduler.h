@@ -46,7 +46,7 @@ private:
 
     int find_task_index(int task_id) const;
     int find_next_ready_index() const;
-    const char* state_to_string(State state) const;
+    static const char* state_to_string(State state);
 
 public:
     Scheduler();
