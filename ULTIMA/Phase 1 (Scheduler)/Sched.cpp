@@ -1,3 +1,19 @@
+/*
+ * PHASE 1 - ULTIMA 2.0 - TEAM THUNDER
+ *
+ *                 .-~~~~~~~~~-._       _.-~~~~~~~~~-.
+ *             __.'             ~.   .~             `.__
+ *           .'//                 \./                 \\`.
+ *         .'//   PHASE 1 CLOUD    |   CODE RAIN       \\`.
+ *       .'//______________________|_____________________\\`.
+ *              || 01 01 01 01 01 01 01 01 01 ||
+ *              || 10 10 10 10 10 10 10 10 10 ||
+ *              || 01 01 01 01 01 01 01 01 01 ||
+ *
+ * Creator: STEWART PAWLEY - TEAM THUNDER
+ * Phase Label: Scheduler and Semaphore
+ */
+
 #include "U2_Scheduler.h"
 #include <iomanip>
 #include <iostream>

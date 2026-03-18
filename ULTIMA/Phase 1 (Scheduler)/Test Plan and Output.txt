@@ -1,41 +1,60 @@
+PHASE 1 - ULTIMA 2.0 - TEAM THUNDER
+
+                .-~~~~~~~~~-._       _.-~~~~~~~~~-.
+            __.'             ~.   .~             `.__
+          .'//                 \./                 \\`.
+        .'//   PHASE 1 CLOUD    |   CODE RAIN       \\`.
+      .'//______________________|_____________________\\`.
+             || 01 01 01 01 01 01 01 01 01 ||
+             || 10 10 10 10 10 10 10 10 10 ||
+             || 01 01 01 01 01 01 01 01 01 ||
+
+Phase Label: Scheduler and Semaphore
+
 Phase 1: Scheduler and Semaphore
 
 System Test Plan & Expected Output
 
 Objective:
-Prove that the integrated scheduler and semaphore handle shared resource contention flawlessly without deadlocks.
+Prove that the integrated scheduler and semaphore handle shared resource contention without busy waiting while also showing the required READY, RUNNING, BLOCKED, and DEAD task states in terminal windows.
 
 Testing Scenario:
-We designed a cooperative multi-tasking simulation via the main driver (Ultima.cpp). The simulation features a global semaphore, screen_mutex (representing a shared printer/console), and three distinct mock tasks (Task_A, Task_B, and Task_C).
+The Phase 1 driver runs a cooperative multi-tasking simulation via Ultima.cpp. The demonstration uses a binary semaphore named Printer_Output and three tasks (Task_A, Task_B, and Task_C). Each task has its own output window, while a shared log window captures scheduler and semaphore dump() output for screenshots and narration.
 
 Step 1 (Acquisition):
-Task A initiates, calls down(), and successfully acquires the semaphore (sema_value changes from 1 to 0). Task A then yields control back to the scheduler to simulate ongoing background work while holding the resource lock.
+Task_A initiates, calls down(), and successfully acquires the semaphore. The semaphore value changes from 1 to 0. Task_A then yields control back to the scheduler while still holding the shared resource so the other tasks can contend for it.
 
 Step 2 (Contention & Queuing):
-The scheduler passes execution to Task B, and then Task C. Both attempt to call down() on screen_mutex. Because the value is 0, the semaphore delegates to the scheduler, changing Task B and Task C's states from READY to BLOCKED, and pushes their task IDs into the sema_queue.
+The scheduler dispatches Task_B and then Task_C. Both call down() on Printer_Output while the resource is busy. Instead of spinning, each task is pushed into sema_queue and transitioned from READY to BLOCKED.
 
 Step 3 (Proof of Queue):
-A mid-execution dump() is triggered. The output clearly shows:
+A mid-execution dump() is triggered after Task_C blocks. The output clearly shows:
 
 Scheduler Table:
-Task A is RUNNING/READY, while Task B and Task C display as BLOCKED.
+Task_A in READY or RUNNING state, while Task_B and Task_C display as BLOCKED.
 
 Semaphore Data:
 Sema_value is 0, and Sema_queue displays T-2 --> T-3.
 
 Step 4 (Release & Wake):
-Task A resumes, finishes its logic, and calls up(). The semaphore pops Task B from the queue and instructs the scheduler to transition Task B to READY. Task B subsequently runs, finishes, and passes the resource to Task C.
+Task_A resumes, finishes its work, and calls up(). The semaphore removes Task_B from the queue and transitions it back to READY. Under round-robin dispatch, Task_B acquires the resource, completes, and releases it so Task_C can do the same.
+
+Step 5 (Dead and Cleanup States):
+After each task finishes, kill_task() marks it DEAD. Once the demonstration ends, a final dump is produced before garbage_collect() removes the dead tasks from the process table. A final post-garbage-collection snapshot confirms cleanup.
 
 Expected Output Markers:
 - --- INITIAL SYSTEM STATE ---
 - --- MID-EXECUTION STATE DUMP (Proving Queueing) ---
+- --- POST-RELEASE STATE DUMP ---
+- --- FINAL STATE DUMP (Before Garbage Collection) ---
+- --- POST-GARBAGE-COLLECTION DUMP ---
 - Task_A 1 Ready or Running
 - Task_B 2 Blocked
 - Task_C 3 Blocked
 - Sema_value:  0
 - Sema_queue:  T-2 --> T-3
-- [Task 2] Acquired Printer! Writing data...
-- [Task 3] Acquired Printer! Writing data...
+- [Task_B] acquired Printer_Output.
+- [Task_C] acquired Printer_Output.
 - System shutting down safely.
 
 Observed Output Snapshot:
@@ -52,3 +71,10 @@ Semaphore Dump:
 Resource:    Printer_Output
 Sema_value:  0
 Sema_queue:  T-2 --> T-3
+
+How and Why the System Works:
+- The scheduler only dispatches tasks in READY state.
+- The semaphore blocks tasks by changing their scheduler state instead of using a busy wait.
+- up() restores blocked tasks to READY in FIFO order through sema_queue.
+- kill_task() and garbage_collect() provide the DEAD and cleanup proof required by the assignment.
+- Separate task windows plus the shared log window make the state transitions easy to explain in screenshots and a narrated demo.

@@ -1,23 +1,46 @@
+/*
+ * PHASE 1 - ULTIMA 2.0 - TEAM THUNDER
+ *
+ *                 .-~~~~~~~~~-._       _.-~~~~~~~~~-.
+ *             __.'             ~.   .~             `.__
+ *           .'//                 \./                 \\`.
+ *         .'//   PHASE 1 CLOUD    |   CODE RAIN       \\`.
+ *       .'//______________________|_____________________\\`.
+ *              || 01 01 01 01 01 01 01 01 01 ||
+ *              || 10 10 10 10 10 10 10 10 10 ||
+ *              || 01 01 01 01 01 01 01 01 01 ||
+ *
+ * Creator: ZANDER HAYES - TEAM THUNDER
+ * Phase Label: Scheduler and Semaphore
+ */
+
 #include <algorithm>
-#include <atomic>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <functional>
 #include <iostream>
-#include <pthread.h>
-#include <sched.h>
-#include <unistd.h>
+#include <sstream>
+#include <string>
 #include <ncurses.h>
 #include "Sched.h"
+#include "Sema.h"
+#include "U2_UI.h"
+#include "U2_Window.h"
 
 /**
  * ULTIMA 2.0 - Phase 1 Main Driver
- * Lab 7 style ncurses layout with three pthread workers, one shared log,
- * one console window, mouse logging, and mutex-protected screen updates.
+ * Tailored to the scheduler and semaphore assignment while preserving
+ * a terminal-window presentation for screenshots and live demonstration.
  */
 
 Scheduler sys_scheduler;
+Semaphore printer_semaphore("Printer_Output", 1);
+U2_ui ui_manager;
+
+U2_window* header_window = nullptr;
+U2_window* task_window_a = nullptr;
+U2_window* task_window_b = nullptr;
+U2_window* task_window_c = nullptr;
+U2_window* log_window = nullptr;
+U2_window* console_window = nullptr;
 
 namespace {
 
@@ -27,367 +50,364 @@ constexpr int kHorizontalMargin = 1;
 constexpr int kHorizontalGap = 1;
 constexpr int kVerticalGap = 1;
 
-enum class ThreadState {
-    started = 0,
-    ready = 1,
-    running = 2,
-    blocked = 3,
-    terminated = 4
-};
-
-struct ManagedWindow {
-    WINDOW* frame = nullptr;
-    WINDOW* body = nullptr;
-    int height = 0;
-    int width = 0;
-    int start_y = 0;
-    int start_x = 0;
-};
-
-struct Layout {
+struct WindowLayout {
     int header_height = 0;
     int header_width = 0;
     int header_y = 0;
     int header_x = 0;
 
-    int worker_height = 0;
-    int worker_y = 0;
-    int worker_width_1 = 0;
-    int worker_width_2 = 0;
-    int worker_width_3 = 0;
-    int worker_x_1 = 0;
-    int worker_x_2 = 0;
-    int worker_x_3 = 0;
+    int task_height = 0;
+    int task_y = 0;
+    int task_width_a = 0;
+    int task_width_b = 0;
+    int task_width_c = 0;
+    int task_x_a = 0;
+    int task_x_b = 0;
+    int task_x_c = 0;
 
-    int log_height = 0;
+    int bottom_height = 0;
+    int bottom_y = 0;
     int log_width = 0;
-    int log_y = 0;
     int log_x = 0;
-
-    int console_height = 0;
     int console_width = 0;
-    int console_y = 0;
     int console_x = 0;
 };
 
-struct ThreadData {
-    int thread_no = 0;
-    ThreadState thread_state = ThreadState::started;
-    ManagedWindow* thread_window = nullptr;
-    ManagedWindow* log_window = nullptr;
-    std::atomic_bool kill_signal { false };
-    int sleep_time = 1;
-    int thread_results = 0;
-};
+WindowLayout current_layout;
 
-pthread_mutex_t screen_mutex = PTHREAD_MUTEX_INITIALIZER;
+int task_a_id = -1;
+int task_b_id = -1;
+int task_c_id = -1;
 
-ManagedWindow heading_window;
-ManagedWindow thread_window_1;
-ManagedWindow thread_window_2;
-ManagedWindow thread_window_3;
-ManagedWindow log_window;
-ManagedWindow console_window;
-Layout layout;
+int task_a_phase = 0;
+int task_b_phase = 0;
+int task_c_phase = 0;
 
-bool is_window_ready(const ManagedWindow& window) {
-    return window.frame != nullptr && window.body != nullptr;
-}
+bool task_b_was_blocked = false;
+bool task_c_was_blocked = false;
+bool mid_execution_dump_written = false;
+bool post_release_dump_written = false;
+bool close_when_demo_finishes = false;
 
-bool configure_layout() {
+std::string console_status = "Phase 1 demo ready.";
+
+bool build_layout(WindowLayout& layout) {
     if (LINES < kMinimumTerminalRows || COLS < kMinimumTerminalCols) {
         return false;
     }
 
-    layout.header_y = 2;
+    layout.header_y = 0;
     layout.header_x = kHorizontalMargin;
     layout.header_height = 5;
     layout.header_width = COLS - (kHorizontalMargin * 2);
 
-    layout.worker_y = layout.header_y + layout.header_height;
+    layout.task_y = layout.header_y + layout.header_height;
 
-    const int total_worker_width = COLS - (kHorizontalMargin * 2) - (kHorizontalGap * 2);
-    const int base_worker_width = total_worker_width / 3;
-    const int worker_remainder = total_worker_width - (base_worker_width * 3);
+    const int total_task_width = COLS - (kHorizontalMargin * 2) - (kHorizontalGap * 2);
+    const int base_task_width = total_task_width / 3;
+    const int task_width_remainder = total_task_width - (base_task_width * 3);
 
-    layout.worker_width_1 = base_worker_width;
-    layout.worker_width_2 = base_worker_width;
-    layout.worker_width_3 = base_worker_width + worker_remainder;
+    layout.task_width_a = base_task_width;
+    layout.task_width_b = base_task_width;
+    layout.task_width_c = base_task_width + task_width_remainder;
 
-    layout.worker_x_1 = kHorizontalMargin;
-    layout.worker_x_2 = layout.worker_x_1 + layout.worker_width_1 + kHorizontalGap;
-    layout.worker_x_3 = layout.worker_x_2 + layout.worker_width_2 + kHorizontalGap;
+    layout.task_x_a = kHorizontalMargin;
+    layout.task_x_b = layout.task_x_a + layout.task_width_a + kHorizontalGap;
+    layout.task_x_c = layout.task_x_b + layout.task_width_b + kHorizontalGap;
 
-    const int remaining_rows = LINES - layout.worker_y;
-    layout.worker_height = (remaining_rows - kVerticalGap) / 2;
-    layout.log_y = layout.worker_y + layout.worker_height + kVerticalGap;
-    layout.log_height = LINES - layout.log_y;
+    const int rows_below_task_row = LINES - layout.task_y;
+    layout.task_height = (rows_below_task_row - kVerticalGap) / 2;
+    layout.bottom_y = layout.task_y + layout.task_height + kVerticalGap;
+    layout.bottom_height = LINES - layout.bottom_y;
 
-    layout.console_height = layout.log_height;
-    layout.console_width = std::min(20, (COLS - (kHorizontalMargin * 2) - kHorizontalGap) / 3);
-    layout.log_width = COLS - (kHorizontalMargin * 2) - kHorizontalGap - layout.console_width;
+    const int total_bottom_width = COLS - (kHorizontalMargin * 2) - kHorizontalGap;
+    layout.console_width = std::clamp(total_bottom_width / 4, 20, 24);
+    layout.log_width = total_bottom_width - layout.console_width;
     layout.log_x = kHorizontalMargin;
     layout.console_x = layout.log_x + layout.log_width + kHorizontalGap;
-    layout.console_y = layout.log_y;
 
     return layout.header_height >= 5
-        && layout.worker_height >= 8
-        && layout.log_height >= 8
-        && layout.console_width >= 18
-        && layout.log_width >= 40;
+        && layout.task_height >= 8
+        && layout.bottom_height >= 8
+        && layout.log_width >= 40
+        && layout.console_width >= 20;
 }
 
-void draw_relations_unlocked() {
-    if (!is_window_ready(heading_window)
-        || !is_window_ready(thread_window_1)
-        || !is_window_ready(thread_window_2)
-        || !is_window_ready(thread_window_3)
-        || !is_window_ready(log_window)) {
+void write_block(U2_window* target_window, const std::string& block) {
+    if (target_window != nullptr) {
+        target_window->write_text(block.c_str());
+        ui_manager.refresh_all();
+    }
+}
+
+void write_line(U2_window* target_window, const std::string& line) {
+    write_block(target_window, line + "\n");
+}
+
+std::string capture_dump_text(const std::function<void()>& dump_function) {
+    std::ostringstream capture_stream;
+    std::streambuf* original_buffer = std::cout.rdbuf(capture_stream.rdbuf());
+    dump_function();
+    std::cout.rdbuf(original_buffer);
+    return capture_stream.str();
+}
+
+int console_status_row() {
+    return std::max(3, current_layout.bottom_height - 5);
+}
+
+int console_footer_row() {
+    return std::max(4, current_layout.bottom_height - 4);
+}
+
+void render_header() {
+    if (header_window == nullptr) {
         return;
     }
 
-    const int worker_top_y = layout.worker_y;
-    const int log_top_y = layout.log_y;
-    const int worker_one_center = layout.worker_x_1 + (layout.worker_width_1 / 2);
-    const int worker_two_center = layout.worker_x_2 + (layout.worker_width_2 / 2);
-    const int worker_three_center = layout.worker_x_3 + (layout.worker_width_3 / 2);
-
-    if (has_colors()) {
-        attron(COLOR_PAIR(2));
-    }
-    mvaddch(worker_top_y, worker_one_center, ACS_TTEE);
-    mvaddch(worker_top_y, worker_two_center, ACS_TTEE);
-    mvaddch(worker_top_y, worker_three_center, ACS_TTEE);
-    if (has_colors()) {
-        attroff(COLOR_PAIR(2));
-        attron(COLOR_PAIR(1));
-    }
-    mvaddch(log_top_y, worker_one_center, ACS_BTEE);
-    mvaddch(log_top_y, worker_two_center, ACS_BTEE);
-    mvaddch(log_top_y, worker_three_center, ACS_BTEE);
-    if (has_colors()) {
-        attroff(COLOR_PAIR(1));
-    }
-
-    wnoutrefresh(stdscr);
+    header_window->clear_window();
+    header_window->write_text_at(0, 0, "PHASE I - Scheduler and Semaphore");
+    header_window->write_text_at(1, 0, "Dynamic process table, strict round robin, and binary semaphore queueing.");
+    header_window->write_text_at(2, 0, "Terminal windows remain for screenshots while the Phase 1 proof runs inside them.");
+    ui_manager.refresh_all();
 }
 
-void refresh_layout_unlocked() {
-    ManagedWindow* windows[] = {
-        &heading_window,
-        &thread_window_1,
-        &thread_window_2,
-        &thread_window_3,
-        &log_window,
-        &console_window
-    };
+void render_console() {
+    if (console_window == nullptr) {
+        return;
+    }
 
-    for (ManagedWindow* window : windows) {
-        if (!is_window_ready(*window)) {
-            continue;
+    console_window->clear_window();
+    console_window->write_text_at(0, 0, "h help | d dump");
+    console_window->write_text_at(1, 0, "q close later");
+    console_window->write_text_at(2, 0, "mouse logs");
+
+    const std::string active_line = "Active: " + std::to_string(sys_scheduler.get_active_task_count());
+    console_window->write_text_at(console_status_row(), 0, active_line.c_str());
+    console_window->write_text_at(console_footer_row(), 0, console_status.c_str());
+    ui_manager.refresh_all();
+}
+
+void set_console_status(const std::string& status_line) {
+    console_status = status_line;
+    render_console();
+}
+
+void log_event(const std::string& message) {
+    write_line(log_window, message);
+}
+
+void show_system_snapshot(const std::string& title) {
+    log_event("");
+    log_event(title);
+    write_block(log_window, capture_dump_text([] {
+        sys_scheduler.dump(0);
+    }));
+    write_block(log_window, capture_dump_text([] {
+        printer_semaphore.dump(0);
+    }));
+    log_event("");
+}
+
+bool current_task_is_blocked() {
+    const int current_task_id = sys_scheduler.get_current_task_id();
+    return current_task_id >= 0 && sys_scheduler.is_task_blocked(current_task_id);
+}
+
+void initialize_task_windows() {
+    write_line(task_window_a, "Task_A created in READY state.");
+    write_line(task_window_a, "Task ID = " + std::to_string(task_a_id));
+
+    write_line(task_window_b, "Task_B created in READY state.");
+    write_line(task_window_b, "Task ID = " + std::to_string(task_b_id));
+
+    write_line(task_window_c, "Task_C created in READY state.");
+    write_line(task_window_c, "Task ID = " + std::to_string(task_c_id));
+}
+
+void task_a_execution() {
+    switch (task_a_phase) {
+        case 0: {
+            write_line(task_window_a, "Requesting Printer_Output.");
+            log_event("[Task_A] down(Printer_Output)");
+            set_console_status("Task_A is requesting the printer.");
+
+            printer_semaphore.down();
+            task_a_phase = 1;
+
+            if (current_task_is_blocked()) {
+                write_line(task_window_a, "Unexpected block encountered.");
+                return;
+            }
+
+            write_line(task_window_a, "Acquired Printer_Output.");
+            write_line(task_window_a, "Holding resource for one quantum.");
+            log_event("[Task_A] acquired Printer_Output.");
+            set_console_status("Task_A is RUNNING.");
+            sys_scheduler.yield();
+            return;
         }
+        case 1:
+            write_line(task_window_a, "Releasing Printer_Output.");
+            log_event("[Task_A] up(Printer_Output)");
+            printer_semaphore.up();
 
-        box(window->frame, 0, 0);
-        wnoutrefresh(window->frame);
-        wnoutrefresh(window->body);
-    }
+            if (!post_release_dump_written) {
+                show_system_snapshot("--- POST-RELEASE STATE DUMP ---");
+                post_release_dump_written = true;
+            }
 
-    draw_relations_unlocked();
-    doupdate();
-}
-
-bool create_window(ManagedWindow& window, int height, int width, int start_y, int start_x) {
-    pthread_mutex_lock(&screen_mutex);
-
-    window.height = height;
-    window.width = width;
-    window.start_y = start_y;
-    window.start_x = start_x;
-    window.frame = newwin(height, width, start_y, start_x);
-
-    if (window.frame == nullptr) {
-        pthread_mutex_unlock(&screen_mutex);
-        return false;
-    }
-
-    window.body = derwin(window.frame, height - 2, width - 2, 1, 1);
-    if (window.body == nullptr) {
-        delwin(window.frame);
-        window.frame = nullptr;
-        pthread_mutex_unlock(&screen_mutex);
-        return false;
-    }
-
-    scrollok(window.body, TRUE);
-    idlok(window.body, TRUE);
-
-    sched_yield();
-    refresh_layout_unlocked();
-    pthread_mutex_unlock(&screen_mutex);
-    return true;
-}
-
-void destroy_window(ManagedWindow& window) {
-    pthread_mutex_lock(&screen_mutex);
-
-    if (window.body != nullptr) {
-        delwin(window.body);
-        window.body = nullptr;
-    }
-
-    if (window.frame != nullptr) {
-        delwin(window.frame);
-        window.frame = nullptr;
-    }
-
-    pthread_mutex_unlock(&screen_mutex);
-}
-
-void write_window(ManagedWindow& window, const char* text) {
-    pthread_mutex_lock(&screen_mutex);
-
-    if (window.body != nullptr) {
-        wprintw(window.body, "%s", text);
-        sched_yield();
-        refresh_layout_unlocked();
-    }
-
-    pthread_mutex_unlock(&screen_mutex);
-}
-
-void write_window(ManagedWindow& window, int y, int x, const char* text) {
-    pthread_mutex_lock(&screen_mutex);
-
-    if (window.body != nullptr) {
-        mvwprintw(window.body, y, x, "%s", text);
-        sched_yield();
-        refresh_layout_unlocked();
-    }
-
-    pthread_mutex_unlock(&screen_mutex);
-}
-
-void clear_window(ManagedWindow& window) {
-    pthread_mutex_lock(&screen_mutex);
-
-    if (window.body != nullptr) {
-        werase(window.body);
-        wmove(window.body, 0, 0);
-        refresh_layout_unlocked();
-    }
-
-    pthread_mutex_unlock(&screen_mutex);
-}
-
-void display_screen_data() {
-    int cursor_y = 0;
-    int cursor_x = 0;
-    int max_x = 0;
-    int max_y = 0;
-
-    pthread_mutex_lock(&screen_mutex);
-
-    getmaxyx(stdscr, max_y, max_x);
-    getyx(stdscr, cursor_y, cursor_x);
-
-    if (has_colors()) {
-        attron(COLOR_PAIR(1));
-    }
-    mvprintw(0, 0, "Initial Screen Height = %d, Initial Screen Width = %d", max_y, max_x);
-    if (has_colors()) {
-        attroff(COLOR_PAIR(1));
-        attron(COLOR_PAIR(2));
-    }
-    mvprintw(1, 0, "Current Y = %d, Current X = %d", cursor_y, cursor_x);
-    if (has_colors()) {
-        attroff(COLOR_PAIR(2));
-    }
-
-    wnoutrefresh(stdscr);
-    doupdate();
-    pthread_mutex_unlock(&screen_mutex);
-}
-
-void display_help() {
-    const int prompt_row = std::max(4, console_window.height - 3);
-
-    clear_window(console_window);
-    write_window(console_window, 0, 0, "...Help...");
-    write_window(console_window, 1, 0, "1/2/3 = Kill");
-    write_window(console_window, 2, 0, "c = Clear");
-    write_window(console_window, 3, 0, "h = Help");
-    write_window(console_window, 4, 0, "q = Quit");
-    write_window(console_window, prompt_row, 0, "Ultima # ");
-}
-
-void initialize_heading() {
-    const char* title = "ULTIMA 2.0 (Lab 7 pthread Mutex)";
-    const int body_width = heading_window.width - 2;
-    const int title_x = std::max(0, (body_width - static_cast<int>(std::strlen(title))) / 2);
-
-    write_window(heading_window, 0, title_x, title);
-    write_window(heading_window, 1, 1, "Starting ULTIMA 2.0...");
-    write_window(heading_window, 2, 1, "Press 'q' or Ctrl-C to exit the program...");
-}
-
-void request_thread_shutdown(ThreadData& thread_data) {
-    if (!thread_data.kill_signal.exchange(true)) {
-        char message[128];
-        std::snprintf(message, sizeof(message), "Kill signal delivered to Thread %d.\n", thread_data.thread_no);
-        write_window(log_window, message);
+            sys_scheduler.kill_task(sys_scheduler.get_current_task_id());
+            write_line(task_window_a, "Task_A marked DEAD.");
+            log_event("[Task_A] marked DEAD.");
+            set_console_status("Task_A finished.");
+            task_a_phase = 2;
+            return;
+        default:
+            return;
     }
 }
 
-void request_all_shutdown(ThreadData& thread_one, ThreadData& thread_two, ThreadData& thread_three) {
-    request_thread_shutdown(thread_one);
-    request_thread_shutdown(thread_two);
-    request_thread_shutdown(thread_three);
+void task_b_execution() {
+    switch (task_b_phase) {
+        case 0: {
+            write_line(task_window_b, "Requesting Printer_Output.");
+            log_event("[Task_B] down(Printer_Output)");
+            set_console_status("Task_B is requesting the printer.");
+
+            printer_semaphore.down();
+            task_b_phase = 1;
+
+            if (current_task_is_blocked()) {
+                task_b_was_blocked = true;
+                write_line(task_window_b, "Blocked and queued by semaphore.");
+                log_event("[Task_B] transitioned to BLOCKED.");
+                set_console_status("Task_B is BLOCKED.");
+                return;
+            }
+        }
+            [[fallthrough]];
+        case 1:
+            if (task_b_was_blocked) {
+                write_line(task_window_b, "Woken from sema_queue.");
+            }
+            write_line(task_window_b, "Acquired Printer_Output.");
+            log_event("[Task_B] acquired Printer_Output.");
+            set_console_status("Task_B is RUNNING.");
+            task_b_phase = 2;
+            sys_scheduler.yield();
+            return;
+        case 2:
+            write_line(task_window_b, "Releasing Printer_Output.");
+            log_event("[Task_B] up(Printer_Output)");
+            printer_semaphore.up();
+            sys_scheduler.kill_task(sys_scheduler.get_current_task_id());
+            write_line(task_window_b, "Task_B marked DEAD.");
+            log_event("[Task_B] marked DEAD.");
+            set_console_status("Task_B finished.");
+            task_b_phase = 3;
+            return;
+        default:
+            return;
+    }
 }
 
-void* perform_simple_output(void* arguments) {
-    ThreadData* thread_data = static_cast<ThreadData*>(arguments);
-    int cpu_quantum = 0;
-    char message[256];
+void task_c_execution() {
+    switch (task_c_phase) {
+        case 0: {
+            write_line(task_window_c, "Requesting Printer_Output.");
+            log_event("[Task_C] down(Printer_Output)");
+            set_console_status("Task_C is requesting the printer.");
 
-    thread_data->thread_state = ThreadState::running;
+            printer_semaphore.down();
+            task_c_phase = 1;
 
-    while (!thread_data->kill_signal.load()) {
-        std::snprintf(message, sizeof(message), "Task-%d running #%d\n", thread_data->thread_no, cpu_quantum);
-        write_window(*thread_data->thread_window, message);
+            if (current_task_is_blocked()) {
+                task_c_was_blocked = true;
+                write_line(task_window_c, "Blocked and queued by semaphore.");
+                log_event("[Task_C] transitioned to BLOCKED.");
+                set_console_status("Task_C is BLOCKED.");
 
-        std::snprintf(message, sizeof(message), "Thread %d -> quantum %d\n", thread_data->thread_no, cpu_quantum);
-        write_window(*thread_data->log_window, message);
+                if (!mid_execution_dump_written) {
+                    show_system_snapshot("--- MID-EXECUTION STATE DUMP (Proving Queueing) ---");
+                    mid_execution_dump_written = true;
+                }
+                return;
+            }
+        }
+            [[fallthrough]];
+        case 1:
+            if (task_c_was_blocked) {
+                write_line(task_window_c, "Woken from sema_queue.");
+            }
+            write_line(task_window_c, "Acquired Printer_Output.");
+            log_event("[Task_C] acquired Printer_Output.");
+            set_console_status("Task_C is RUNNING.");
+            task_c_phase = 2;
+            sys_scheduler.yield();
+            return;
+        case 2:
+            write_line(task_window_c, "Releasing Printer_Output.");
+            log_event("[Task_C] up(Printer_Output)");
+            printer_semaphore.up();
+            sys_scheduler.kill_task(sys_scheduler.get_current_task_id());
+            write_line(task_window_c, "Task_C marked DEAD.");
+            log_event("[Task_C] marked DEAD.");
+            set_console_status("Task_C finished.");
+            task_c_phase = 3;
+            return;
+        default:
+            return;
+    }
+}
 
-        ++cpu_quantum;
-        sleep(thread_data->sleep_time);
+void handle_console_input() {
+    if (console_window == nullptr) {
+        return;
     }
 
-    thread_data->thread_state = ThreadState::terminated;
-    std::snprintf(message, sizeof(message), "Thread %d shutting down.\n", thread_data->thread_no);
-    write_window(*thread_data->log_window, message);
-    write_window(*thread_data->thread_window, "TERMINATED\n");
+    const int input = wgetch(console_window->get_win_ptr());
+    if (input == ERR) {
+        return;
+    }
 
-    return nullptr;
+    switch (input) {
+        case 'h':
+        case 'H':
+            set_console_status("Help refreshed.");
+            break;
+        case 'd':
+        case 'D':
+            show_system_snapshot("--- ON-DEMAND SYSTEM DUMP ---");
+            set_console_status("Manual dump captured.");
+            break;
+        case 'q':
+        case 'Q':
+            close_when_demo_finishes = true;
+            set_console_status("Window will close when the demo ends.");
+            break;
+        case KEY_MOUSE: {
+            MEVENT event {};
+            if (getmouse(&event) == OK) {
+                std::ostringstream mouse_line;
+                mouse_line << "[Mouse] row=" << event.y << ", col=" << event.x;
+                log_event(mouse_line.str());
+                set_console_status("Mouse event logged.");
+            }
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 } // namespace
 
 int main() {
-    initscr();
-    noecho();
-    cbreak();
-    curs_set(0);
-    keypad(stdscr, TRUE);
+    ui_manager.init_ncurses_env();
 
-    if (has_colors()) {
-        start_color();
-        use_default_colors();
-        init_pair(1, COLOR_RED, -1);
-        init_pair(2, COLOR_GREEN, -1);
-    }
-
-    if (!configure_layout()) {
-        endwin();
+    if (!build_layout(current_layout)) {
+        ui_manager.close_ncurses_env();
         std::cerr << "Resize the terminal to at least "
                   << kMinimumTerminalCols
                   << " columns by "
@@ -397,124 +417,103 @@ int main() {
         return 1;
     }
 
-    display_screen_data();
+    header_window = new U2_window(
+        current_layout.header_height,
+        current_layout.header_width,
+        current_layout.header_y,
+        current_layout.header_x,
+        "ULTIMA 2.0 - Phase 1",
+        false
+    );
+    task_window_a = new U2_window(
+        current_layout.task_height,
+        current_layout.task_width_a,
+        current_layout.task_y,
+        current_layout.task_x_a,
+        "Task_A",
+        true
+    );
+    task_window_b = new U2_window(
+        current_layout.task_height,
+        current_layout.task_width_b,
+        current_layout.task_y,
+        current_layout.task_x_b,
+        "Task_B",
+        true
+    );
+    task_window_c = new U2_window(
+        current_layout.task_height,
+        current_layout.task_width_c,
+        current_layout.task_y,
+        current_layout.task_x_c,
+        "Task_C",
+        true
+    );
+    log_window = new U2_window(
+        current_layout.bottom_height,
+        current_layout.log_width,
+        current_layout.bottom_y,
+        current_layout.log_x,
+        "Scheduler + Semaphore Log",
+        true
+    );
+    console_window = new U2_window(
+        current_layout.bottom_height,
+        current_layout.console_width,
+        current_layout.bottom_y,
+        current_layout.console_x,
+        "Controls",
+        false
+    );
 
-    if (!create_window(heading_window, layout.header_height, layout.header_width, layout.header_y, layout.header_x)
-        || !create_window(thread_window_1, layout.worker_height, layout.worker_width_1, layout.worker_y, layout.worker_x_1)
-        || !create_window(thread_window_2, layout.worker_height, layout.worker_width_2, layout.worker_y, layout.worker_x_2)
-        || !create_window(thread_window_3, layout.worker_height, layout.worker_width_3, layout.worker_y, layout.worker_x_3)
-        || !create_window(log_window, layout.log_height, layout.log_width, layout.log_y, layout.log_x)
-        || !create_window(console_window, layout.console_height, layout.console_width, layout.console_y, layout.console_x)) {
-        endwin();
-        std::cerr << "Failed to initialize the ncurses window layout." << std::endl;
-        return 1;
-    }
+    ui_manager.add_window(header_window);
+    ui_manager.add_window(task_window_a);
+    ui_manager.add_window(task_window_b);
+    ui_manager.add_window(task_window_c);
+    ui_manager.add_window(log_window);
+    ui_manager.add_window(console_window);
+    ui_manager.refresh_all();
 
-    initialize_heading();
-    write_window(log_window, "Log Window online.\n");
-    display_help();
-
-    ThreadData thread_data_1;
-    thread_data_1.thread_no = 1;
-    thread_data_1.thread_state = ThreadState::ready;
-    thread_data_1.thread_window = &thread_window_1;
-    thread_data_1.log_window = &log_window;
-    thread_data_1.sleep_time = 1;
-
-    ThreadData thread_data_2;
-    thread_data_2.thread_no = 2;
-    thread_data_2.thread_state = ThreadState::ready;
-    thread_data_2.thread_window = &thread_window_2;
-    thread_data_2.log_window = &log_window;
-    thread_data_2.sleep_time = 1;
-
-    ThreadData thread_data_3;
-    thread_data_3.thread_no = 3;
-    thread_data_3.thread_state = ThreadState::ready;
-    thread_data_3.thread_window = &thread_window_3;
-    thread_data_3.log_window = &log_window;
-    thread_data_3.sleep_time = 1;
-
-    write_window(thread_window_1, "Starting Thread 1...\n");
-    write_window(thread_window_2, "Starting Thread 2...\n");
-    write_window(thread_window_3, "Starting Thread 3...\n");
-
-    pthread_t thread_1;
-    pthread_t thread_2;
-    pthread_t thread_3;
-
-    int result_code = pthread_create(&thread_1, nullptr, perform_simple_output, &thread_data_1);
-    assert(result_code == 0);
-    result_code = pthread_create(&thread_2, nullptr, perform_simple_output, &thread_data_2);
-    assert(result_code == 0);
-    result_code = pthread_create(&thread_3, nullptr, perform_simple_output, &thread_data_3);
-    assert(result_code == 0);
-
-    keypad(console_window.frame, TRUE);
-    nodelay(console_window.frame, TRUE);
+    keypad(console_window->get_win_ptr(), TRUE);
+    nodelay(console_window->get_win_ptr(), TRUE);
     mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, nullptr);
+    mouseinterval(0);
 
-    MEVENT event;
-    int input = ERR;
-    char message[256];
+    render_header();
+    render_console();
 
-    while (input != 'q') {
-        input = wgetch(console_window.frame);
+    task_a_id = sys_scheduler.create_task("Task_A", task_a_execution);
+    task_b_id = sys_scheduler.create_task("Task_B", task_b_execution);
+    task_c_id = sys_scheduler.create_task("Task_C", task_c_execution);
 
-        switch (input) {
-            case '1':
-                request_thread_shutdown(thread_data_1);
-                break;
-            case '2':
-                request_thread_shutdown(thread_data_2);
-                break;
-            case '3':
-                request_thread_shutdown(thread_data_3);
-                break;
-            case 'c':
-                clear_window(console_window);
-                write_window(console_window, std::max(4, console_window.height - 3), 0, "Ultima # ");
-                break;
-            case 'h':
-                display_help();
-                break;
-            case 'q':
-                request_all_shutdown(thread_data_1, thread_data_2, thread_data_3);
-                break;
-            case KEY_MOUSE:
-                if (getmouse(&event) == OK) {
-                    std::snprintf(
-                        message,
-                        sizeof(message),
-                        "Mouse click at row=%d, col=%d\n",
-                        event.y,
-                        event.x
-                    );
-                    write_window(log_window, message);
-                }
-                break;
-            case ERR:
-                break;
-            default:
-                break;
-        }
+    initialize_task_windows();
+    log_event("=== ULTIMA Phase 1 terminal demonstration ===");
+    log_event("Three tasks compete for Printer_Output through a binary semaphore.");
+    show_system_snapshot("--- INITIAL SYSTEM STATE ---");
+    log_event("--- BEGINNING EXECUTION ---");
+    set_console_status("Scheduler run started.");
 
-        usleep(100000);
+    while (sys_scheduler.has_active_tasks()) {
+        handle_console_input();
+        sys_scheduler.yield();
+        ui_manager.refresh_all();
+        napms(220);
     }
 
-    pthread_join(thread_1, nullptr);
-    pthread_join(thread_2, nullptr);
-    pthread_join(thread_3, nullptr);
+    show_system_snapshot("--- FINAL STATE DUMP (Before Garbage Collection) ---");
+    sys_scheduler.garbage_collect();
+    show_system_snapshot("--- POST-GARBAGE-COLLECTION DUMP ---");
+    log_event("System shutting down safely.");
 
-    write_window(log_window, "All worker threads joined.\n");
+    if (close_when_demo_finishes) {
+        ui_manager.close_ncurses_env();
+        return 0;
+    }
 
-    destroy_window(console_window);
-    destroy_window(log_window);
-    destroy_window(thread_window_3);
-    destroy_window(thread_window_2);
-    destroy_window(thread_window_1);
-    destroy_window(heading_window);
+    nodelay(console_window->get_win_ptr(), FALSE);
+    set_console_status("Phase 1 complete. Press any key to exit.");
+    wgetch(console_window->get_win_ptr());
 
-    endwin();
+    ui_manager.close_ncurses_env();
     return 0;
 }

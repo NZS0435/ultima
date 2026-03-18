@@ -1,5 +1,20 @@
+PHASE 1 - ULTIMA 2.0 - TEAM THUNDER
+
+                .-~~~~~~~~~-._       _.-~~~~~~~~~-.
+            __.'             ~.   .~             `.__
+          .'//                 \./                 \\`.
+        .'//   PHASE 1 CLOUD    |   CODE RAIN       \\`.
+      .'//______________________|_____________________\\`.
+             || 01 01 01 01 01 01 01 01 01 ||
+             || 10 10 10 10 10 10 10 10 10 ||
+             || 01 01 01 01 01 01 01 01 01 ||
+
+Phase Label: Scheduler and Semaphore
+
 Phase 1: Scheduler and Semaphore
 
 Phase Abstract
 
-ULTIMA 2.0 requires a robust foundation for process management and resource synchronization. In Phase 1, we implemented a dynamic Task Control Block (TCB) infrastructure, a round-robin cooperative scheduler, and a binary semaphore mechanism. The scheduler maintains task states (RUNNING, READY, BLOCKED, DEAD) and handles context switching and garbage collection to prevent memory leaks. Concurrently, the binary semaphore safely manages access to shared resources without relying on inefficient busy-waiting loops. By directly interfacing with the scheduler, the semaphore effectively transitions blocked tasks into a queued BLOCKED state and wakes them into a READY state upon resource release. This unified system permanently resolves race conditions and mutual exclusion conflicts during shared I/O operations.
+ULTIMA 2.0 requires a reliable foundation for process management and shared-resource coordination. In Phase 1, we implemented a dynamic Task Control Block (TCB) table, a strict round-robin cooperative scheduler, and a binary semaphore that can guard a shared operating system resource such as a printer or screen device. The scheduler tracks each task in one of the required four states: RUNNING, READY, BLOCKED, or DEAD. During execution, task creation inserts TCB records into the process table, yield() rotates execution through READY tasks, kill_task() marks completed tasks as DEAD, and garbage_collect() removes dead entries after the demonstration finishes.
+
+The semaphore is integrated directly with the scheduler so the system never relies on busy waiting. When a task calls down() on a busy resource, the task is pushed into the semaphore queue and transitioned to BLOCKED. When the active owner releases the resource with up(), the next queued task is moved back to READY and eventually resumes under round-robin scheduling. The Phase 1 terminal demo preserves the assignment's requested task output windows while also presenting readable scheduler and semaphore dump() output so the blocked queue, running task, and final cleanup state can all be shown clearly in screenshots and during a live walkthrough.
