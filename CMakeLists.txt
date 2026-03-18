@@ -1,8 +1,7 @@
-# Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg
 # Phase Label: Phase 1 - Scheduler and Semaphore
 
+# 1. CRITICAL: Top-level declarations to fix the pkgRedirects crash
 cmake_minimum_required(VERSION 3.16)
-
 project(ULTIMA_2_0 LANGUAGES C CXX)
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
@@ -18,7 +17,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(CheckIncludeFileCXX)
 
+# 2. PRESERVED DIRECTORY: Wrapped in quotes to ensure CMake treats it as a single string.
+# Ninja will natively handle the spaces during compilation.
 set(SCHEDULER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ULTIMA/Phase 1 (Scheduler)")
+
 set(ULTIMA_SOURCES
         "${SCHEDULER_DIR}/Ultima.cpp"
         "${SCHEDULER_DIR}/Sched.cpp"
@@ -27,11 +29,13 @@ set(ULTIMA_SOURCES
         "${SCHEDULER_DIR}/U2_Window.cpp"
 )
 
+# ULTIMA_SOURCES expands correctly as a list, no extra quotes needed here
 add_executable(ultima_os ${ULTIMA_SOURCES})
 
 find_package(Threads REQUIRED)
 target_link_libraries(ultima_os PRIVATE Threads::Threads)
 
+# 3. CYGWIN ROUTING: Bypasses Windows/MSYS2 blocks to use native Cygwin ncurses
 if(WIN32 AND NOT CYGWIN)
     set(PDCURSES_ROOT "" CACHE PATH "Root path of a PDCurses install (optional)")
 
@@ -76,6 +80,7 @@ if(WIN32 AND NOT CYGWIN)
     target_include_directories(ultima_os PRIVATE "${ULTIMA_CURSES_INCLUDE_DIR}")
     target_link_libraries(ultima_os PRIVATE "${ULTIMA_CURSES_LIBRARY}")
 else()
+    # Requires `libncurses-devel` in your Cygwin environment
     find_package(Curses REQUIRED)
 
     if(CURSES_INCLUDE_DIRS)
