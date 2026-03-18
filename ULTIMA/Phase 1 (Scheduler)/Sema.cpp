@@ -4,8 +4,6 @@
 
 #include "Sema.h"
 #include <cstring>
-#include <pthread.h>
-#include <ncurses.h>
 
 #include "Sched.h"
 

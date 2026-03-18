@@ -9,7 +9,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <ncurses.h>
+#include "platform_curses.h"
 #include "Sched.h"
 #include "Sema.h"
 #include "U2_UI.h"

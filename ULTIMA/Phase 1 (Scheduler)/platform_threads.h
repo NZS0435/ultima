@@ -4,10 +4,11 @@
 #ifndef ULTIMA_PLATFORM_THREADS_H
 #define ULTIMA_PLATFORM_THREADS_H
 
+#if defined(__has_include)
+#if __has_include(<pthread.h>)
 #include <pthread.h>
-#include <ncurses.h>
-
-#if defined(_WIN32) && !defined(ULTIMA_USE_NATIVE_PTHREADS)
+#define ULTIMA_HAS_PTHREAD_HEADER 1
+#else
 #include <mutex>
 
 typedef struct {
@@ -29,8 +30,10 @@ inline int pthread_mutex_unlock(pthread_mutex_t *mutex) {
 inline int pthread_mutex_destroy(pthread_mutex_t *) {
     return 0;
 }
+#endif
 #else
 #include <pthread.h>
+#define ULTIMA_HAS_PTHREAD_HEADER 1
 #endif
 
 #endif // ULTIMA_PLATFORM_THREADS_H

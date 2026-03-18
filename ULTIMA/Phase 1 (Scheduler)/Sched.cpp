@@ -6,8 +6,6 @@
 #include <iomanip>
 #include <iostream>
 #include <algorithm>
-#include <pthread.h>
-#include <ncurses.h>
 
 /**
  * ULTIMA 2.0 - Phase 1
