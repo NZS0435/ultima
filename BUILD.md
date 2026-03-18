@@ -1,3 +1,5 @@
+![Team Thunder Banner](</Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg>)
+
 # Cross-Platform Build Guide (macOS + Windows + Cygwin)
 
 ## Important for SharePoint Collaborators

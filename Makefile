@@ -1,3 +1,5 @@
+# ![Team Thunder Banner](</Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg>)
+
 SHELL := /bin/sh
 
 PHASE1_DIR := ULTIMA/Phase 1 (Scheduler)

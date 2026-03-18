@@ -1,3 +1,5 @@
+![Team Thunder Banner](</Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg>)
+
 ULTIMA 2.0 - Phase 1: Scheduler and Semaphore
 Accelerated Team Execution Plan
 Project Deadline: March 14, 2026 Primary Collaboration Hub: Microsoft Teams Channel

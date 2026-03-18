@@ -1,3 +1,5 @@
+![Team Thunder Banner](</Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg>)
+
 ULTIMA 2.0: Project Abstract
 
 The ULTIMA 2.0 project focuses on the iterative design and implementation of a cooperative (non-preemptive) multitasking operating system. Initially provided as a rudimentary framework lacking fundamental process management and resource synchronization, the objective of this ongoing development is to engineer a fully functional, multi-tasking environment from the ground up.
