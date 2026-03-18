@@ -19,3 +19,6 @@ CMakeUserPresets.json
 *.exe
 *.out
 ultima_os
+
+# Local caches
+tmp/
