@@ -1,4 +1,6 @@
-![Team Thunder Banner](</Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg>)
+<img src="/Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg" alt="Team Thunder" />
+
+Phase Label: Phase 1 - Scheduler and Semaphore
 
 # Cross-Platform Build Guide (macOS + Windows + Cygwin)
 

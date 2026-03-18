@@ -1,26 +1,14 @@
-/* ![Team Thunder Banner](</Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg>) */
-
-/*
- * PHASE 1 - ULTIMA 2.0 - TEAM THUNDER
- *
- *                 .-~~~~~~~~~-._       _.-~~~~~~~~~-.
- *             __.'             ~.   .~             `.__
- *           .'//                 \./                 \\`.
- *         .'//   PHASE 1 CLOUD    |   CODE RAIN       \\`.
- *       .'//______________________|_____________________\\`.
- *              || 01 01 01 01 01 01 01 01 01 ||
- *              || 10 10 10 10 10 10 10 10 10 ||
- *              || 01 01 01 01 01 01 01 01 01 ||
- *
- * Creator: ZANDER HAYES - TEAM THUNDER
- * Phase Label: Scheduler and Semaphore
- */
+/* Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg */
+/* Creator: ZANDER HAYES - TEAM THUNDER */
+/* Phase Label: Phase 1 - Scheduler and Semaphore */
 
 #include <algorithm>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 #include <ncurses.h>
 #include "Sched.h"
 #include "Sema.h"
@@ -29,7 +17,7 @@
 
 /**
  * ULTIMA 2.0 - Phase 1 Main Driver
- * Tailored to the scheduler and semaphore assignment while preserving
+ * Tailored to the scheduler(Stewart) and semaphore(Nick) assignment while preserving
  * a terminal-window presentation for screenshots and live demonstration.
  */
 
@@ -89,9 +77,8 @@ bool task_b_was_blocked = false;
 bool task_c_was_blocked = false;
 bool mid_execution_dump_written = false;
 bool post_release_dump_written = false;
-bool close_when_demo_finishes = false;
-
 std::string console_status = "Phase 1 demo ready.";
+std::vector<std::string> transcript_lines;
 
 bool build_layout(WindowLayout& layout) {
     if (LINES < kMinimumTerminalRows || COLS < kMinimumTerminalCols) {
@@ -146,6 +133,22 @@ void write_line(U2_window* target_window, const std::string& line) {
     write_block(target_window, line + "\n");
 }
 
+void append_transcript(const std::string& line) {
+    transcript_lines.push_back(line);
+}
+
+std::string build_transcript_text() {
+    std::ostringstream transcript_stream;
+    transcript_stream << "ULTIMA 2.0 - Phase 1 transcript\n";
+    transcript_stream << "================================\n";
+
+    for (const std::string& line : transcript_lines) {
+        transcript_stream << line << '\n';
+    }
+
+    return transcript_stream.str();
+}
+
 std::string capture_dump_text(const std::function<void()>& dump_function) {
     std::ostringstream capture_stream;
     std::streambuf* original_buffer = std::cout.rdbuf(capture_stream.rdbuf());
@@ -196,18 +199,24 @@ void set_console_status(const std::string& status_line) {
 }
 
 void log_event(const std::string& message) {
+    append_transcript(message);
     write_line(log_window, message);
 }
 
 void show_system_snapshot(const std::string& title) {
     log_event("");
     log_event(title);
-    write_block(log_window, capture_dump_text([] {
+    const std::string scheduler_dump = capture_dump_text([] {
         sys_scheduler.dump(0);
-    }));
-    write_block(log_window, capture_dump_text([] {
+    });
+    append_transcript(scheduler_dump);
+    write_block(log_window, scheduler_dump);
+
+    const std::string semaphore_dump = capture_dump_text([] {
         printer_semaphore.dump(0);
-    }));
+    });
+    append_transcript(semaphore_dump);
+    write_block(log_window, semaphore_dump);
     log_event("");
 }
 
@@ -385,8 +394,7 @@ void handle_console_input() {
             break;
         case 'q':
         case 'Q':
-            close_when_demo_finishes = true;
-            set_console_status("Window will close when the demo ends.");
+            set_console_status("Final screen will stay until a keypress.");
             break;
         case KEY_MOUSE: {
             MEVENT event {};
@@ -405,84 +413,108 @@ void handle_console_input() {
 
 } // namespace
 
-int main() {
-    ui_manager.init_ncurses_env();
+int main(int argc, char* argv[]) {
+    bool transcript_only = false;
+    std::string output_file_path;
 
-    if (!build_layout(current_layout)) {
-        ui_manager.close_ncurses_env();
-        std::cerr << "Resize the terminal to at least "
-                  << kMinimumTerminalCols
-                  << " columns by "
-                  << kMinimumTerminalRows
-                  << " rows and rerun ultima_os."
-                  << std::endl;
-        return 1;
+    for (int index = 1; index < argc; ++index) {
+        const std::string argument = argv[index];
+        if (argument == "--transcript-only") {
+            transcript_only = true;
+            continue;
+        }
+
+        if (argument == "--output-file") {
+            if (index + 1 >= argc) {
+                std::cerr << "Missing path after --output-file" << std::endl;
+                return 1;
+            }
+            output_file_path = argv[++index];
+            continue;
+        }
     }
 
-    header_window = new U2_window(
-        current_layout.header_height,
-        current_layout.header_width,
-        current_layout.header_y,
-        current_layout.header_x,
-        "ULTIMA 2.0 - Phase 1",
-        false
-    );
-    task_window_a = new U2_window(
-        current_layout.task_height,
-        current_layout.task_width_a,
-        current_layout.task_y,
-        current_layout.task_x_a,
-        "Task_A",
-        true
-    );
-    task_window_b = new U2_window(
-        current_layout.task_height,
-        current_layout.task_width_b,
-        current_layout.task_y,
-        current_layout.task_x_b,
-        "Task_B",
-        true
-    );
-    task_window_c = new U2_window(
-        current_layout.task_height,
-        current_layout.task_width_c,
-        current_layout.task_y,
-        current_layout.task_x_c,
-        "Task_C",
-        true
-    );
-    log_window = new U2_window(
-        current_layout.bottom_height,
-        current_layout.log_width,
-        current_layout.bottom_y,
-        current_layout.log_x,
-        "Scheduler + Semaphore Log",
-        true
-    );
-    console_window = new U2_window(
-        current_layout.bottom_height,
-        current_layout.console_width,
-        current_layout.bottom_y,
-        current_layout.console_x,
-        "Controls",
-        false
-    );
+    if (!transcript_only) {
+        ui_manager.init_ncurses_env();
 
-    ui_manager.add_window(header_window);
-    ui_manager.add_window(task_window_a);
-    ui_manager.add_window(task_window_b);
-    ui_manager.add_window(task_window_c);
-    ui_manager.add_window(log_window);
-    ui_manager.add_window(console_window);
-    ui_manager.refresh_all();
+        if (!build_layout(current_layout)) {
+            ui_manager.close_ncurses_env();
+            std::cerr << "Resize the terminal to at least "
+                      << kMinimumTerminalCols
+                      << " columns by "
+                      << kMinimumTerminalRows
+                      << " rows and rerun ultima_os."
+                      << std::endl;
+            return 1;
+        }
+    }
 
-    keypad(console_window->get_win_ptr(), TRUE);
-    nodelay(console_window->get_win_ptr(), TRUE);
-    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, nullptr);
-    mouseinterval(0);
+    if (!transcript_only) {
+        header_window = new U2_window(
+            current_layout.header_height,
+            current_layout.header_width,
+            current_layout.header_y,
+            current_layout.header_x,
+            "ULTIMA 2.0 - Phase 1",
+            false
+        );
+        task_window_a = new U2_window(
+            current_layout.task_height,
+            current_layout.task_width_a,
+            current_layout.task_y,
+            current_layout.task_x_a,
+            "Task_A",
+            true
+        );
+        task_window_b = new U2_window(
+            current_layout.task_height,
+            current_layout.task_width_b,
+            current_layout.task_y,
+            current_layout.task_x_b,
+            "Task_B",
+            true
+        );
+        task_window_c = new U2_window(
+            current_layout.task_height,
+            current_layout.task_width_c,
+            current_layout.task_y,
+            current_layout.task_x_c,
+            "Task_C",
+            true
+        );
+        log_window = new U2_window(
+            current_layout.bottom_height,
+            current_layout.log_width,
+            current_layout.bottom_y,
+            current_layout.log_x,
+            "Scheduler + Semaphore Log",
+            true
+        );
+        console_window = new U2_window(
+            current_layout.bottom_height,
+            current_layout.console_width,
+            current_layout.bottom_y,
+            current_layout.console_x,
+            "Controls",
+            false
+        );
 
-    render_header();
-    render_console();
+        ui_manager.add_window(header_window);
+        ui_manager.add_window(task_window_a);
+        ui_manager.add_window(task_window_b);
+        ui_manager.add_window(task_window_c);
+        ui_manager.add_window(log_window);
+        ui_manager.add_window(console_window);
+        ui_manager.refresh_all();
+
+        keypad(console_window->get_win_ptr(), TRUE);
+        nodelay(console_window->get_win_ptr(), TRUE);
+        mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, nullptr);
+        mouseinterval(0);
+
+        render_header();
+        render_console();
+    }
 
     task_a_id = sys_scheduler.create_task("Task_A", task_a_execution);
     task_b_id = sys_scheduler.create_task("Task_B", task_b_execution);
@@ -496,10 +528,14 @@ int main() {
     set_console_status("Scheduler run started.");
 
     while (sys_scheduler.has_active_tasks()) {
-        handle_console_input();
+        if (!transcript_only) {
+            handle_console_input();
+        }
         sys_scheduler.yield();
-        ui_manager.refresh_all();
-        napms(220);
+        if (!transcript_only) {
+            ui_manager.refresh_all();
+            napms(220);
+        }
     }
 
     show_system_snapshot("--- FINAL STATE DUMP (Before Garbage Collection) ---");
@@ -507,15 +543,24 @@ int main() {
     show_system_snapshot("--- POST-GARBAGE-COLLECTION DUMP ---");
     log_event("System shutting down safely.");
 
-    if (close_when_demo_finishes) {
+    if (!transcript_only) {
+        nodelay(console_window->get_win_ptr(), FALSE);
+        set_console_status("Phase 1 complete. Press any key to exit.");
+        wgetch(console_window->get_win_ptr());
         ui_manager.close_ncurses_env();
-        return 0;
     }
 
-    nodelay(console_window->get_win_ptr(), FALSE);
-    set_console_status("Phase 1 complete. Press any key to exit.");
-    wgetch(console_window->get_win_ptr());
+    const std::string transcript_text = build_transcript_text();
 
-    ui_manager.close_ncurses_env();
+    if (!output_file_path.empty()) {
+        std::ofstream output_file(output_file_path);
+        if (!output_file.is_open()) {
+            std::cerr << "Unable to write transcript file: " << output_file_path << std::endl;
+            return 1;
+        }
+        output_file << transcript_text;
+    }
+
+    std::cout << transcript_text;
     return 0;
 }
