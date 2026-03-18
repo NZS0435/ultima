@@ -27,6 +27,9 @@ void U2_ui::init_ncurses_env() {
     initscr();
     cbreak();
     noecho();
+    keypad(stdscr, TRUE);
+    nodelay(stdscr, FALSE);
+    curs_set(0);
 
     // Set up standard colors matching Lab 4 parameters
     start_color();

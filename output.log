@@ -37,4 +37,7 @@
 [7G[Task 3] Acquired Printer! Writing data...
 [7G--- EXECUTION COMPLETE ---
 [7GSystem shutting down safely. Press any key to exit.
-[7G[H[21;7H
+[7G[H[21;7H[39;49m
+
+
+[K[24;1H[?1049l[?1l>
