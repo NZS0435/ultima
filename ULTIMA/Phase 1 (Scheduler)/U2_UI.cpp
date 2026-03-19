@@ -4,8 +4,6 @@
 #include "U2_UI.h"
 #include "platform_curses.h"
 #include <clocale>
-#include <pthread.h>
-#include <ncurses.h>
 
 /**
  * ULTIMA 2.0 - Phase 1

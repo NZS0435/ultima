@@ -2,8 +2,6 @@
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
 
 #include "U2_Window.h"
-#include <pthread.h>
-#include <ncurses.h>
 
 // Initialize the global mutual exclusion semaphore for thread-safe UI rendering
 /**

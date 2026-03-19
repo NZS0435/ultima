@@ -5,9 +5,8 @@
 #define U2_WINDOW_H
 
 #include "platform_curses.h"
+#include "platform_threads.h"
 #include <string>
-#include <pthread.h>
-#include <ncurses.h>
 
 /**
  * ULTIMA 2.0 - Phase 1

@@ -6,8 +6,6 @@
 
 #include "U2_Window.h"
 #include <list>
-#include <pthread.h>
-#include <ncurses.h>
 
 /**
  * ULTIMA 2.0 - Phase 1
