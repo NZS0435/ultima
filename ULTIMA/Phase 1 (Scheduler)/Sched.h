@@ -11,7 +11,7 @@
 
 /**
  * ULTIMA 2.0 - Phase 1
- * Designed by: NICHOLAS KOBS
+ * Designed by: STEWART PAWLEY
  */
 extern Scheduler sys_scheduler;
 
