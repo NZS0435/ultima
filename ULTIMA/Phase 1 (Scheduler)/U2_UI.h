@@ -1,0 +1,29 @@
+#ifndef U2_UI_H
+#define U2_UI_H
+
+#include "U2_Window.h"
+#include <list>
+
+class U2_ui {
+private:
+    // Dynamic linked list to hold pointers to our UI windows
+    std::list<U2_window*> window_list;
+
+public:
+    U2_ui();
+    ~U2_ui();
+
+    // Environment management
+    void init_ncurses_env();
+    void close_ncurses_env();
+
+    // Window management functions
+    void add_window(U2_window* new_window);
+    void delete_window(U2_window* target_window);
+
+    // Global refresh and clear
+    void refresh_all();
+    void clear_all();
+};
+
+#endif // U2_UI_H
