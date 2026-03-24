@@ -133,7 +133,7 @@ bool build_layout(WindowLayout& layout) {
     const int column_remainder = usable_width - (column_width * 3);
 
     layout.class_y = layout.header_height;
-    layout.bottom_height = std::clamp(LINES / 4, minimum_bottom_height, (LINES >= 34) ? 12 : 7);
+    layout.bottom_height = std::max(minimum_bottom_height, std::min(LINES / 4, (LINES >= 34) ? 12 : 7));
 
     int middle_height = LINES - layout.header_height - layout.bottom_height - (vertical_gap * 2);
     if (middle_height < minimum_panel_height * 2) {
@@ -169,7 +169,7 @@ bool build_layout(WindowLayout& layout) {
     layout.task_x_right = layout.class_x_right;
 
     const int bottom_width = COLS - (horizontal_margin * 2) - horizontal_gap;
-    layout.console_width = std::clamp(bottom_width / 4, 20, 34);
+    layout.console_width = std::max(20, std::min(bottom_width / 4, 34));
     layout.log_width = bottom_width - layout.console_width;
     layout.log_x = horizontal_margin;
     layout.console_x = layout.log_x + layout.log_width + horizontal_gap;
