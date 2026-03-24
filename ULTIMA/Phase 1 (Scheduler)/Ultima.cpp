@@ -51,6 +51,8 @@ constexpr std::size_t kMaxHistoryLines = 18;
 constexpr std::size_t kMaxStateTraceLines = 12;
 
 struct WindowLayout {
+    bool stacked_primary_layout = false;
+
     int header_height = 0;
     int header_width = 0;
     int header_y = 0;
@@ -113,6 +115,8 @@ std::vector<std::string> task_b_history;
 std::vector<std::string> task_c_history;
 
 bool build_layout(WindowLayout& layout) {
+    layout = WindowLayout {};
+
     if (LINES < kMinimumTerminalRows || COLS < kMinimumTerminalCols) {
         return false;
     }
@@ -122,6 +126,52 @@ bool build_layout(WindowLayout& layout) {
     const int vertical_gap = (LINES >= 30) ? kVerticalGap : 0;
     const int minimum_panel_height = (LINES >= 34) ? 10 : 6;
     const int minimum_bottom_height = (LINES >= 34) ? 10 : 6;
+
+    if (COLS < 100) {
+        const int compact_margin = 0;
+        const int compact_gap = 0;
+        const int compact_header_height = 4;
+        const int remaining_height = LINES - compact_header_height - (compact_gap * 2);
+        const int panel_height = remaining_height / 3;
+        const int panel_remainder = remaining_height - (panel_height * 3);
+
+        if (panel_height < 6) {
+            return false;
+        }
+
+        layout.stacked_primary_layout = true;
+        layout.header_y = 0;
+        layout.header_x = compact_margin;
+        layout.header_height = compact_header_height;
+        layout.header_width = COLS - (compact_margin * 2);
+
+        layout.class_y = layout.header_height;
+        layout.class_height = panel_height;
+        layout.task_y = layout.class_y + layout.class_height + compact_gap;
+        layout.task_height = panel_height;
+        layout.bottom_y = layout.task_y + layout.task_height + compact_gap;
+        layout.bottom_height = panel_height + panel_remainder;
+
+        layout.class_x_left = compact_margin;
+        layout.class_width_left = layout.header_width;
+        layout.class_x_middle = compact_margin;
+        layout.class_width_middle = layout.header_width;
+        layout.class_x_right = compact_margin;
+        layout.class_width_right = layout.header_width;
+
+        layout.task_x_left = compact_margin;
+        layout.task_width_left = 0;
+        layout.task_x_middle = compact_margin;
+        layout.task_width_middle = 0;
+        layout.task_x_right = compact_margin;
+        layout.task_width_right = 0;
+
+        layout.log_x = compact_margin;
+        layout.log_width = 0;
+        layout.console_x = compact_margin;
+        layout.console_width = 0;
+        return true;
+    }
 
     layout.header_y = 0;
     layout.header_x = horizontal_margin;
@@ -244,6 +294,10 @@ std::string format_task_id(int task_id) {
 }
 
 bool use_compact_panels() {
+    if (current_layout.stacked_primary_layout) {
+        return false;
+    }
+
     return current_layout.class_width_left <= 28 || current_layout.console_width <= 22;
 }
 
@@ -995,6 +1049,12 @@ void create_demo_tasks() {
 }
 
 void create_windows() {
+    task_window_a = nullptr;
+    task_window_b = nullptr;
+    task_window_c = nullptr;
+    log_window = nullptr;
+    console_window = nullptr;
+
     header_window = new U2_window(
         current_layout.header_height,
         current_layout.header_width,
@@ -1012,61 +1072,64 @@ void create_windows() {
         false
     );
     semaphore_window = new U2_window(
-        current_layout.class_height,
-        current_layout.class_width_middle,
-        current_layout.class_y,
-        current_layout.class_x_middle,
+        current_layout.stacked_primary_layout ? current_layout.task_height : current_layout.class_height,
+        current_layout.stacked_primary_layout ? current_layout.class_width_middle : current_layout.class_width_middle,
+        current_layout.stacked_primary_layout ? current_layout.task_y : current_layout.class_y,
+        current_layout.stacked_primary_layout ? current_layout.class_x_middle : current_layout.class_x_middle,
         "Semaphore Class",
         false
     );
     state_window = new U2_window(
-        current_layout.class_height,
+        current_layout.stacked_primary_layout ? current_layout.bottom_height : current_layout.class_height,
         current_layout.class_width_right,
-        current_layout.class_y,
+        current_layout.stacked_primary_layout ? current_layout.bottom_y : current_layout.class_y,
         current_layout.class_x_right,
         "State + Race Proof",
         false
     );
-    task_window_a = new U2_window(
-        current_layout.task_height,
-        current_layout.task_width_left,
-        current_layout.task_y,
-        current_layout.task_x_left,
-        "Task_A",
-        false
-    );
-    task_window_b = new U2_window(
-        current_layout.task_height,
-        current_layout.task_width_middle,
-        current_layout.task_y,
-        current_layout.task_x_middle,
-        "Task_B",
-        false
-    );
-    task_window_c = new U2_window(
-        current_layout.task_height,
-        current_layout.task_width_right,
-        current_layout.task_y,
-        current_layout.task_x_right,
-        "Task_C",
-        false
-    );
-    log_window = new U2_window(
-        current_layout.bottom_height,
-        current_layout.log_width,
-        current_layout.bottom_y,
-        current_layout.log_x,
-        "Output Log + Dumps",
-        true
-    );
-    console_window = new U2_window(
-        current_layout.bottom_height,
-        current_layout.console_width,
-        current_layout.bottom_y,
-        current_layout.console_x,
-        "Controls",
-        false
-    );
+
+    if (!current_layout.stacked_primary_layout) {
+        task_window_a = new U2_window(
+            current_layout.task_height,
+            current_layout.task_width_left,
+            current_layout.task_y,
+            current_layout.task_x_left,
+            "Task_A",
+            false
+        );
+        task_window_b = new U2_window(
+            current_layout.task_height,
+            current_layout.task_width_middle,
+            current_layout.task_y,
+            current_layout.task_x_middle,
+            "Task_B",
+            false
+        );
+        task_window_c = new U2_window(
+            current_layout.task_height,
+            current_layout.task_width_right,
+            current_layout.task_y,
+            current_layout.task_x_right,
+            "Task_C",
+            false
+        );
+        log_window = new U2_window(
+            current_layout.bottom_height,
+            current_layout.log_width,
+            current_layout.bottom_y,
+            current_layout.log_x,
+            "Output Log + Dumps",
+            true
+        );
+        console_window = new U2_window(
+            current_layout.bottom_height,
+            current_layout.console_width,
+            current_layout.bottom_y,
+            current_layout.console_x,
+            "Controls",
+            false
+        );
+    }
 
     ui_manager.add_window(header_window);
     ui_manager.add_window(scheduler_window);
@@ -1078,10 +1141,12 @@ void create_windows() {
     ui_manager.add_window(log_window);
     ui_manager.add_window(console_window);
 
-    keypad(console_window->get_win_ptr(), TRUE);
-    nodelay(console_window->get_win_ptr(), TRUE);
-    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, nullptr);
-    mouseinterval(0);
+    if (console_window != nullptr) {
+        keypad(console_window->get_win_ptr(), TRUE);
+        nodelay(console_window->get_win_ptr(), TRUE);
+        mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, nullptr);
+        mouseinterval(0);
+    }
 }
 
 void run_demo_cycle() {
@@ -1154,6 +1219,7 @@ int main(int argc, char* argv[]) {
         if (!transcript_only_mode) {
             create_windows();
             sync_visuals();
+            stop_after_cycle = current_layout.stacked_primary_layout;
         }
     }
 
@@ -1172,9 +1238,11 @@ int main(int argc, char* argv[]) {
     } while (true);
 
     if (!transcript_only_mode) {
-        nodelay(console_window->get_win_ptr(), FALSE);
-        set_console_status("Continuous scheduler stopped. Press any key to exit.");
-        wgetch(console_window->get_win_ptr());
+        if (console_window != nullptr) {
+            nodelay(console_window->get_win_ptr(), FALSE);
+            set_console_status("Continuous scheduler stopped. Press any key to exit.");
+            wgetch(console_window->get_win_ptr());
+        }
         ui_manager.close_ncurses_env();
     }
 
