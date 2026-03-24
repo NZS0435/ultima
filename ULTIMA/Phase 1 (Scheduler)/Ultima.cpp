@@ -128,9 +128,9 @@ bool build_layout(WindowLayout& layout) {
     const int minimum_bottom_height = (LINES >= 34) ? 10 : 6;
 
     if (COLS < 100) {
-        const int compact_margin = 0;
-        const int compact_gap = 0;
-        const int compact_header_height = 4;
+        constexpr int compact_margin = 0;
+        constexpr int compact_gap = 0;
+        constexpr int compact_header_height = 4;
         const int remaining_height = LINES - compact_header_height - (compact_gap * 2);
         const int panel_height = remaining_height / 3;
         const int panel_remainder = remaining_height - (panel_height * 3);
