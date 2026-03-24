@@ -7,6 +7,7 @@
 #include "platform_curses.h"
 #include "platform_threads.h"
 #include <string>
+#include <vector>
 
 /**
  * ULTIMA 2.0 - Phase 1
@@ -37,11 +38,14 @@ public:
     void render();
     void write_text(const char* text);
     void write_text_at(int y, int x, const char* text);
+    void draw_lines(const std::vector<std::string>& lines);
     void box_window();
     void clear_window();
 
     // Accessor
     WINDOW* get_win_ptr() const { return win; }
+    int inner_height() const { return h - 2; }
+    int inner_width() const { return w - 2; }
 };
 
 #endif // U2_WINDOW_H

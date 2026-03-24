@@ -26,6 +26,9 @@ Task_A in READY or RUNNING state, while Task_B and Task_C display as BLOCKED.
 Semaphore Data:
 Sema_value is 0, and Sema_queue displays T-2 --> T-3.
 
+Flow Marker:
+Task_A -> Task_B BLOCKED -> Task_C BLOCKED.
+
 Step 4 (Release & Wake):
 Task_A resumes, finishes its work, and calls up(). The semaphore removes Task_B from the queue and transitions it back to READY. Under round-robin dispatch, Task_B acquires the resource, completes, and releases it so Task_C can do the same.
 
@@ -35,12 +38,13 @@ After each task finishes, kill_task() marks it DEAD. Once the demonstration ends
 Expected Output Markers:
 - --- INITIAL SYSTEM STATE ---
 - --- MID-EXECUTION STATE DUMP (Proving Queueing) ---
+- FLOW: Task_A -> Task_B BLOCKED -> Task_C BLOCKED
 - --- POST-RELEASE STATE DUMP ---
 - --- FINAL STATE DUMP (Before Garbage Collection) ---
 - --- POST-GARBAGE-COLLECTION DUMP ---
-- Task_A 1 Ready or Running
-- Task_B 2 Blocked
-- Task_C 3 Blocked
+- Task_A 1 READY or RUNNING
+- Task_B 2 BLOCKED
+- Task_C 3 BLOCKED
 - Sema_value:  0
 - Sema_queue:  T-2 --> T-3
 - [Task_B] acquired Printer_Output.
@@ -52,9 +56,9 @@ Observed Output Snapshot:
 
 Task Name        Task ID         State           etc.
 ------------------------------------------------------------
-Task_A           1               Ready
-Task_B           2               Blocked
-Task_C           3               Blocked
+Task_A           1               READY
+Task_B           2               BLOCKED
+Task_C           3               BLOCKED
 ------------------------------------------------------------
 
 Semaphore Dump:
@@ -67,4 +71,5 @@ How and Why the System Works:
 - The semaphore blocks tasks by changing their scheduler state instead of using a busy wait.
 - up() restores blocked tasks to READY in FIFO order through sema_queue.
 - kill_task() and garbage_collect() provide the DEAD and cleanup proof required by the assignment.
-- Separate task windows plus the shared log window make the state transitions easy to explain in screenshots and a narrated demo.
+- Separate scheduler, semaphore, state-proof, task, log, and control windows make the state transitions easy to explain in screenshots and a narrated demo.
+- The larger dump() output gives a fuller picture of ownership, queueing, dispatch counts, block counts, and the current purpose of each task.

@@ -77,6 +77,7 @@ int delwin(WINDOW* win);
 int wprintw(WINDOW* win, const char* fmt, ...);
 int mvwprintw(WINDOW* win, int y, int x, const char* fmt, ...);
 int wclear(WINDOW* win);
+int werase(WINDOW* win);
 int wgetch(WINDOW* win);
 int keypad(WINDOW* win, int bf);
 int nodelay(WINDOW* win, int bf);

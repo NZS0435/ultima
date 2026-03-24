@@ -2,6 +2,7 @@
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
 
 #include "U2_Window.h"
+#include <algorithm>
 
 // Initialize the global mutual exclusion semaphore for thread-safe UI rendering
 /**
@@ -70,16 +71,52 @@ void U2_window::write_text_at(int y, int x, const char* text) {
     pthread_mutex_unlock(&screen_mutex);
 }
 
+void U2_window::draw_lines(const std::vector<std::string>& lines) {
+    pthread_mutex_lock(&screen_mutex);
+
+    werase(win);
+    box(win, 0, 0);
+    mvwprintw(win, 0, 2, " %s ", window_title.c_str());
+    werase(text_win);
+
+    const int max_lines = std::max(0, h - 2);
+    const int max_width = std::max(0, w - 3);
+    const int visible_lines = std::min(max_lines, static_cast<int>(lines.size()));
+
+    for (int index = 0; index < visible_lines; ++index) {
+        std::string visible_text = lines[static_cast<std::size_t>(index)];
+        if (static_cast<int>(visible_text.size()) > max_width) {
+            if (max_width > 3) {
+                visible_text = visible_text.substr(0, static_cast<std::size_t>(max_width - 3)) + "...";
+            } else {
+                visible_text = visible_text.substr(0, static_cast<std::size_t>(max_width));
+            }
+        }
+
+        mvwprintw(text_win, index, 0, "%s", visible_text.c_str());
+    }
+
+    wnoutrefresh(win);
+    wnoutrefresh(text_win);
+
+    pthread_mutex_unlock(&screen_mutex);
+}
+
 void U2_window::box_window() {
     pthread_mutex_lock(&screen_mutex);
     box(win, 0, 0);
+    mvwprintw(win, 0, 2, " %s ", window_title.c_str());
     wrefresh(win);
     pthread_mutex_unlock(&screen_mutex);
 }
 
 void U2_window::clear_window() {
     pthread_mutex_lock(&screen_mutex);
-    wclear(text_win);
-    wrefresh(text_win);
+    werase(win);
+    box(win, 0, 0);
+    mvwprintw(win, 0, 2, " %s ", window_title.c_str());
+    werase(text_win);
+    wnoutrefresh(win);
+    wnoutrefresh(text_win);
     pthread_mutex_unlock(&screen_mutex);
 }

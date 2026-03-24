@@ -44,11 +44,13 @@ transcript: $(TARGET)
 
 test: $(TARGET)
 	@./$(TARGET) --transcript-only --output-file "$(OUTPUT_FILE)" > $(TEST_OUTPUT)
+	@grep -F -- "Scheduler purpose: manage the dynamic process table and choose the next READY task to run." "$(OUTPUT_FILE)" >/dev/null
 	@grep -F -- "--- INITIAL SYSTEM STATE ---" "$(OUTPUT_FILE)" >/dev/null
 	@grep -F -- "--- MID-EXECUTION STATE DUMP (Proving Queueing) ---" "$(OUTPUT_FILE)" >/dev/null
-	@grep -E -- "Task_A[[:space:]]+1[[:space:]]+(Running|Ready)" "$(OUTPUT_FILE)" >/dev/null
-	@grep -E -- "Task_B[[:space:]]+2[[:space:]]+Blocked" "$(OUTPUT_FILE)" >/dev/null
-	@grep -E -- "Task_C[[:space:]]+3[[:space:]]+Blocked" "$(OUTPUT_FILE)" >/dev/null
+	@grep -F -- "FLOW: Task_A -> Task_B BLOCKED -> Task_C BLOCKED" "$(OUTPUT_FILE)" >/dev/null
+	@grep -E -- "Task_A[[:space:]]+1[[:space:]]+(RUNNING|READY)" "$(OUTPUT_FILE)" >/dev/null
+	@grep -E -- "Task_B[[:space:]]+2[[:space:]]+BLOCKED" "$(OUTPUT_FILE)" >/dev/null
+	@grep -E -- "Task_C[[:space:]]+3[[:space:]]+BLOCKED" "$(OUTPUT_FILE)" >/dev/null
 	@grep -F -- "Sema_value:  0" "$(OUTPUT_FILE)" >/dev/null
 	@grep -F -- "Sema_queue:  T-2 --> T-3" "$(OUTPUT_FILE)" >/dev/null
 	@grep -F -- "[Task_B] acquired Printer_Output." "$(OUTPUT_FILE)" >/dev/null
