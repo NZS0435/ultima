@@ -22,3 +22,6 @@ ultima_os
 
 # Local caches
 tmp/
+
+# macOS Finder
+.DS_Store
