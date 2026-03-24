@@ -43,7 +43,7 @@ void U2_window::write_text(const char* text) {
     // Critical Section
     pthread_mutex_lock(&screen_mutex);
 
-    wprintw(win, text);
+    wprintw(win, "%s", text);
     box(win, 0, 0); // Restore borders in case text overwrote them
     mvwprintw(win, 0, 2, " %s ", window_title.c_str());
     wrefresh(win);
@@ -55,7 +55,7 @@ void U2_window::write_text_at(int y, int x, const char* text) {
     // Critical Section
     pthread_mutex_lock(&screen_mutex);
 
-    mvwprintw(win, y, x, text);
+    mvwprintw(win, y, x, "%s", text);
     box(win, 0, 0);
     mvwprintw(win, 0, 2, " %s ", window_title.c_str());
     wrefresh(win);
@@ -63,9 +63,28 @@ void U2_window::write_text_at(int y, int x, const char* text) {
     pthread_mutex_unlock(&screen_mutex);
 }
 
+void U2_window::draw_lines(const std::vector<std::string>& lines) {
+    pthread_mutex_lock(&screen_mutex);
+
+    werase(win);
+    box(win, 0, 0);
+    mvwprintw(win, 0, 2, " %s ", window_title.c_str());
+
+    const int max_rows = inner_height();
+    const int max_cols = (w > 2) ? (w - 2) : 0;
+
+    for (int row = 0; row < max_rows && row < static_cast<int>(lines.size()); ++row) {
+        mvwaddnstr(win, row + 1, 1, lines[static_cast<std::size_t>(row)].c_str(), max_cols);
+    }
+
+    wrefresh(win);
+    pthread_mutex_unlock(&screen_mutex);
+}
+
 void U2_window::box_window() {
     pthread_mutex_lock(&screen_mutex);
     box(win, 0, 0);
+    mvwprintw(win, 0, 2, " %s ", window_title.c_str());
     wrefresh(win);
     pthread_mutex_unlock(&screen_mutex);
 }
@@ -77,4 +96,8 @@ void U2_window::clear_window() {
     mvwprintw(win, 0, 2, " %s ", window_title.c_str());
     wrefresh(win);
     pthread_mutex_unlock(&screen_mutex);
+}
+
+int U2_window::inner_height() const {
+    return (h > 2) ? (h - 2) : 0;
 }

@@ -1,147 +1,429 @@
 #include "Sched.h"
-#include <iostream>
-#include <iomanip>
 
-Scheduler::Scheduler() {
-    next_task_id = 1;
-    current_task_it = process_table.end();
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+
+namespace {
+
+std::string format_task_label(const TCB* task) {
+    if (task == nullptr) {
+        return "[none]";
+    }
+
+    std::ostringstream label_stream;
+    label_stream << task->task_name << " (T-" << task->task_id << ")";
+    return label_stream.str();
 }
+
+} // namespace
+
+Scheduler::Scheduler() :
+    current_running_task(-1),
+    next_task_id(1),
+    dispatch_in_progress(false),
+    scheduler_tick(0),
+    last_scheduler_event("Scheduler initialized.") {}
 
 Scheduler::~Scheduler() {
-    // Clean up dynamically allocated memory upon teardown
-    for (auto* tcb : process_table) {
-        delete tcb;
-    }
-    process_table.clear();
+    reset();
 }
 
-int Scheduler::create_task(const char* task_name) {
-    // Dynamically allocate new TCB and insert into our scheduling ring
-    TCB* new_task = new TCB(next_task_id++, std::string(task_name));
-    process_table.push_back(new_task);
-
-    // If this is the very first task, set our iterator to it
-    if (process_table.size() == 1) {
-        current_task_it = process_table.begin();
-    }
-
-    return new_task->task_id;
-}
-
-void Scheduler::kill_task(int t_id) {
-    // Find the task and set its status to DEAD (actual removal happens in GC)
-    for (auto* tcb : process_table) {
-        if (tcb->task_id == t_id) {
-            tcb->state = DEAD;
-            break;
-        }
-    }
-}
-
-void Scheduler::yield() {
-    if (process_table.empty()) return;
-
-    // 1. Current task yields - if it was running, it is now just ready
-    if (current_task_it != process_table.end() && (*current_task_it)->state == RUNNING) {
-        (*current_task_it)->state = READY;
-    }
-
-    // 2. Strict round robin process switch
-    auto start_it = current_task_it;
-    bool found_next = false;
-
-    do {
-        // Advance iterator, wrap around to the beginning if we hit the end
-        if (current_task_it != process_table.end()) {
-            ++current_task_it;
-        }
-        if (current_task_it == process_table.end()) {
-            current_task_it = process_table.begin();
-        }
-
-        // Look for the next task that is READY to run
-        if ((*current_task_it)->state == READY) {
-            (*current_task_it)->state = RUNNING;
-            found_next = true;
-            break;
-        }
-    } while (current_task_it != start_it);
-
-    // Edge Case: If no other task is READY, but the yielding task is still READY,
-    // let it immediately resume running.
-    if (!found_next && (*start_it)->state == READY) {
-         (*start_it)->state = RUNNING;
-         current_task_it = start_it;
-    }
-}
-
-void Scheduler::garbage_collect() {
-    // Remove dead tasks, free their resources, etc.
-    auto it = process_table.begin();
-    while (it != process_table.end()) {
-        if ((*it)->state == DEAD) {
-            // Protect our current tracker from becoming a dangling pointer
-            if (it == current_task_it) {
-                current_task_it = process_table.end();
-            }
-            delete *it;
-            it = process_table.erase(it);
-        } else {
-            ++it;
+int Scheduler::find_task_index(int task_id) const {
+    for (std::size_t index = 0; index < process_table.size(); ++index) {
+        if (process_table[index] != nullptr && process_table[index]->task_id == task_id) {
+            return static_cast<int>(index);
         }
     }
 
-    // Re-calibrate the tracker if the list shifted
-    if (current_task_it == process_table.end() && !process_table.empty()) {
-         current_task_it = process_table.begin();
-    }
-}
-
-void Scheduler::dump(int level) {
-    // Debugging function that visually matches the "Sample Process Table Dump"
-    std::cout << "\nTask Name\tTask ID\t\tState\t\tetc.\n";
-    std::cout << "------------------------------------------------------------\n";
-
-    for (auto* tcb : process_table) {
-        std::string state_str;
-        switch (tcb->state) {
-            case RUNNING: state_str = "Running"; break;
-            case READY:   state_str = "Ready";   break;
-            case BLOCKED: state_str = "Blocked"; break;
-            case DEAD:    state_str = "Dead";    break;
-        }
-
-        // Formatted to exactly match the PDF specification
-        std::cout << std::left << std::setw(16) << tcb->task_name
-                  << std::setw(16) << tcb->task_id
-                  << std::setw(16) << state_str << "\n";
-    }
-    std::cout << "------------------------------------------------------------\n";
-}
-
-// --- Hooks for Semaphore Management ---
-
-int Scheduler::get_current_task_id() {
-    if (current_task_it != process_table.end()) {
-        return (*current_task_it)->task_id;
-    }
     return -1;
 }
 
-void Scheduler::block_current_task() {
-    // Used by Semaphore down() to block a task instead of busy-waiting
-    if (current_task_it != process_table.end()) {
-        (*current_task_it)->state = BLOCKED;
-        yield(); // Immediately force a context switch
+int Scheduler::find_next_ready_index() const {
+    if (process_table.empty()) {
+        return -1;
+    }
+
+    const int task_count = static_cast<int>(process_table.size());
+    const int start_index = (current_running_task >= 0)
+        ? (current_running_task + 1) % task_count
+        : 0;
+
+    for (int offset = 0; offset < task_count; ++offset) {
+        const int candidate_index = (start_index + offset) % task_count;
+        const TCB* candidate = process_table[static_cast<std::size_t>(candidate_index)];
+        if (candidate != nullptr && candidate->task_state == READY) {
+            return candidate_index;
+        }
+    }
+
+    return -1;
+}
+
+const char* Scheduler::state_to_string(State state) {
+    switch (state) {
+        case RUNNING:
+            return "RUNNING";
+        case READY:
+            return "READY";
+        case BLOCKED:
+            return "BLOCKED";
+        case DEAD:
+            return "DEAD";
+        default:
+            return "UNKNOWN";
     }
 }
 
-void Scheduler::unblock_task(int t_id) {
-    // Used by Semaphore up() to wake a task up
-    for (auto* tcb : process_table) {
-        if (tcb->task_id == t_id && tcb->state == BLOCKED) {
-            tcb->state = READY;
-            break;
+void Scheduler::reset() {
+    for (TCB* task : process_table) {
+        delete task;
+    }
+
+    process_table.clear();
+    current_running_task = -1;
+    next_task_id = 1;
+    dispatch_in_progress = false;
+    scheduler_tick = 0;
+    last_scheduler_event = "Scheduler reset; process table cleared.";
+}
+
+int Scheduler::create_task(const char* task_name, TaskEntryPoint func_ptr) {
+    const std::string safe_name = (task_name != nullptr) ? task_name : "Unnamed_Task";
+    TCB* new_task = new TCB(next_task_id++, safe_name, func_ptr);
+    process_table.push_back(new_task);
+
+    std::ostringstream event_stream;
+    event_stream << "Created " << format_task_label(new_task) << ".";
+    last_scheduler_event = event_stream.str();
+    return new_task->task_id;
+}
+
+void Scheduler::kill_task(int task_id) {
+    const int task_index = find_task_index(task_id);
+    if (task_index < 0) {
+        return;
+    }
+
+    TCB* task = process_table[static_cast<std::size_t>(task_index)];
+    task->task_state = DEAD;
+    task->last_transition = "Entered DEAD state.";
+
+    std::ostringstream event_stream;
+    event_stream << "Marked " << format_task_label(task) << " DEAD.";
+    last_scheduler_event = event_stream.str();
+}
+
+void Scheduler::yield() {
+    if (process_table.empty()) {
+        last_scheduler_event = "Yield requested with an empty process table.";
+        return;
+    }
+
+    if (current_running_task >= 0
+        && current_running_task < static_cast<int>(process_table.size())) {
+        TCB* current_task = process_table[static_cast<std::size_t>(current_running_task)];
+        if (current_task != nullptr && current_task->task_state == RUNNING) {
+            current_task->task_state = READY;
+            ++current_task->yield_count;
+            current_task->last_transition = "Yielded CPU and returned to READY.";
         }
     }
+
+    const int next_ready_index = find_next_ready_index();
+    if (next_ready_index < 0) {
+        current_running_task = -1;
+        last_scheduler_event = "No READY tasks were available to dispatch.";
+        return;
+    }
+
+    current_running_task = next_ready_index;
+    TCB* next_task = process_table[static_cast<std::size_t>(next_ready_index)];
+    next_task->task_state = RUNNING;
+    ++next_task->dispatch_count;
+    ++scheduler_tick;
+
+    std::ostringstream transition_stream;
+    transition_stream << "Entered RUNNING at scheduler tick " << scheduler_tick << ".";
+    next_task->last_transition = transition_stream.str();
+
+    std::ostringstream event_stream;
+    event_stream << "Dispatching " << format_task_label(next_task)
+                 << " at tick " << scheduler_tick << ".";
+    last_scheduler_event = event_stream.str();
+
+    if (next_task->task_entry == nullptr) {
+        return;
+    }
+
+    const bool was_dispatching = dispatch_in_progress;
+    dispatch_in_progress = true;
+    next_task->task_entry();
+    dispatch_in_progress = was_dispatching;
+}
+
+void Scheduler::garbage_collect() {
+    bool removed_any_dead_tasks = false;
+
+    for (std::size_t index = 0; index < process_table.size();) {
+        TCB* task = process_table[index];
+        if (task != nullptr && task->task_state == DEAD) {
+            delete task;
+            process_table.erase(process_table.begin() + static_cast<std::ptrdiff_t>(index));
+            removed_any_dead_tasks = true;
+
+            if (current_running_task == static_cast<int>(index)) {
+                current_running_task = -1;
+            } else if (current_running_task > static_cast<int>(index)) {
+                --current_running_task;
+            }
+            continue;
+        }
+
+        ++index;
+    }
+
+    if (process_table.empty()) {
+        current_running_task = -1;
+    }
+
+    last_scheduler_event = removed_any_dead_tasks
+        ? "Garbage collection removed DEAD tasks from the process table."
+        : "Garbage collection found no DEAD tasks.";
+}
+
+void Scheduler::block_task(int task_id) {
+    const int task_index = find_task_index(task_id);
+    if (task_index < 0) {
+        return;
+    }
+
+    TCB* task = process_table[static_cast<std::size_t>(task_index)];
+    if (task->task_state == DEAD || task->task_state == BLOCKED) {
+        return;
+    }
+
+    task->task_state = BLOCKED;
+    ++task->block_count;
+    task->last_transition = "Entered BLOCKED state.";
+
+    std::ostringstream event_stream;
+    event_stream << "Blocked " << format_task_label(task) << ".";
+    last_scheduler_event = event_stream.str();
+}
+
+void Scheduler::unblock_task(int task_id) {
+    const int task_index = find_task_index(task_id);
+    if (task_index < 0) {
+        return;
+    }
+
+    TCB* task = process_table[static_cast<std::size_t>(task_index)];
+    if (task->task_state != BLOCKED) {
+        return;
+    }
+
+    task->task_state = READY;
+    ++task->unblock_count;
+    task->last_transition = "Woken from BLOCKED and returned to READY.";
+
+    std::ostringstream event_stream;
+    event_stream << "Unblocked " << format_task_label(task) << ".";
+    last_scheduler_event = event_stream.str();
+}
+
+void Scheduler::dump(int level) const {
+    std::cout << "Scheduler Dump\n";
+    std::cout << "==============\n";
+    std::cout << "Tick: " << scheduler_tick << '\n';
+    std::cout << "Current Task: " << get_current_task_id() << '\n';
+    std::cout << "Last Event: " << last_scheduler_event << '\n';
+    std::cout << "Run Queue: " << describe_run_queue() << "\n\n";
+
+    std::cout << std::left
+              << std::setw(8) << "Task ID"
+              << std::setw(16) << "Name"
+              << std::setw(10) << "State"
+              << std::setw(8) << "Run"
+              << std::setw(8) << "Yield"
+              << std::setw(8) << "Block"
+              << std::setw(8) << "Wake"
+              << "Details\n";
+    std::cout << "--------------------------------------------------------------------------\n";
+
+    for (const TCB* task : process_table) {
+        std::cout << std::left
+                  << std::setw(8) << task->task_id
+                  << std::setw(16) << task->task_name
+                  << std::setw(10) << state_to_string(task->task_state)
+                  << std::setw(8) << task->dispatch_count
+                  << std::setw(8) << task->yield_count
+                  << std::setw(8) << task->block_count
+                  << std::setw(8) << task->unblock_count
+                  << task->detail_note
+                  << '\n';
+
+        if (level > 0) {
+            std::cout << "         Last transition: " << task->last_transition << '\n';
+        }
+    }
+
+    std::cout << '\n';
+}
+
+int Scheduler::get_current_task_id() const {
+    if (current_running_task < 0
+        || current_running_task >= static_cast<int>(process_table.size())) {
+        return -1;
+    }
+
+    const TCB* task = process_table[static_cast<std::size_t>(current_running_task)];
+    return (task != nullptr) ? task->task_id : -1;
+}
+
+int Scheduler::get_active_task_count() const {
+    int count = 0;
+    for (const TCB* task : process_table) {
+        if (task != nullptr && task->task_state != DEAD) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+int Scheduler::get_ready_task_count() const {
+    int count = 0;
+    for (const TCB* task : process_table) {
+        if (task != nullptr && task->task_state == READY) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+int Scheduler::get_blocked_task_count() const {
+    int count = 0;
+    for (const TCB* task : process_table) {
+        if (task != nullptr && task->task_state == BLOCKED) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+int Scheduler::get_dead_task_count() const {
+    int count = 0;
+    for (const TCB* task : process_table) {
+        if (task != nullptr && task->task_state == DEAD) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+bool Scheduler::has_active_tasks() const {
+    return get_active_task_count() > 0;
+}
+
+bool Scheduler::is_task_blocked(int task_id) const {
+    return get_task_state(task_id) == BLOCKED;
+}
+
+void Scheduler::block_current_task() {
+    const int task_id = get_current_task_id();
+    if (task_id < 0) {
+        return;
+    }
+
+    block_task(task_id);
+}
+
+State Scheduler::get_task_state(int task_id) const {
+    const int task_index = find_task_index(task_id);
+    if (task_index < 0) {
+        return DEAD;
+    }
+
+    return process_table[static_cast<std::size_t>(task_index)]->task_state;
+}
+
+const char* Scheduler::get_task_state_name(int task_id) const {
+    return state_to_string(get_task_state(task_id));
+}
+
+std::string Scheduler::get_task_name(int task_id) const {
+    const int task_index = find_task_index(task_id);
+    if (task_index < 0) {
+        return "[Unknown Task]";
+    }
+
+    return process_table[static_cast<std::size_t>(task_index)]->task_name;
+}
+
+void Scheduler::set_task_note(int task_id, const std::string& note) {
+    const int task_index = find_task_index(task_id);
+    if (task_index < 0) {
+        return;
+    }
+
+    process_table[static_cast<std::size_t>(task_index)]->detail_note = note;
+}
+
+std::vector<TaskSnapshot> Scheduler::snapshot_tasks() const {
+    std::vector<TaskSnapshot> snapshots;
+    snapshots.reserve(process_table.size());
+
+    for (const TCB* task : process_table) {
+        if (task == nullptr) {
+            continue;
+        }
+
+        snapshots.push_back(TaskSnapshot {
+            task->task_id,
+            task->task_name,
+            task->task_state,
+            task->dispatch_count,
+            task->yield_count,
+            task->block_count,
+            task->unblock_count,
+            task->detail_note,
+            task->last_transition
+        });
+    }
+
+    return snapshots;
+}
+
+std::string Scheduler::describe_run_queue() const {
+    if (process_table.empty()) {
+        return "[empty]";
+    }
+
+    std::ostringstream queue_stream;
+    bool wrote_any_task = false;
+
+    for (const TCB* task : process_table) {
+        if (task == nullptr || task->task_state == DEAD) {
+            continue;
+        }
+
+        if (wrote_any_task) {
+            queue_stream << " -> ";
+        }
+
+        queue_stream << task->task_name
+                     << "(T-" << task->task_id << ", "
+                     << state_to_string(task->task_state) << ")";
+        wrote_any_task = true;
+    }
+
+    return wrote_any_task ? queue_stream.str() : "[empty]";
+}
+
+int Scheduler::get_scheduler_tick() const {
+    return scheduler_tick;
+}
+
+std::string Scheduler::get_last_scheduler_event() const {
+    return last_scheduler_event;
 }

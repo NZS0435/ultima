@@ -2,8 +2,9 @@
 #define U2_WINDOW_H
 
 #include <ncurses.h>
-#include <string>
 #include <pthread.h>
+#include <string>
+#include <vector>
 
 class U2_window {
 private:
@@ -27,8 +28,10 @@ public:
     void render();
     void write_text(const char* text);
     void write_text_at(int y, int x, const char* text);
+    void draw_lines(const std::vector<std::string>& lines);
     void box_window();
     void clear_window();
+    int inner_height() const;
 
     // Accessor
     WINDOW* get_win_ptr() const { return win; }

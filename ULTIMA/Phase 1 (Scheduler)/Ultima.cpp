@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 #include "platform_curses.h"
-#include "Sched.h"
+#include "U2_Scheduler.h"
 #include "Sema.h"
 #include "U2_UI.h"
 #include "U2_Window.h"
@@ -23,7 +23,7 @@
  */
 
 Scheduler sys_scheduler;
-Semaphore printer_semaphore("Printer_Output", 1);
+Semaphore printer_semaphore("Printer_Output", 1, &sys_scheduler);
 U2_ui ui_manager;
 
 U2_window* header_window = nullptr;
@@ -171,8 +171,9 @@ std::string state_to_text(State state) {
             return "BLOCKED";
         case DEAD:
             return "DEAD";
+        default:
+            return "UNKNOWN";
     }
-    return "UNKNOWN";
 }
 
 void push_bounded_line(std::vector<std::string>& lines, const std::string& line, std::size_t max_lines) {
