@@ -947,17 +947,19 @@ int main(int argc, char* argv[]) {
 
         if (!build_layout(current_layout)) {
             ui_manager.close_ncurses_env();
-            std::cerr << "Resize the terminal to at least "
+            transcript_only_mode = true;
+            std::cerr << "Terminal surface is smaller than "
                       << kMinimumTerminalCols
                       << " columns by "
                       << kMinimumTerminalRows
-                      << " rows and rerun ultima_os."
+                      << " rows; falling back to transcript-only mode."
                       << std::endl;
-            return 1;
         }
 
-        create_windows();
-        sync_visuals();
+        if (!transcript_only_mode) {
+            create_windows();
+            sync_visuals();
+        }
     }
 
     do {
