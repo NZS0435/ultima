@@ -131,7 +131,7 @@ bool build_layout(WindowLayout& layout) {
         constexpr int compact_margin = 0;
         constexpr int compact_gap = 0;
         constexpr int compact_header_height = 4;
-        const int remaining_height = LINES - compact_header_height - (compact_gap * 2);
+        const int remaining_height = LINES -  - (compact_gap * 2);
         const int panel_height = remaining_height / 3;
         const int panel_remainder = remaining_height - (panel_height * 3);
 
