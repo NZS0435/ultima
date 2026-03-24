@@ -150,7 +150,7 @@ bool build_layout(WindowLayout& layout) {
     layout.task_x_right = layout.class_x_right;
 
     const int bottom_width = COLS - (kHorizontalMargin * 2) - kHorizontalGap;
-    layout.console_width = std::clamp(bottom_width / 4, 28, 34);
+    layout.console_width = std::max(28, std::min(bottom_width / 4, 34));
     layout.log_width = bottom_width - layout.console_width;
     layout.log_x = kHorizontalMargin;
     layout.console_x = layout.log_x + layout.log_width + kHorizontalGap;
