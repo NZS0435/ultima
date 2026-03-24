@@ -32,6 +32,7 @@ public:
     void box_window();
     void clear_window();
     int inner_height() const;
+    int inner_width() const;
 
     // Accessor
     WINDOW* get_win_ptr() const { return win; }

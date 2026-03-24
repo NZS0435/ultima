@@ -243,6 +243,110 @@ std::string format_task_id(int task_id) {
     return (task_id >= 0) ? "T-" + std::to_string(task_id) : "[not created]";
 }
 
+bool use_compact_panels() {
+    return current_layout.class_width_left <= 28 || current_layout.console_width <= 22;
+}
+
+std::size_t panel_text_limit(int panel_width) {
+    return static_cast<std::size_t>(std::max(8, panel_width - 4));
+}
+
+std::string abbreviate_text(const std::string& text, std::size_t limit) {
+    if (text.size() <= limit) {
+        return text;
+    }
+
+    if (limit <= 3) {
+        return text.substr(0, limit);
+    }
+
+    return text.substr(0, limit - 3) + "...";
+}
+
+std::string compact_state_text(State state) {
+    switch (state) {
+        case RUNNING:
+            return "RUN";
+        case READY:
+            return "RDY";
+        case BLOCKED:
+            return "BLK";
+        case DEAD:
+            return "DED";
+        default:
+            return "UNK";
+    }
+}
+
+std::string compact_scheduler_queue() {
+    const std::vector<TaskSnapshot> snapshots = sys_scheduler.snapshot_tasks();
+    std::ostringstream queue_stream;
+    bool wrote_any_task = false;
+
+    for (const TaskSnapshot& snapshot : snapshots) {
+        if (snapshot.task_state == DEAD) {
+            continue;
+        }
+
+        if (wrote_any_task) {
+            queue_stream << ">";
+        }
+
+        queue_stream << format_task_id(snapshot.task_id) << ":" << compact_state_text(snapshot.task_state);
+        wrote_any_task = true;
+    }
+
+    return wrote_any_task ? queue_stream.str() : "[empty]";
+}
+
+std::string compact_scheduler_event() {
+    const std::string event = sys_scheduler.get_last_scheduler_event();
+    const int task_id = sys_scheduler.get_current_task_id();
+
+    if (event.find("Dispatching") != std::string::npos) {
+        return "dispatch " + format_task_id(task_id);
+    }
+    if (event.find("Blocked") != std::string::npos) {
+        return "blocked task";
+    }
+    if (event.find("Unblocked") != std::string::npos) {
+        return "woke waiter";
+    }
+    if (event.find("Marked") != std::string::npos) {
+        return "marked dead";
+    }
+    if (event.find("Created") != std::string::npos) {
+        return "created task";
+    }
+    if (event.find("Garbage collection") != std::string::npos) {
+        return "garbage collect";
+    }
+
+    return event;
+}
+
+std::string compact_semaphore_transition() {
+    const std::string transition = printer_semaphore.get_last_transition();
+    if (transition.find("queued") != std::string::npos) {
+        return "queued waiter";
+    }
+    if (transition.find("woke") != std::string::npos) {
+        return "woke waiter";
+    }
+    if (transition.find("available") != std::string::npos) {
+        return "resource free";
+    }
+    if (transition.find("acquired") != std::string::npos) {
+        return "resource owned";
+    }
+
+    return transition;
+}
+
+std::string latest_history_line(const std::vector<std::string>& history) {
+    return history.empty() ? "Awaiting first event." : history.back();
+}
+
 std::string format_owner_label() {
     const int owner_task_id = printer_semaphore.get_owner_task_id();
     if (owner_task_id < 0) {
@@ -271,6 +375,14 @@ void render_header() {
         return;
     }
 
+    if (use_compact_panels()) {
+        header_window->draw_lines({
+            "Phase 1: scheduler + semaphore",
+            "Cycle " + std::to_string(demo_cycle_number) + " | " + latest_flow_summary
+        });
+        return;
+    }
+
     header_window->draw_lines({
         "ULTIMA 2.0 / Phase 1 - Scheduler and Semaphore",
         "Purpose: the scheduler scans READY tasks, dispatches one RUNNING task, and keeps BLOCKED tasks off the CPU.",
@@ -285,6 +397,20 @@ void render_scheduler_panel() {
     }
 
     const std::vector<TaskSnapshot> snapshots = sys_scheduler.snapshot_tasks();
+    if (use_compact_panels()) {
+        scheduler_window->draw_lines({
+            "Round robin READY scan",
+            "Now " + format_task_id(sys_scheduler.get_current_task_id()) + " | tk " + std::to_string(sys_scheduler.get_scheduler_tick()),
+            "R" + std::to_string(sys_scheduler.get_ready_task_count())
+                + " B" + std::to_string(sys_scheduler.get_blocked_task_count())
+                + " D" + std::to_string(sys_scheduler.get_dead_task_count())
+                + " A" + std::to_string(sys_scheduler.get_active_task_count()),
+            "Q " + abbreviate_text(compact_scheduler_queue(), panel_text_limit(current_layout.class_width_left)),
+            "Last " + abbreviate_text(compact_scheduler_event(), panel_text_limit(current_layout.class_width_left))
+        });
+        return;
+    }
+
     std::vector<std::string> lines {
         "Purpose: select the next READY task with strict round robin.",
         "Current: " + format_task_id(sys_scheduler.get_current_task_id()) + " | Tick: " + std::to_string(sys_scheduler.get_scheduler_tick()),
@@ -318,6 +444,23 @@ void render_semaphore_panel() {
         return;
     }
 
+    if (use_compact_panels()) {
+        semaphore_window->draw_lines({
+            "Protects Printer_Output",
+            "Val " + std::to_string(printer_semaphore.get_sema_value())
+                + " | Own "
+                + (printer_semaphore.get_owner_task_id() >= 0 ? format_task_id(printer_semaphore.get_owner_task_id()) : "--"),
+            "Wait " + std::to_string(printer_semaphore.waiting_task_count())
+                + " | "
+                + abbreviate_text(printer_semaphore.describe_wait_queue(), panel_text_limit(current_layout.class_width_middle)),
+            "d" + std::to_string(printer_semaphore.get_down_operations())
+                + " u" + std::to_string(printer_semaphore.get_up_operations())
+                + " c" + std::to_string(printer_semaphore.get_contention_events()),
+            "Last " + abbreviate_text(compact_semaphore_transition(), panel_text_limit(current_layout.class_width_middle))
+        });
+        return;
+    }
+
     std::ostringstream value_stream;
     value_stream << "Value: " << printer_semaphore.get_sema_value()
                  << (printer_semaphore.get_sema_value() == 1 ? " (AVAILABLE)" : " (BUSY)");
@@ -341,6 +484,17 @@ void render_semaphore_panel() {
 
 void render_state_panel() {
     if (state_window == nullptr) {
+        return;
+    }
+
+    if (use_compact_panels()) {
+        state_window->draw_lines({
+            "READY>RUN>BLK>READY>DEAD",
+            "UI lock: pthread mutex",
+            "FIFO semaphore queue",
+            "Flow proof:",
+            abbreviate_text(latest_flow_summary, panel_text_limit(current_layout.class_width_right))
+        });
         return;
     }
 
@@ -368,9 +522,19 @@ std::vector<std::string> build_task_panel_lines(
     const std::vector<TaskSnapshot>& snapshots,
     const std::string& role,
     int task_id,
-    const std::vector<std::string>& history
+    const std::vector<std::string>& history,
+    int panel_width
 ) {
     const TaskSnapshot* snapshot = find_snapshot(snapshots, task_id);
+    if (use_compact_panels()) {
+        return {
+            abbreviate_text(role, panel_text_limit(panel_width)),
+            "ID " + format_task_id(task_id) + " | " + (snapshot != nullptr ? compact_state_text(snapshot->task_state) : "NEW"),
+            abbreviate_text(snapshot != nullptr ? snapshot->detail_note : "Awaiting creation.", panel_text_limit(panel_width)),
+            "Latest:",
+            abbreviate_text(latest_history_line(history), panel_text_limit(panel_width))
+        };
+    }
 
     std::vector<std::string> lines {
         "Role: " + role,
@@ -403,24 +567,39 @@ void render_task_panels() {
         snapshots,
         "First claimant / holds Printer_Output for one quantum.",
         task_a_id,
-        task_a_history
+        task_a_history,
+        current_layout.task_width_left
     ));
     task_window_b->draw_lines(build_task_panel_lines(
         snapshots,
         "Second claimant / should block behind Task_A.",
         task_b_id,
-        task_b_history
+        task_b_history,
+        current_layout.task_width_middle
     ));
     task_window_c->draw_lines(build_task_panel_lines(
         snapshots,
         "Third claimant / should block behind Task_B.",
         task_c_id,
-        task_c_history
+        task_c_history,
+        current_layout.task_width_right
     ));
 }
 
 void render_console() {
     if (console_window == nullptr) {
+        return;
+    }
+
+    if (use_compact_panels()) {
+        console_window->draw_lines({
+            "d dump | h help",
+            "p pause | q stop",
+            "Cycle " + std::to_string(demo_cycle_number),
+            "A" + std::to_string(sys_scheduler.get_active_task_count())
+                + " W" + std::to_string(printer_semaphore.waiting_task_count()),
+            abbreviate_text(console_status, panel_text_limit(current_layout.console_width))
+        });
         return;
     }
 
