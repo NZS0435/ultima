@@ -26,6 +26,7 @@ U2_window::U2_window(int height, int width, int starty, int startx, const std::s
     // Print title nicely at the top of the box border
     mvwprintw(win, 0, 2, " %s ", window_title.c_str());
 
+    // derwin instead of subwin, relative coordinates are easier to work with here
     text_win = derwin(win, h - 2, w - 2, 1, 1);
     if (scroll_enabled) {
         scrollok(text_win, TRUE);
@@ -36,6 +37,7 @@ U2_window::U2_window(int height, int width, int starty, int startx, const std::s
     pthread_mutex_unlock(&screen_mutex);
 }
 
+// deconstructor
 U2_window::~U2_window() {
     pthread_mutex_lock(&screen_mutex);
     delwin(text_win);
