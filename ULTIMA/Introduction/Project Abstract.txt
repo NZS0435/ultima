@@ -1,10 +1,1 @@
-Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg
-Phase Label: Phase 1 - Scheduler and Semaphore
-
-ULTIMA 2.0: Project Abstract
-
-The ULTIMA 2.0 project focuses on the iterative design and implementation of a cooperative (non-preemptive) multitasking operating system. Initially provided as a rudimentary framework lacking fundamental process management and resource synchronization, the objective of this ongoing development is to engineer a fully functional, multi-tasking environment from the ground up.
-
-In its first developmental phase, the architectural core was established by integrating a dynamic Task Control Block (TCB) infrastructure and a centralized scheduler. This scheduler actively dictates thread execution states—specifically RUNNING, READY, BLOCKED, and DEAD—while utilizing round-robin context switching to share CPU time. To guarantee mutual exclusion and prevent race conditions over shared I/O resources, a binary semaphore mechanism was introduced.
-
-Crucially, the semaphore implementation avoids inefficient busy-waiting loops. Instead, it utilizes dynamically allocated queue structures to track resource contention. When a process attempts to claim an unavailable resource, the semaphore interfaces directly with the scheduler to forcibly transition the task into a BLOCKED state. Upon resource release, the system systematically dequeues the next waiting task and promotes it back to a READY state. This synchronization model ensures safe, deterministic resource allocation and establishes the stable operational baseline necessary for upcoming integrations, such as memory management, inter-process communication, and file system administration.
+Placeholder for Project Abstract.docx

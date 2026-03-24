@@ -1,10 +1,1 @@
-Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg
-Phase Label: Phase 1 - Scheduler and Semaphore
-
-Phase 1: Scheduler and Semaphore
-
-Phase Abstract
-
-ULTIMA 2.0 requires a reliable foundation for process management and shared-resource coordination. In Phase 1, we implemented a dynamic Task Control Block (TCB) table, a strict round-robin cooperative scheduler, and a binary semaphore that can guard a shared operating system resource such as a printer or screen device. The scheduler tracks each task in one of the required four states: RUNNING, READY, BLOCKED, or DEAD. During execution, task creation inserts TCB records into the process table, yield() rotates execution through READY tasks, kill_task() marks completed tasks as DEAD, and garbage_collect() removes dead entries after the demonstration finishes. Each TCB now also records dispatch counts, yields, block/wake counts, and a live note describing what the task is doing so the dump() output tells the full story of the run.
-
-The semaphore is integrated directly with the scheduler so the system never relies on busy waiting. When a task calls down() on a busy resource, the task is pushed into the semaphore queue and transitioned to BLOCKED. When the active owner releases the resource with up(), the next queued task is moved back to READY and eventually resumes under round-robin scheduling. The Phase 1 terminal demo now uses the full terminal to show dedicated windows for the Scheduler class, Semaphore class, state/race-condition proof, Task_A, Task_B, Task_C, a large output log, and a control/status panel. The display runs continuously in interactive mode, slows each step down for visibility, and uses a pthread mutex to keep the ncurses output deterministic and race free while screenshots and narrated walkthroughs are captured.
+Placeholder for Phase 1 Abstract.docx

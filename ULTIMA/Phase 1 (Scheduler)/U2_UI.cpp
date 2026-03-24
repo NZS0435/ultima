@@ -1,15 +1,5 @@
-/* Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg */
-/* Phase Label: Phase 1 - Scheduler and Semaphore */
-
 #include "U2_UI.h"
-#include "platform_curses.h"
-#include <clocale>
-
-/**
- * ULTIMA 2.0 - Phase 1
- * Designed by: NICHOLAS KOBS
- */
-
+#include <ncurses.h>
 
 U2_ui::U2_ui() {
     // Left empty, environment initialization separated to init_ncurses_env()
@@ -24,13 +14,9 @@ U2_ui::~U2_ui() {
 }
 
 void U2_ui::init_ncurses_env() {
-    setlocale(LC_ALL, "");
     initscr();
     cbreak();
     noecho();
-    keypad(stdscr, TRUE);
-    nodelay(stdscr, FALSE);
-    curs_set(0);
 
     // Set up standard colors matching Lab 4 parameters
     start_color();
@@ -67,8 +53,6 @@ void U2_ui::refresh_all() {
     for (auto* win : window_list) {
         win->render();
     }
-    // Final update to physical screen
-    doupdate();
 }
 
 void U2_ui::clear_all() {

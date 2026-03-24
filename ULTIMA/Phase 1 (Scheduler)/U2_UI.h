@@ -1,16 +1,8 @@
-/* Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg */
-/* Phase Label: Phase 1 - Scheduler and Semaphore */
-
 #ifndef U2_UI_H
 #define U2_UI_H
 
 #include "U2_Window.h"
 #include <list>
-
-/**
- * ULTIMA 2.0 - Phase 1
- * Designed by: NICHOLAS KOBS
- */
 
 class U2_ui {
 private:
