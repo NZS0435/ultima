@@ -38,8 +38,8 @@ U2_window* console_window = nullptr;
 
 namespace {
 
-constexpr int kMinimumTerminalRows = 38;
-constexpr int kMinimumTerminalCols = 120;
+constexpr int kMinimumTerminalRows = 24;
+constexpr int kMinimumTerminalCols = 80;
 constexpr int kHorizontalMargin = 1;
 constexpr int kHorizontalGap = 1;
 constexpr int kVerticalGap = 1;
@@ -117,30 +117,49 @@ bool build_layout(WindowLayout& layout) {
         return false;
     }
 
-    layout.header_y = 0;
-    layout.header_x = kHorizontalMargin;
-    layout.header_height = 6;
-    layout.header_width = COLS - (kHorizontalMargin * 2);
+    const int horizontal_margin = (COLS >= 96) ? kHorizontalMargin : 0;
+    const int horizontal_gap = (COLS >= 96) ? kHorizontalGap : 0;
+    const int vertical_gap = (LINES >= 30) ? kVerticalGap : 0;
+    const int minimum_panel_height = (LINES >= 34) ? 10 : 6;
+    const int minimum_bottom_height = (LINES >= 34) ? 10 : 6;
 
-    const int usable_width = COLS - (kHorizontalMargin * 2) - (kHorizontalGap * 2);
+    layout.header_y = 0;
+    layout.header_x = horizontal_margin;
+    layout.header_height = (LINES >= 34) ? 6 : 4;
+    layout.header_width = COLS - (horizontal_margin * 2);
+
+    const int usable_width = COLS - (horizontal_margin * 2) - (horizontal_gap * 2);
     const int column_width = usable_width / 3;
     const int column_remainder = usable_width - (column_width * 3);
 
     layout.class_y = layout.header_height;
-    layout.bottom_height = std::max(10, LINES / 3);
+    layout.bottom_height = std::clamp(LINES / 4, minimum_bottom_height, (LINES >= 34) ? 12 : 7);
 
-    const int middle_height = LINES - layout.header_height - layout.bottom_height - (kVerticalGap * 2);
-    layout.class_height = std::max(10, middle_height / 2);
+    int middle_height = LINES - layout.header_height - layout.bottom_height - (vertical_gap * 2);
+    if (middle_height < minimum_panel_height * 2) {
+        layout.bottom_height = minimum_bottom_height;
+        middle_height = LINES - layout.header_height - layout.bottom_height - (vertical_gap * 2);
+    }
+
+    if (middle_height < minimum_panel_height * 2 || column_width < 18) {
+        return false;
+    }
+
+    layout.class_height = middle_height / 2;
     layout.task_height = middle_height - layout.class_height;
-    layout.task_y = layout.class_y + layout.class_height + kVerticalGap;
-    layout.bottom_y = layout.task_y + layout.task_height + kVerticalGap;
+    if (layout.class_height < minimum_panel_height || layout.task_height < minimum_panel_height) {
+        return false;
+    }
+
+    layout.task_y = layout.class_y + layout.class_height + vertical_gap;
+    layout.bottom_y = layout.task_y + layout.task_height + vertical_gap;
 
     layout.class_width_left = column_width;
     layout.class_width_middle = column_width;
     layout.class_width_right = column_width + column_remainder;
-    layout.class_x_left = kHorizontalMargin;
-    layout.class_x_middle = layout.class_x_left + layout.class_width_left + kHorizontalGap;
-    layout.class_x_right = layout.class_x_middle + layout.class_width_middle + kHorizontalGap;
+    layout.class_x_left = horizontal_margin;
+    layout.class_x_middle = layout.class_x_left + layout.class_width_left + horizontal_gap;
+    layout.class_x_right = layout.class_x_middle + layout.class_width_middle + horizontal_gap;
 
     layout.task_width_left = layout.class_width_left;
     layout.task_width_middle = layout.class_width_middle;
@@ -149,16 +168,13 @@ bool build_layout(WindowLayout& layout) {
     layout.task_x_middle = layout.class_x_middle;
     layout.task_x_right = layout.class_x_right;
 
-    const int bottom_width = COLS - (kHorizontalMargin * 2) - kHorizontalGap;
-    layout.console_width = std::max(28, std::min(bottom_width / 4, 34));
+    const int bottom_width = COLS - (horizontal_margin * 2) - horizontal_gap;
+    layout.console_width = std::clamp(bottom_width / 4, 20, 34);
     layout.log_width = bottom_width - layout.console_width;
-    layout.log_x = kHorizontalMargin;
-    layout.console_x = layout.log_x + layout.log_width + kHorizontalGap;
+    layout.log_x = horizontal_margin;
+    layout.console_x = layout.log_x + layout.log_width + horizontal_gap;
 
-    return layout.class_height >= 10
-        && layout.task_height >= 10
-        && layout.bottom_height >= 10
-        && layout.log_width >= 70;
+    return layout.log_width >= 40;
 }
 
 std::string state_to_text(State state) {
