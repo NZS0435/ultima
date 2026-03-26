@@ -24,7 +24,7 @@ Architecture
   up() releases the resource or wakes the next queued task by moving it back to READY.
   Exposes dump(int level) so the semaphore value and queue contents can be inspected.
 
-- Terminal Driver:
+- Ultima.cpp:
   Ultima.cpp presents the Phase 1 proof inside ncurses windows so the team can capture annotated screenshots and run a live demo in the terminal.
   Separate windows are used for Task_A, Task_B, Task_C, the system log, and a small control/status panel.
   The terminal front end preserves the visual workflow from the labs, but the mechanism being demonstrated is the scheduler and semaphore assignment rather than a standalone pthread race-condition lab.
