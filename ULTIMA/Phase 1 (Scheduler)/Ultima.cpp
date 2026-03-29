@@ -86,11 +86,8 @@ struct WindowLayout {
 
 WindowLayout current_layout;
 
-#if defined(ULTIMA_ENABLE_CURSES)
+// Phase 1 is a curses-driven demo by default; transcript mode is opt-in.
 bool transcript_only_mode = false;
-#else
-bool transcript_only_mode = true;
-#endif
 bool stop_after_cycle = false;
 bool demo_paused = false;
 
