@@ -1,3 +1,0 @@
-See `Combined Design Diagram.md` for the current Mermaid class diagram source.
-
-That document includes every concrete class in the repository plus the task-state structs that participate in the Phase 1 design.
