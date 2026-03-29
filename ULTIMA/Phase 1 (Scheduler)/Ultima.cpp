@@ -129,6 +129,23 @@ bool stream_is_tty(FILE* stream) {
 #endif
 }
 
+void seed_default_term_if_missing() {
+    if (!stream_is_tty(stdin) || !stream_is_tty(stdout)) {
+        return;
+    }
+
+    const char* term_value = std::getenv("TERM");
+    if (term_value != nullptr && term_value[0] != '\0') {
+        return;
+    }
+
+#if defined(_WIN32)
+    _putenv_s("TERM", "xterm-256color");
+#else
+    setenv("TERM", "xterm-256color", 1);
+#endif
+}
+
 std::string describe_terminal_issue() {
     const bool stdin_is_tty = stream_is_tty(stdin);
     const bool stdout_is_tty = stream_is_tty(stdout);
@@ -1239,6 +1256,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (!transcript_only_mode) {
+        seed_default_term_if_missing();
         const std::string terminal_issue = describe_terminal_issue();
         if (!terminal_issue.empty()) {
             transcript_only_mode = true;
