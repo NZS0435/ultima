@@ -70,6 +70,7 @@ constexpr int kPreferredPresentationCols = 140;
 constexpr int kHorizontalMargin = 1;
 constexpr int kHorizontalGap = 1;
 constexpr int kVerticalGap = 1;
+constexpr int kCompactHeaderHeight = 4;
 constexpr int kReferenceHeaderHeight = 5;
 constexpr int kReferencePrimaryPanelHeight = 7;
 constexpr int kReferenceBottomHeight = 6;
@@ -172,6 +173,55 @@ bool build_layout(WindowLayout& layout) {
     const int horizontal_margin = (COLS >= 100) ? kHorizontalMargin : 0;
     const int horizontal_gap = (COLS >= 100) ? kHorizontalGap : 0;
     const int full_width = COLS - (horizontal_margin * 2);
+
+    if (LINES >= kPreferredPresentationRows && COLS >= kPreferredPresentationCols) {
+        layout.full_width_panels = true;
+
+        layout.header_y = 0;
+        layout.header_x = kHorizontalMargin;
+        layout.header_height = 5;
+        layout.header_width = COLS - (kHorizontalMargin * 2);
+
+        layout.class_y = 5;
+        layout.class_height = 7;
+        layout.class_width_left = layout.header_width;
+        layout.class_width_middle = layout.header_width;
+        layout.class_width_right = layout.header_width;
+        layout.class_x_left = kHorizontalMargin;
+        layout.class_x_middle = kHorizontalMargin;
+        layout.class_x_right = kHorizontalMargin;
+
+        layout.semaphore_y = 12;
+        layout.state_y = 19;
+        layout.state_height = 7;
+
+        layout.task_y = 26;
+        layout.task_height = 7;
+        layout.task_width_left = layout.header_width;
+        layout.task_width_middle = layout.header_width;
+        layout.task_width_right = layout.header_width;
+        layout.task_x_left = kHorizontalMargin;
+        layout.task_x_middle = kHorizontalMargin;
+        layout.task_x_right = kHorizontalMargin;
+        layout.task_a_y = 26;
+        layout.task_b_y = 33;
+        layout.task_c_y = 40;
+
+        layout.log_y = 47;
+        layout.log_height = 9;
+        layout.log_width = layout.header_width;
+        layout.log_x = kHorizontalMargin;
+
+        layout.console_y = 56;
+        layout.console_height = 6;
+        layout.console_width = layout.header_width;
+        layout.console_x = kHorizontalMargin;
+
+        layout.bottom_y = layout.log_y;
+        layout.bottom_height = layout.log_height + layout.console_height;
+
+        return true;
+    }
 
     const int full_width_required_rows =
         kReferenceHeaderHeight

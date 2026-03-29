@@ -176,6 +176,18 @@ CLion note:
 - Use `Emulate terminal in output console`, run in an external terminal, or use `ULTIMA/Phase 1 (Scheduler)/run_ultima_ui.command` on macOS.
 - For a team-wide shell entrypoint that works in macOS Terminal and Cygwin shells, use `ULTIMA/Phase 1 (Scheduler)/run_ultima_ui.sh`.
 
+Preferred presentation layout at `140 x 62`:
+
+- `Header`: `5 x 138` at `(y=0, x=1)`
+- `Scheduler`: `7 x 138` at `(5, 1)`
+- `Semaphore`: `7 x 138` at `(12, 1)`
+- `State + Race Proof`: `7 x 138` at `(19, 1)`
+- `Task_A`: `7 x 138` at `(26, 1)`
+- `Task_B`: `7 x 138` at `(33, 1)`
+- `Task_C`: `7 x 138` at `(40, 1)`
+- `Output Log + Dumps`: `9 x 138` at `(47, 1)`
+- `Controls`: `6 x 138` at `(56, 1)`
+
 ### CLion Cygwin Toolchain/Profile Setup
 
 1. Open `Settings > Build, Execution, Deployment > Toolchains`.
