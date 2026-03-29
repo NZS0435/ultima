@@ -55,6 +55,12 @@ If you want the Phase 1 ncurses windows from Finder or a JetBrains external tool
 ./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_ui.command
 ```
 
+If you want the exact plain-text transcript output for screenshots or write-up material, launch:
+
+```bash
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_transcript.command
+```
+
 ### Windows (MSYS2 MinGW64)
 
 Install dependencies from `MSYS2 MinGW x64` shell:
