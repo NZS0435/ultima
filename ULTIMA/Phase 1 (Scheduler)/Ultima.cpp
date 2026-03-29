@@ -63,13 +63,17 @@ constexpr bool kCursesUiCompiled = true;
 constexpr bool kCursesUiCompiled = false;
 #endif
 
-constexpr int kMinimumTerminalRows = 24;
-constexpr int kMinimumTerminalCols = 80;
+constexpr int kMinimumTerminalRows = 25;
+constexpr int kMinimumTerminalCols = 96;
 constexpr int kPreferredPresentationRows = 62;
 constexpr int kPreferredPresentationCols = 140;
 constexpr int kHorizontalMargin = 1;
 constexpr int kHorizontalGap = 1;
 constexpr int kVerticalGap = 1;
+constexpr int kReferenceHeaderHeight = 5;
+constexpr int kReferencePrimaryPanelHeight = 7;
+constexpr int kReferenceBottomHeight = 6;
+constexpr int kReferenceConsoleMinWidth = 28;
 constexpr int kStepPauseMs = 900;
 constexpr int kDispatchPauseMs = 250;
 constexpr int kDumpPauseMs = 1500;
@@ -163,111 +167,31 @@ bool build_layout(WindowLayout& layout) {
         return false;
     }
 
-    const int horizontal_margin = (COLS >= 96) ? kHorizontalMargin : 0;
-    const int horizontal_gap = (COLS >= 96) ? kHorizontalGap : 0;
-    const int vertical_gap = (LINES >= 30) ? kVerticalGap : 0;
-    const int minimum_panel_height = (LINES >= 34) ? 10 : 6;
-    const int minimum_bottom_height = (LINES >= 34) ? 10 : 6;
-
-    if (LINES >= 60) {
-        layout.full_width_panels = true;
-        layout.header_y = 0;
-        layout.header_x = 0;
-        layout.header_height = 4;
-        layout.header_width = COLS;
-
-        const int available_rows = LINES - layout.header_height;
-        if (available_rows < 56) {
-            return false;
-        }
-
-        const int scheduler_height = 7;
-        const int semaphore_height = 7;
-        const int state_height = 7;
-        const int task_height = 7;
-        int log_height = 7;
-        const int console_height = 7;
-        log_height += available_rows - (scheduler_height + semaphore_height + state_height + (task_height * 3) + log_height + console_height);
-
-        int next_y = layout.header_height;
-
-        layout.class_y = next_y;
-        layout.class_height = scheduler_height;
-        layout.class_x_left = 0;
-        layout.class_width_left = COLS;
-        next_y += scheduler_height;
-
-        layout.semaphore_y = next_y;
-        layout.class_x_middle = 0;
-        layout.class_width_middle = COLS;
-        next_y += semaphore_height;
-
-        layout.state_y = next_y;
-        layout.state_height = state_height;
-        layout.class_x_right = 0;
-        layout.class_width_right = COLS;
-        next_y += state_height;
-
-        layout.task_height = task_height;
-        layout.task_width_left = COLS;
-        layout.task_width_middle = COLS;
-        layout.task_width_right = COLS;
-        layout.task_x_left = 0;
-        layout.task_x_middle = 0;
-        layout.task_x_right = 0;
-
-        layout.task_a_y = next_y;
-        next_y += task_height;
-        layout.task_b_y = next_y;
-        next_y += task_height;
-        layout.task_c_y = next_y;
-        next_y += task_height;
-
-        layout.log_x = 0;
-        layout.log_width = COLS;
-        layout.log_y = next_y;
-        layout.log_height = log_height;
-        next_y += log_height;
-
-        layout.console_x = 0;
-        layout.console_width = COLS;
-        layout.console_y = next_y;
-        layout.console_height = console_height;
-        layout.bottom_y = layout.log_y;
-        layout.bottom_height = log_height + console_height;
-        return true;
-    }
-
-    layout.header_y = 0;
-    layout.header_x = horizontal_margin;
-    layout.header_height = (LINES >= 34) ? 6 : 4;
-    layout.header_width = COLS - (horizontal_margin * 2);
-
+    const int horizontal_margin = (COLS >= 100) ? kHorizontalMargin : 0;
+    const int horizontal_gap = (COLS >= 100) ? kHorizontalGap : 0;
     const int usable_width = COLS - (horizontal_margin * 2) - (horizontal_gap * 2);
     const int column_width = usable_width / 3;
     const int column_remainder = usable_width - (column_width * 3);
 
+    if (column_width < 28) {
+        return false;
+    }
+
+    layout.header_y = 0;
+    layout.header_x = horizontal_margin;
+    layout.header_height = kReferenceHeaderHeight;
+    layout.header_width = COLS - (horizontal_margin * 2);
+
     layout.class_y = layout.header_height;
-    layout.bottom_height = std::max(minimum_bottom_height, std::min(LINES / 4, (LINES >= 34) ? 12 : 7));
+    layout.class_height = kReferencePrimaryPanelHeight;
+    layout.task_y = layout.class_y + layout.class_height;
+    layout.task_height = kReferencePrimaryPanelHeight;
+    layout.bottom_y = layout.task_y + layout.task_height;
+    layout.bottom_height = kReferenceBottomHeight;
 
-    int middle_height = LINES - layout.header_height - layout.bottom_height - (vertical_gap * 2);
-    if (middle_height < minimum_panel_height * 2) {
-        layout.bottom_height = minimum_bottom_height;
-        middle_height = LINES - layout.header_height - layout.bottom_height - (vertical_gap * 2);
-    }
-
-    if (middle_height < minimum_panel_height * 2 || column_width < 18) {
+    if (layout.bottom_y + layout.bottom_height > LINES) {
         return false;
     }
-
-    layout.class_height = middle_height / 2;
-    layout.task_height = middle_height - layout.class_height;
-    if (layout.class_height < minimum_panel_height || layout.task_height < minimum_panel_height) {
-        return false;
-    }
-
-    layout.task_y = layout.class_y + layout.class_height + vertical_gap;
-    layout.bottom_y = layout.task_y + layout.task_height + vertical_gap;
 
     layout.class_width_left = column_width;
     layout.class_width_middle = column_width;
@@ -284,10 +208,21 @@ bool build_layout(WindowLayout& layout) {
     layout.task_x_right = layout.class_x_right;
 
     const int bottom_width = COLS - (horizontal_margin * 2) - horizontal_gap;
-    layout.console_width = std::max(20, std::min(bottom_width / 4, 34));
+    layout.console_width = std::clamp(bottom_width / 4, kReferenceConsoleMinWidth, 34);
     layout.log_width = bottom_width - layout.console_width;
     layout.log_x = horizontal_margin;
     layout.console_x = layout.log_x + layout.log_width + horizontal_gap;
+
+    layout.semaphore_y = layout.class_y;
+    layout.state_y = layout.class_y;
+    layout.state_height = layout.class_height;
+    layout.task_a_y = layout.task_y;
+    layout.task_b_y = layout.task_y;
+    layout.task_c_y = layout.task_y;
+    layout.log_y = layout.bottom_y;
+    layout.log_height = layout.bottom_height;
+    layout.console_y = layout.bottom_y;
+    layout.console_height = layout.bottom_height;
 
     return layout.log_width >= 40;
 }
@@ -691,6 +626,19 @@ std::string abbreviate_text(const std::string& text, std::size_t limit) {
     return text.substr(0, limit - 3) + "...";
 }
 
+std::string fit_panel_text(const std::string& text, int panel_width) {
+    return abbreviate_text(text, panel_text_limit(panel_width));
+}
+
+std::string fit_prefixed_panel_text(const std::string& prefix, const std::string& text, int panel_width) {
+    const std::size_t limit = panel_text_limit(panel_width);
+    if (prefix.size() >= limit) {
+        return abbreviate_text(prefix, limit);
+    }
+
+    return prefix + abbreviate_text(text, limit - prefix.size());
+}
+
 std::string compact_state_text(State state) {
     switch (state) {
         case RUNNING:
@@ -704,6 +652,27 @@ std::string compact_state_text(State state) {
         default:
             return "UNK";
     }
+}
+
+std::string proof_board_queue_summary() {
+    const std::vector<TaskSnapshot> snapshots = sys_scheduler.snapshot_tasks();
+    std::ostringstream queue_stream;
+    bool wrote_any_task = false;
+
+    for (const TaskSnapshot& snapshot : snapshots) {
+        if (snapshot.task_state == DEAD) {
+            continue;
+        }
+
+        if (wrote_any_task) {
+            queue_stream << " -> ";
+        }
+
+        queue_stream << snapshot.task_name << " " << compact_state_text(snapshot.task_state);
+        wrote_any_task = true;
+    }
+
+    return wrote_any_task ? queue_stream.str() : "[empty]";
 }
 
 std::string compact_scheduler_queue() {
@@ -812,10 +781,9 @@ void render_header() {
     }
 
     header_window->draw_lines({
-        "ULTIMA 2.0 / Phase 1 - Scheduler and Semaphore",
-        "Purpose: the scheduler scans READY tasks, dispatches one RUNNING task, and keeps BLOCKED tasks off the CPU.",
-        "Purpose: the semaphore prevents a Printer_Output race by forcing FIFO blocking instead of busy waiting.",
-        "Cycle " + std::to_string(demo_cycle_number) + " | Flow: " + latest_flow_summary
+        fit_panel_text("ULTIMA 2.0 / Phase 1", current_layout.header_width),
+        fit_panel_text("ULTIMA 2.0 / Phase 1 - Scheduler and Semaphore", current_layout.header_width),
+        fit_panel_text("Purpose: the scheduler scans READY tasks, dispatches one RUNNING task, and keeps BLOCKED tasks off the CPU.", current_layout.header_width)
     });
 }
 
@@ -824,7 +792,6 @@ void render_scheduler_panel() {
         return;
     }
 
-    const std::vector<TaskSnapshot> snapshots = sys_scheduler.snapshot_tasks();
     if (use_compact_panels()) {
         scheduler_window->draw_lines({
             "Round robin READY scan",
@@ -839,32 +806,24 @@ void render_scheduler_panel() {
         return;
     }
 
-    std::vector<std::string> lines {
-        "Purpose: select the next READY task with strict round robin.",
-        "Current: " + format_task_id(sys_scheduler.get_current_task_id()) + " | Tick: " + std::to_string(sys_scheduler.get_scheduler_tick()),
-        "Counts: READY=" + std::to_string(sys_scheduler.get_ready_task_count())
-            + " BLOCKED=" + std::to_string(sys_scheduler.get_blocked_task_count())
-            + " DEAD=" + std::to_string(sys_scheduler.get_dead_task_count())
-            + " ACTIVE=" + std::to_string(sys_scheduler.get_active_task_count()),
-        "Queue: " + sys_scheduler.describe_run_queue(),
-        "Last: " + sys_scheduler.get_last_scheduler_event()
-    };
-
-    for (const TaskSnapshot& snapshot : snapshots) {
-        std::ostringstream row_stream;
-        row_stream << snapshot.task_name
-                   << " "
-                   << format_task_id(snapshot.task_id)
-                   << " "
-                   << state_to_text(snapshot.task_state)
-                   << " run=" << snapshot.dispatch_count
-                   << " yld=" << snapshot.yield_count
-                   << " blk=" << snapshot.block_count
-                   << " wake=" << snapshot.unblock_count;
-        lines.push_back(row_stream.str());
-    }
-
-    scheduler_window->draw_lines(lines);
+    scheduler_window->draw_lines({
+        fit_panel_text("Purpose: select the next READY task", current_layout.class_width_left),
+        fit_panel_text("with strict round robin.", current_layout.class_width_left),
+        fit_prefixed_panel_text(
+            "Current: ",
+            format_task_id(sys_scheduler.get_current_task_id()) + " | Tick: " + std::to_string(sys_scheduler.get_scheduler_tick()),
+            current_layout.class_width_left
+        ),
+        fit_prefixed_panel_text(
+            "Counts: ",
+            "READY=" + std::to_string(sys_scheduler.get_ready_task_count())
+                + " BLOCKED=" + std::to_string(sys_scheduler.get_blocked_task_count())
+                + " DEAD=" + std::to_string(sys_scheduler.get_dead_task_count())
+                + " ACTIVE=" + std::to_string(sys_scheduler.get_active_task_count()),
+            current_layout.class_width_left
+        ),
+        fit_prefixed_panel_text("Queue: ", proof_board_queue_summary(), current_layout.class_width_left)
+    });
 }
 
 void render_semaphore_panel() {
@@ -893,21 +852,13 @@ void render_semaphore_panel() {
     value_stream << "Value: " << printer_semaphore.get_sema_value()
                  << (printer_semaphore.get_sema_value() == 1 ? " (AVAILABLE)" : " (BUSY)");
 
-    std::vector<std::string> lines {
-        "Purpose: protect Printer_Output and serialize access to the critical section.",
-        "Resource: " + printer_semaphore.get_resource_name(),
-        value_stream.str(),
-        "Owner: " + format_owner_label(),
-        "Waiters: " + std::to_string(printer_semaphore.waiting_task_count())
-            + " | Queue: " + printer_semaphore.describe_wait_queue(),
-        "Ops: down=" + std::to_string(printer_semaphore.get_down_operations())
-            + " up=" + std::to_string(printer_semaphore.get_up_operations())
-            + " contention=" + std::to_string(printer_semaphore.get_contention_events()),
-        "Last: " + printer_semaphore.get_last_transition(),
-        "Rule: only the owner may enter Printer_Output."
-    };
-
-    semaphore_window->draw_lines(lines);
+    semaphore_window->draw_lines({
+        fit_panel_text("Purpose: protect Printer_Output and", current_layout.class_width_middle),
+        fit_panel_text("serialize access to the critical section.", current_layout.class_width_middle),
+        fit_prefixed_panel_text("Resource: ", printer_semaphore.get_resource_name(), current_layout.class_width_middle),
+        fit_prefixed_panel_text("Value: ", value_stream.str().substr(7), current_layout.class_width_middle),
+        fit_prefixed_panel_text("Owner: ", format_owner_label(), current_layout.class_width_middle)
+    });
 }
 
 void render_state_panel() {
@@ -926,24 +877,13 @@ void render_state_panel() {
         return;
     }
 
-    std::vector<std::string> lines {
-        "State legend: READY -> RUNNING -> BLOCKED -> READY -> DEAD",
-        "Race control: ncurses writes are serialized with a pthread mutex.",
-        "Resource control: the semaphore turns contention into queue-based blocking.",
-        "Flow proof: " + latest_flow_summary,
-        "Recent transitions:"
-    };
-
-    const int visible_trace_lines = std::max(0, state_window->inner_height() - static_cast<int>(lines.size()));
-    const std::size_t start_index = (state_trace_lines.size() > static_cast<std::size_t>(visible_trace_lines))
-        ? state_trace_lines.size() - static_cast<std::size_t>(visible_trace_lines)
-        : 0;
-
-    for (std::size_t index = start_index; index < state_trace_lines.size(); ++index) {
-        lines.push_back(state_trace_lines[index]);
-    }
-
-    state_window->draw_lines(lines);
+    state_window->draw_lines({
+        fit_panel_text("State legend: READY -> RUNNING -> BLOCKED ->", current_layout.class_width_right),
+        fit_panel_text("READY -> DEAD", current_layout.class_width_right),
+        fit_panel_text("Race control: ncurses writes are serialized.", current_layout.class_width_right),
+        fit_panel_text("Mutex: a pthread mutex guards screen output.", current_layout.class_width_right),
+        fit_panel_text("Resource control: semaphore queue blocks contenders.", current_layout.class_width_right)
+    });
 }
 
 std::vector<std::string> build_task_panel_lines(
@@ -965,21 +905,12 @@ std::vector<std::string> build_task_panel_lines(
     }
 
     std::vector<std::string> lines {
-        "Role: " + role,
-        "Task ID: " + format_task_id(task_id),
-        "State: " + (snapshot != nullptr ? state_to_text(snapshot->task_state) : "NOT PRESENT"),
-        "Note: " + (snapshot != nullptr ? snapshot->detail_note : "Awaiting creation."),
-        "Recent activity:"
+        fit_prefixed_panel_text("Role: ", role, panel_width),
+        fit_prefixed_panel_text("Task ID: ", format_task_id(task_id), panel_width),
+        fit_prefixed_panel_text("State: ", snapshot != nullptr ? state_to_text(snapshot->task_state) : "NOT PRESENT", panel_width),
+        fit_prefixed_panel_text("Note: ", snapshot != nullptr ? snapshot->detail_note : "Awaiting creation.", panel_width),
+        fit_prefixed_panel_text("Last: ", latest_history_line(history), panel_width)
     };
-
-    const int visible_history_lines = std::max(0, current_layout.task_height - 2 - static_cast<int>(lines.size()));
-    const std::size_t start_index = (history.size() > static_cast<std::size_t>(visible_history_lines))
-        ? history.size() - static_cast<std::size_t>(visible_history_lines)
-        : 0;
-
-    for (std::size_t index = start_index; index < history.size(); ++index) {
-        lines.push_back(history[index]);
-    }
 
     return lines;
 }
@@ -1032,15 +963,14 @@ void render_console() {
     }
 
     console_window->draw_lines({
-        "Controls: d dump | h help",
-        std::string("          p pause | q ") + (stop_after_cycle ? "exit" : "stop"),
-        "Cycle: " + std::to_string(demo_cycle_number),
-        "Paused: " + std::string(demo_paused ? "yes" : "no")
-            + " | Stop: " + std::string(stop_after_cycle ? "yes" : "no"),
-        "Active: " + std::to_string(sys_scheduler.get_active_task_count())
-            + " | Waiters: " + std::to_string(printer_semaphore.waiting_task_count()),
-        "Status:",
-        console_status
+        fit_panel_text("Controls: d dump | h help", current_layout.console_width),
+        fit_panel_text(std::string("p pause | q ") + (stop_after_cycle ? "exit" : "stop"), current_layout.console_width),
+        fit_prefixed_panel_text("Cycle: ", std::to_string(demo_cycle_number), current_layout.console_width),
+        fit_panel_text(
+            "Paused: " + std::string(demo_paused ? "yes" : "no")
+                + " | Stop: " + std::string(stop_after_cycle ? "yes" : "no"),
+            current_layout.console_width
+        )
     });
 }
 
@@ -1570,7 +1500,7 @@ void run_demo_cycle() {
     log_event("=== ULTIMA Phase 1 terminal demonstration / cycle " + std::to_string(demo_cycle_number) + " ===");
     log_event("Scheduler purpose: manage the dynamic process table and choose the next READY task to run.");
     log_event("Semaphore purpose: prevent a shared Printer_Output race by blocking and queueing contenders.");
-    log_event("Pthread purpose: protect ncurses writes so the larger multi-window display stays coherent.");
+    log_event("Pthread purpose: protect ncurses writes so the proof-board display stays coherent.");
     if (stop_after_cycle) {
         log_event("Single-cycle mode: the final state will remain on screen when the demo finishes.");
     } else {

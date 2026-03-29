@@ -27,7 +27,8 @@ Architecture
 - Terminal Driver:
   Ultima.cpp presents the Phase 1 proof inside ncurses windows so the team can capture annotated screenshots and run a live demo in the terminal.
   Separate windows are now dedicated to the Scheduler class, Semaphore class, state/race-condition proof, Task_A, Task_B, Task_C, the system log, and a control/status panel.
-  The terminal layout uses the full screen, slows each scheduling step down for visibility, and continuously restarts the proof in interactive mode until the user stops it.
+  The terminal layout now uses a fixed top-anchored proof board that mirrors the screenshot deliverable and leaves the remainder of taller terminals blank for stable captures.
+  The slowed-down proof runs in a single cycle by default, while continuous mode remains available only when the team explicitly wants the older repeating loop.
   The terminal front end preserves the visual workflow from the labs, but the mechanism being demonstrated is the scheduler and semaphore assignment rather than a standalone pthread race-condition lab.
 
 Test Scenario
