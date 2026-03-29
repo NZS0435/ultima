@@ -1,5 +1,5 @@
 #!/bin/zsh
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -11,15 +11,18 @@ TRANSCRIPT_FILE="$SCRIPT_DIR/phase1output.txt"
 printf '\033[8;62;140t'
 sleep 0.2
 
-make -s build >/dev/null
+if ! make -s build >/dev/null 2>&1; then
+  printf 'Unable to rebuild Ultima before launch.\n'
+  printf 'Run make in %s and try again.\n' "$SCRIPT_DIR"
+  exit 1
+fi
+set +e
 ./Ultima --output-file "$TRANSCRIPT_FILE" "$@"
 RUN_STATUS=$?
+set -e
 
-clear
 if [[ -f "$TRANSCRIPT_FILE" ]]; then
-  printf 'ULTIMA Phase 1 transcript saved to:\n%s\n\n' "$TRANSCRIPT_FILE"
-  cat "$TRANSCRIPT_FILE"
-  printf '\n'
+  printf '\nTranscript saved to:\n%s\n' "$TRANSCRIPT_FILE"
 else
   printf 'ULTIMA finished with exit code %d, but no transcript file was written.\n\n' "$RUN_STATUS"
 fi

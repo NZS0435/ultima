@@ -39,3 +39,13 @@ add_custom_command(TARGET ultima_os POST_BUILD
     COMMENT "Syncing legacy Phase 1 executables"
     VERBATIM
 )
+
+if(APPLE)
+    add_custom_command(TARGET ultima_os POST_BUILD
+        COMMAND /usr/bin/codesign --force --sign - "$<TARGET_FILE:ultima_os>"
+        COMMAND /usr/bin/codesign --force --sign - "${PHASE1_LEGACY_ULTIMA_OS}"
+        COMMAND /usr/bin/codesign --force --sign - "${PHASE1_LEGACY_ULTIMA}"
+        COMMENT "Ad hoc signing Phase 1 executables for macOS taskgated"
+        VERBATIM
+    )
+endif()

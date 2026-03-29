@@ -115,6 +115,11 @@ void Scheduler::kill_task(int task_id) {
 }
 
 void Scheduler::yield() {
+    if (dispatch_in_progress) {
+        last_scheduler_event = "Nested yield request deferred until the active dispatch returns.";
+        return;
+    }
+
     if (process_table.empty()) {
         last_scheduler_event = "Yield requested with an empty process table.";
         return;

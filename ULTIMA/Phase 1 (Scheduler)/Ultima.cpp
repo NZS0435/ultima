@@ -119,6 +119,7 @@ WindowLayout current_layout;
 bool transcript_only_mode = false;
 bool stop_after_cycle = false;
 bool demo_paused = false;
+bool auto_print_transcript_after_ui = true;
 
 int demo_cycle_number = 1;
 
@@ -1164,7 +1165,6 @@ void create_demo_tasks() {
                 add_state_trace("Task_A now owns Printer_Output and yields while keeping the resource.");
                 latest_flow_summary = "Task_A acquired Printer_Output; Task_B and Task_C must block if they contend.";
                 pace_step("Task_A is RUNNING and holding Printer_Output.");
-                sys_scheduler.yield();
                 return;
             }
             case 1:
@@ -1234,7 +1234,6 @@ void create_demo_tasks() {
                 latest_flow_summary = "Task_B owns Printer_Output after Task_A.";
                 pace_step("Task_B is RUNNING with Printer_Output.");
                 task_b_phase = 2;
-                sys_scheduler.yield();
                 return;
             case 2:
                 sys_scheduler.set_task_note(task_b_id, "Releasing Printer_Output and preparing to exit.");
@@ -1302,7 +1301,6 @@ void create_demo_tasks() {
                 latest_flow_summary = "Task_C owns Printer_Output after the queued wake-up.";
                 pace_step("Task_C is RUNNING with Printer_Output.");
                 task_c_phase = 2;
-                sys_scheduler.yield();
                 return;
             case 2:
                 sys_scheduler.set_task_note(task_c_id, "Releasing Printer_Output and preparing to exit.");
@@ -1515,7 +1513,7 @@ void run_demo_cycle() {
     log_event("System shutting down safely.");
     add_state_trace("Cycle proof completed: tasks are DEAD and the process table has been collected.");
     latest_flow_summary = "Cycle complete. The scheduler proved READY/RUNNING/BLOCKED/DEAD and FIFO wake-up.";
-    pace_step("Cycle complete.", 500);
+    pace_step("Cycle complete. Preparing transcript...", 1200);
 }
 
 } // namespace
@@ -1527,6 +1525,11 @@ int main(int argc, char* argv[]) {
         const std::string argument = argv[index];
         if (argument == "--transcript-only") {
             transcript_only_mode = true;
+            continue;
+        }
+
+        if (argument == "--no-post-ui-transcript") {
+            auto_print_transcript_after_ui = false;
             continue;
         }
 
@@ -1584,7 +1587,9 @@ int main(int argc, char* argv[]) {
         if (!transcript_only_mode) {
             create_windows();
             sync_visuals();
-            stop_after_cycle = current_layout.stacked_primary_layout || current_layout.full_width_panels;
+            stop_after_cycle = !output_file_path.empty()
+                || current_layout.stacked_primary_layout
+                || current_layout.full_width_panels;
         }
     }
 
@@ -1604,16 +1609,23 @@ int main(int argc, char* argv[]) {
 
     if (!transcript_only_mode) {
         if (console_window != nullptr) {
-            nodelay(console_window->get_win_ptr(), FALSE);
-            set_console_status(stop_after_cycle
-                ? "Cycle complete. Press any key to exit."
-                : "Continuous scheduler stopped. Press any key to exit.");
-            wgetch(console_window->get_win_ptr());
+            if (stop_after_cycle && auto_print_transcript_after_ui) {
+                set_console_status("Cycle complete. Showing transcript...");
+                visual_pause(900);
+            } else {
+                nodelay(console_window->get_win_ptr(), FALSE);
+                set_console_status(stop_after_cycle
+                    ? "Cycle complete. Press any key to exit."
+                    : "Continuous scheduler stopped. Press any key to exit.");
+                wgetch(console_window->get_win_ptr());
+            }
         }
         ui_manager.close_ncurses_env();
     }
 
     const std::string transcript_text = build_transcript_text();
+    const bool print_transcript_to_stdout = transcript_only_mode
+        || (!transcript_only_mode && stop_after_cycle && auto_print_transcript_after_ui);
 
     if (!output_file_path.empty()) {
         std::ofstream output_file(output_file_path);
@@ -1624,7 +1636,7 @@ int main(int argc, char* argv[]) {
         output_file << transcript_text;
     }
 
-    if (transcript_only_mode) {
+    if (print_transcript_to_stdout) {
         std::cout << transcript_text;
     }
 
