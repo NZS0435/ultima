@@ -145,52 +145,6 @@ bool build_layout(WindowLayout& layout) {
     const int minimum_panel_height = (LINES >= 34) ? 10 : 6;
     const int minimum_bottom_height = (LINES >= 34) ? 10 : 6;
 
-    if (COLS < 100) {
-        constexpr int compact_margin = 0;
-        constexpr int compact_gap = 0;
-        constexpr int compact_header_height = 4;
-        const int remaining_height = LINES -  - (compact_gap * 2);
-        const int panel_height = remaining_height / 3;
-        const int panel_remainder = remaining_height - (panel_height * 3);
-
-        if (panel_height < 6) {
-            return false;
-        }
-
-        layout.stacked_primary_layout = true;
-        layout.header_y = 0;
-        layout.header_x = compact_margin;
-        layout.header_height = compact_header_height;
-        layout.header_width = COLS - (compact_margin * 2);
-
-        layout.class_y = layout.header_height;
-        layout.class_height = panel_height;
-        layout.task_y = layout.class_y + layout.class_height + compact_gap;
-        layout.task_height = panel_height;
-        layout.bottom_y = layout.task_y + layout.task_height + compact_gap;
-        layout.bottom_height = panel_height + panel_remainder;
-
-        layout.class_x_left = compact_margin;
-        layout.class_width_left = layout.header_width;
-        layout.class_x_middle = compact_margin;
-        layout.class_width_middle = layout.header_width;
-        layout.class_x_right = compact_margin;
-        layout.class_width_right = layout.header_width;
-
-        layout.task_x_left = compact_margin;
-        layout.task_width_left = 0;
-        layout.task_x_middle = compact_margin;
-        layout.task_width_middle = 0;
-        layout.task_x_right = compact_margin;
-        layout.task_width_right = 0;
-
-        layout.log_x = compact_margin;
-        layout.log_width = 0;
-        layout.console_x = compact_margin;
-        layout.console_width = 0;
-        return true;
-    }
-
     layout.header_y = 0;
     layout.header_x = horizontal_margin;
     layout.header_height = (LINES >= 34) ? 6 : 4;
