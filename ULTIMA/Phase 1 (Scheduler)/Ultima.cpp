@@ -941,7 +941,7 @@ void render_console() {
     if (use_compact_panels()) {
         console_window->draw_lines({
             "d dump | h help",
-            "p pause | q stop",
+            std::string("p pause | q ") + (stop_after_cycle ? "exit" : "stop"),
             "Cycle " + std::to_string(demo_cycle_number),
             "A" + std::to_string(sys_scheduler.get_active_task_count())
                 + " W" + std::to_string(printer_semaphore.waiting_task_count()),
@@ -952,7 +952,7 @@ void render_console() {
 
     console_window->draw_lines({
         "Controls: d dump | h help",
-        "          p pause | q stop",
+        std::string("          p pause | q ") + (stop_after_cycle ? "exit" : "stop"),
         "Cycle: " + std::to_string(demo_cycle_number),
         "Paused: " + std::string(demo_paused ? "yes" : "no")
             + " | Stop: " + std::string(stop_after_cycle ? "yes" : "no"),
@@ -1493,7 +1493,11 @@ void run_demo_cycle() {
     log_event("Scheduler purpose: manage the dynamic process table and choose the next READY task to run.");
     log_event("Semaphore purpose: prevent a shared Printer_Output race by blocking and queueing contenders.");
     log_event("Pthread purpose: protect ncurses writes so the larger multi-window display stays coherent.");
-    log_event("Continuous mode: the interactive demo will restart automatically until you press q.");
+    if (stop_after_cycle) {
+        log_event("Single-cycle mode: the final state will remain on screen when the demo finishes.");
+    } else {
+        log_event("Continuous mode: the interactive demo will restart automatically until you press q.");
+    }
     show_system_snapshot("--- INITIAL SYSTEM STATE ---");
     log_event("--- BEGINNING EXECUTION ---");
     pace_step("Scheduler run started.");
@@ -1580,7 +1584,7 @@ int main(int argc, char* argv[]) {
         if (!transcript_only_mode) {
             create_windows();
             sync_visuals();
-            stop_after_cycle = current_layout.stacked_primary_layout;
+            stop_after_cycle = current_layout.stacked_primary_layout || current_layout.full_width_panels;
         }
     }
 
@@ -1601,7 +1605,9 @@ int main(int argc, char* argv[]) {
     if (!transcript_only_mode) {
         if (console_window != nullptr) {
             nodelay(console_window->get_win_ptr(), FALSE);
-            set_console_status("Continuous scheduler stopped. Press any key to exit.");
+            set_console_status(stop_after_cycle
+                ? "Cycle complete. Press any key to exit."
+                : "Continuous scheduler stopped. Press any key to exit.");
             wgetch(console_window->get_win_ptr());
         }
         ui_manager.close_ncurses_env();
