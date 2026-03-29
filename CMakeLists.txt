@@ -21,6 +21,23 @@ add_executable(ultima_os
     "ULTIMA/Phase 1 (Scheduler)/Ultima.cpp"
 )
 
+if(CYGWIN)
+    set(ULTIMA_RUNTIME_OUTPUT_DIR "/cygdrive/c/Users/$ENV{USERNAME}/.ultima2/run/cygwin-debug")
+elseif(WIN32)
+    set(ULTIMA_RUNTIME_OUTPUT_DIR "$ENV{USERPROFILE}/.ultima2/run/windows-debug")
+elseif(APPLE)
+    set(ULTIMA_RUNTIME_OUTPUT_DIR "$ENV{HOME}/.ultima2/run/macos-debug")
+else()
+    set(ULTIMA_RUNTIME_OUTPUT_DIR "$ENV{HOME}/.ultima2/run/linux-debug")
+endif()
+
+if(NOT CYGWIN)
+    file(TO_CMAKE_PATH "${ULTIMA_RUNTIME_OUTPUT_DIR}" ULTIMA_RUNTIME_OUTPUT_DIR)
+endif()
+set_target_properties(ultima_os PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${ULTIMA_RUNTIME_OUTPUT_DIR}"
+)
+
 target_compile_definitions(ultima_os PRIVATE
     ULTIMA_ENABLE_CURSES=1
     ULTIMA_SEPARATE_COMPILATION=1
