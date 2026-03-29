@@ -104,7 +104,6 @@ Last Transition: Printer_Output released by T-1; woke T-2.
 
 
 
-[Mouse] row=73, col=85
 [Task_A] marked DEAD.
 [Task_B] acquired Printer_Output.
 [Task_B] up(Printer_Output)

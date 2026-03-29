@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <csignal>
 #include <thread>
 #include <chrono>
 #include <vector>
@@ -124,6 +125,7 @@ bool transcript_only_mode = false;
 bool stop_after_cycle = false;
 bool demo_paused = false;
 bool auto_print_transcript_after_ui = true;
+bool continuous_demo_requested = false;
 
 int demo_cycle_number = 1;
 
@@ -448,8 +450,8 @@ bool environment_supports_curses_ui() {
 #endif
 }
 
-void request_preferred_terminal_size_if_needed(const std::string& output_file_path) {
-    if (output_file_path.empty()) {
+void request_preferred_terminal_size_if_needed() {
+    if (continuous_demo_requested) {
         return;
     }
 
@@ -1590,6 +1592,11 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
+        if (argument == "--continuous") {
+            continuous_demo_requested = true;
+            continue;
+        }
+
         if (argument == "--output-file") {
             if (index + 1 >= argc) {
                 std::cerr << "Missing path after --output-file" << std::endl;
@@ -1599,6 +1606,17 @@ int main(int argc, char* argv[]) {
             continue;
         }
     }
+
+    if (!transcript_only_mode && output_file_path.empty() && auto_print_transcript_after_ui) {
+        const std::string cwd = current_working_directory();
+        if (!cwd.empty()) {
+            output_file_path = join_path(cwd, "phase1output.txt");
+        }
+    }
+
+#if defined(SIGHUP)
+    std::signal(SIGHUP, SIG_IGN);
+#endif
 
     if (!transcript_only_mode && !kCursesUiCompiled) {
         if (try_launch_sibling_curses_binary(argc, argv)) {
@@ -1628,7 +1646,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (!transcript_only_mode) {
-        request_preferred_terminal_size_if_needed(output_file_path);
+        request_preferred_terminal_size_if_needed();
         ui_manager.init_ncurses_env();
 
         if (!build_layout(current_layout)) {
@@ -1645,9 +1663,7 @@ int main(int argc, char* argv[]) {
         if (!transcript_only_mode) {
             create_windows();
             sync_visuals();
-            stop_after_cycle = !output_file_path.empty()
-                || current_layout.stacked_primary_layout
-                || current_layout.full_width_panels;
+            stop_after_cycle = !continuous_demo_requested;
         }
     }
 

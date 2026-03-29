@@ -49,6 +49,11 @@ Run:
 ~/.ultima2/build/macos-debug/ultima_os
 ```
 
+Default behavior:
+
+- `ultima_os` now runs a single presentation cycle, keeps the final UI state visible briefly, prints the transcript automatically, and writes `phase1output.txt` in the current working directory.
+- Use `--continuous` only if you explicitly want the old repeating demo loop.
+
 If you want the Phase 1 ncurses windows from Finder or a JetBrains external tool on macOS, you can also launch:
 
 ```bash
@@ -94,6 +99,11 @@ Run:
 $env:USERPROFILE\\.ultima2\\build\\windows-debug\\ultima_os.exe
 ```
 
+Default behavior:
+
+- `ultima_os.exe` now runs a single presentation cycle, prints the transcript automatically, and writes `phase1output.txt` in the current working directory.
+- Use `--continuous` only if you explicitly want the old repeating demo loop.
+
 If CMake cannot find PDCurses, add:
 
 ```bash
@@ -122,6 +132,11 @@ Run:
 ```bash
 /cygdrive/c/Users/<YourUser>/.ultima2/build/cygwin-debug/ultima_os.exe
 ```
+
+Default behavior:
+
+- `ultima_os.exe` now runs a single presentation cycle, prints the transcript automatically, and writes `phase1output.txt` in the current working directory.
+- Use `--continuous` only if you explicitly want the old repeating demo loop.
 
 Or, from the shared source tree, use the same launcher command your macOS teammates can use:
 
