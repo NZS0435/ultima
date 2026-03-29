@@ -9,6 +9,7 @@ CPPFLAGS ?= -DULTIMA_ENABLE_CURSES=1 -DULTIMA_SEPARATE_COMPILATION=1
 LDFLAGS ?=
 
 TARGET ?= ultima_os
+LEGACY_TARGET ?= Ultima
 OUTPUT_FILE ?= $(CURDIR)/phase1output.txt
 
 SOURCES := Ultima.cpp Sched.cpp Sema.cpp U2_UI.cpp U2_Window.cpp
@@ -28,10 +29,13 @@ LDLIBS += $(THREAD_LIBS) $(CURSES_LIBS)
 
 .PHONY: all build run test transcript clean
 
-all build: $(TARGET)
+all build: $(TARGET) $(LEGACY_TARGET)
 
 $(TARGET): $(OBJS)
 	$(CXX) $(LDFLAGS) -o $(TARGET) $(OBJS) $(LDLIBS)
+
+$(LEGACY_TARGET): $(TARGET)
+	cp $(TARGET) $(LEGACY_TARGET)
 
 %.o: %.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
@@ -45,4 +49,4 @@ transcript: $(TARGET)
 test: transcript
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET) $(LEGACY_TARGET)
