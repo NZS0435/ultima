@@ -5,7 +5,7 @@ SHELL := /bin/sh
 
 CXX ?= c++
 CXXFLAGS ?= -Wall -Wextra -g2 -std=c++17
-CPPFLAGS ?=
+CPPFLAGS ?= -DULTIMA_ENABLE_CURSES=1 -DULTIMA_SEPARATE_COMPILATION=1
 LDFLAGS ?=
 
 TARGET ?= ultima_os
