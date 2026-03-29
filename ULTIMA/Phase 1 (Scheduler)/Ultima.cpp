@@ -613,7 +613,7 @@ std::string format_task_id(int task_id) {
 }
 
 bool use_compact_panels() {
-    if (current_layout.stacked_primary_layout) {
+    if (current_layout.stacked_primary_layout || current_layout.full_width_panels) {
         return false;
     }
 
@@ -1391,23 +1391,64 @@ void create_windows() {
         false
     );
     semaphore_window = new U2_window(
-        current_layout.stacked_primary_layout ? current_layout.task_height : current_layout.class_height,
-        current_layout.stacked_primary_layout ? current_layout.class_width_middle : current_layout.class_width_middle,
-        current_layout.stacked_primary_layout ? current_layout.task_y : current_layout.class_y,
-        current_layout.stacked_primary_layout ? current_layout.class_x_middle : current_layout.class_x_middle,
+        current_layout.full_width_panels ? current_layout.class_height : (current_layout.stacked_primary_layout ? current_layout.task_height : current_layout.class_height),
+        current_layout.class_width_middle,
+        current_layout.full_width_panels ? current_layout.semaphore_y : (current_layout.stacked_primary_layout ? current_layout.task_y : current_layout.class_y),
+        current_layout.class_x_middle,
         "Semaphore Class",
         false
     );
     state_window = new U2_window(
-        current_layout.stacked_primary_layout ? current_layout.bottom_height : current_layout.class_height,
+        current_layout.full_width_panels ? current_layout.state_height : (current_layout.stacked_primary_layout ? current_layout.bottom_height : current_layout.class_height),
         current_layout.class_width_right,
-        current_layout.stacked_primary_layout ? current_layout.bottom_y : current_layout.class_y,
+        current_layout.full_width_panels ? current_layout.state_y : (current_layout.stacked_primary_layout ? current_layout.bottom_y : current_layout.class_y),
         current_layout.class_x_right,
         "State + Race Proof",
         false
     );
 
-    if (!current_layout.stacked_primary_layout) {
+    if (current_layout.full_width_panels) {
+        task_window_a = new U2_window(
+            current_layout.task_height,
+            current_layout.task_width_left,
+            current_layout.task_a_y,
+            current_layout.task_x_left,
+            "Task_A",
+            false
+        );
+        task_window_b = new U2_window(
+            current_layout.task_height,
+            current_layout.task_width_middle,
+            current_layout.task_b_y,
+            current_layout.task_x_middle,
+            "Task_B",
+            false
+        );
+        task_window_c = new U2_window(
+            current_layout.task_height,
+            current_layout.task_width_right,
+            current_layout.task_c_y,
+            current_layout.task_x_right,
+            "Task_C",
+            false
+        );
+        log_window = new U2_window(
+            current_layout.log_height,
+            current_layout.log_width,
+            current_layout.log_y,
+            current_layout.log_x,
+            "Output Log + Dumps",
+            true
+        );
+        console_window = new U2_window(
+            current_layout.console_height,
+            current_layout.console_width,
+            current_layout.console_y,
+            current_layout.console_x,
+            "Controls",
+            false
+        );
+    } else if (!current_layout.stacked_primary_layout) {
         task_window_a = new U2_window(
             current_layout.task_height,
             current_layout.task_width_left,
