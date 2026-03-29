@@ -1,12 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
-project(ULTIMA_2_0)
+project(ULTIMA_2_0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-# 1. Find the pthread library
-find_package(Threads REQUIRED)
+include(cmake/UltimaPhase1Target.cmake)
 
 # 2. Find the ncurses library
 find_package(Curses REQUIRED)
@@ -19,11 +14,6 @@ add_executable(ultima_os
     "ULTIMA/Phase 1 (Scheduler)/U2_UI.cpp"
     "ULTIMA/Phase 1 (Scheduler)/U2_Window.cpp"
     "ULTIMA/Phase 1 (Scheduler)/Ultima.cpp"
-)
-
-target_compile_definitions(ultima_os PRIVATE
-    ULTIMA_ENABLE_CURSES=1
-    ULTIMA_SEPARATE_COMPILATION=1
 )
 
 # 4. Link both libraries to your executable
