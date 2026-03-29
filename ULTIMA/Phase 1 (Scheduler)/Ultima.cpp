@@ -69,7 +69,6 @@ constexpr int kPreferredPresentationRows = 62;
 constexpr int kPreferredPresentationCols = 140;
 constexpr int kHorizontalMargin = 1;
 constexpr int kHorizontalGap = 1;
-constexpr int kVerticalGap = 1;
 constexpr int kCompactHeaderHeight = 4;
 constexpr int kReferenceHeaderHeight = 5;
 constexpr int kReferencePrimaryPanelHeight = 7;
@@ -162,6 +161,8 @@ std::vector<std::string> state_trace_lines;
 std::vector<std::string> task_a_history;
 std::vector<std::string> task_b_history;
 std::vector<std::string> task_c_history;
+
+int clamp_int(int value, int minimum, int maximum);
 
 bool build_layout(WindowLayout& layout) {
     layout = WindowLayout {};
@@ -318,7 +319,7 @@ bool build_layout(WindowLayout& layout) {
     layout.task_x_right = layout.class_x_right;
 
     const int bottom_width = COLS - (horizontal_margin * 2) - horizontal_gap;
-    layout.console_width = std::clamp(bottom_width / 4, kReferenceConsoleMinWidth, 34);
+    layout.console_width = clamp_int(bottom_width / 4, kReferenceConsoleMinWidth, 34);
     layout.log_width = bottom_width - layout.console_width;
     layout.log_x = horizontal_margin;
     layout.console_x = layout.log_x + layout.log_width + horizontal_gap;
@@ -364,6 +365,16 @@ std::string current_working_directory() {
     }
 #endif
     return std::string(buffer);
+}
+
+int clamp_int(int value, int minimum, int maximum) {
+    if (value < minimum) {
+        return minimum;
+    }
+    if (value > maximum) {
+        return maximum;
+    }
+    return value;
 }
 
 bool file_exists(const std::string& path) {
