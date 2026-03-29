@@ -3,12 +3,19 @@
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
 
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 #include "platform_curses.h"
 #include "U2_Scheduler.h"
 #include "Sema.h"
@@ -232,6 +239,50 @@ bool build_layout(WindowLayout& layout) {
     layout.console_x = layout.log_x + layout.log_width + horizontal_gap;
 
     return layout.log_width >= 40;
+}
+
+bool try_launch_sibling_curses_binary(int argc, char* argv[]) {
+    if (argc <= 0 || argv == nullptr || argv[0] == nullptr) {
+        return false;
+    }
+
+    std::error_code path_error;
+    std::filesystem::path invoked_path = std::filesystem::path(argv[0]);
+    if (invoked_path.is_relative()) {
+        invoked_path = std::filesystem::current_path(path_error) / invoked_path;
+        path_error.clear();
+    }
+
+#if defined(_WIN32)
+    const std::filesystem::path sibling_binary = invoked_path.parent_path() / "ultima_os.exe";
+#else
+    const std::filesystem::path sibling_binary = invoked_path.parent_path() / "ultima_os";
+#endif
+
+    if (!std::filesystem::exists(sibling_binary, path_error)) {
+        return false;
+    }
+
+    std::vector<std::string> forwarded_arguments;
+    forwarded_arguments.reserve(static_cast<std::size_t>(argc));
+    forwarded_arguments.push_back(sibling_binary.string());
+    for (int index = 1; index < argc; ++index) {
+        forwarded_arguments.emplace_back(argv[index] != nullptr ? argv[index] : "");
+    }
+
+    std::vector<char*> raw_arguments;
+    raw_arguments.reserve(forwarded_arguments.size() + 1);
+    for (std::string& argument : forwarded_arguments) {
+        raw_arguments.push_back(argument.data());
+    }
+    raw_arguments.push_back(nullptr);
+
+#if defined(_WIN32)
+    _execv(raw_arguments.front(), raw_arguments.data());
+#else
+    execv(raw_arguments.front(), raw_arguments.data());
+#endif
+    return false;
 }
 
 std::string state_to_text(State state) {
@@ -1210,6 +1261,9 @@ int main(int argc, char* argv[]) {
     }
 
     if (!transcript_only_mode && !kCursesUiCompiled) {
+        if (try_launch_sibling_curses_binary(argc, argv)) {
+            return 0;
+        }
         transcript_only_mode = true;
         std::cerr << "This Ultima binary was built without ncurses support. "
                   << "Rebuild it with the repository Makefile or CMake target "
