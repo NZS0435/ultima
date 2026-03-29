@@ -3,8 +3,9 @@ ULTIMA 2.0 - Phase 1 transcript
 === ULTIMA Phase 1 terminal demonstration / cycle 1 ===
 Scheduler purpose: manage the dynamic process table and choose the next READY task to run.
 Semaphore purpose: prevent a shared Printer_Output race by blocking and queueing contenders.
+Memory manager purpose: provide deterministic first-fit task buffers and show their lifetime in the proof board.
 Pthread purpose: protect ncurses writes so the proof-board display stays coherent.
-Single-cycle mode: the final state will remain on screen when the demo finishes.
+Continuous mode: the interactive demo will restart automatically until you press q.
 
 --- INITIAL SYSTEM STATE ---
 Scheduler Dump
@@ -34,12 +35,25 @@ Operations: down=0 up=0 contention=0
 Last Transition: Semaphore reset and available.
 
 
+Memory Manager Dump
+===================
+Capacity: 1024 bytes
+Used: 0 bytes
+Free: 1024 bytes
+Allocations: 0
+Segments:
+  [0..1023] FREE size=1024
+Internal segment count: 1
+
 
 --- BEGINNING EXECUTION ---
+[MemMgr] allocated 160 bytes for Task_A at @0
 [Task_A] down(Printer_Output)
 [Task_A] acquired Printer_Output.
+[MemMgr] allocated 112 bytes for Task_B at @160
 [Task_B] down(Printer_Output)
 [Task_B] transitioned to BLOCKED.
+[MemMgr] allocated 96 bytes for Task_C at @272
 [Task_C] down(Printer_Output)
 [Task_C] transitioned to BLOCKED.
 FLOW: Task_A -> Task_B BLOCKED -> Task_C BLOCKED
@@ -54,7 +68,7 @@ Run Queue: Task_A(T-1, READY) -> Task_B(T-2, BLOCKED) -> Task_C(T-3, BLOCKED)
 
 Task ID Name            State     Run     Yield   Block   Wake    Details
 --------------------------------------------------------------------------
-1       Task_A          READY     1       1       0       0       Holding Printer_Output inside the critical section.
+1       Task_A          READY     1       1       0       0       Holding Printer_Output and Task_A's work buffer inside the critical section.
          Last transition: Yielded CPU and returned to READY.
 2       Task_B          BLOCKED   1       0       1       0       BLOCKED behind Task_A in the semaphore queue.
          Last transition: Entered BLOCKED state.
@@ -72,8 +86,22 @@ Operations: down=3 up=0 contention=2
 Last Transition: Printer_Output busy; queued T-3.
 
 
+Memory Manager Dump
+===================
+Capacity: 1024 bytes
+Used: 368 bytes
+Free: 656 bytes
+Allocations: 3
+Segments:
+  [0..159] USED size=160 label=Task_A_work
+  [160..271] USED size=112 label=Task_B_wait_record
+  [272..367] USED size=96 label=Task_C_wait_record
+  [368..1023] FREE size=656
+Internal segment count: 4
+
 
 [Task_A] up(Printer_Output)
+[MemMgr] freed buffer for Task_A at @0
 
 --- POST-RELEASE STATE DUMP ---
 Scheduler Dump
@@ -85,7 +113,7 @@ Run Queue: Task_A(T-1, RUNNING) -> Task_B(T-2, READY) -> Task_C(T-3, BLOCKED)
 
 Task ID Name            State     Run     Yield   Block   Wake    Details
 --------------------------------------------------------------------------
-1       Task_A          RUNNING   2       1       0       0       Releasing Printer_Output and preparing to exit.
+1       Task_A          RUNNING   2       1       0       0       Releasing Printer_Output, freeing the work buffer, and preparing to exit.
          Last transition: Entered RUNNING at scheduler tick 4.
 2       Task_B          READY     1       0       1       1       BLOCKED behind Task_A in the semaphore queue.
          Last transition: Woken from BLOCKED and returned to READY.
@@ -103,13 +131,28 @@ Operations: down=3 up=1 contention=2
 Last Transition: Printer_Output released by T-1; woke T-2.
 
 
+Memory Manager Dump
+===================
+Capacity: 1024 bytes
+Used: 208 bytes
+Free: 816 bytes
+Allocations: 2
+Segments:
+  [0..159] FREE size=160
+  [160..271] USED size=112 label=Task_B_wait_record
+  [272..367] USED size=96 label=Task_C_wait_record
+  [368..1023] FREE size=656
+Internal segment count: 4
+
 
 [Task_A] marked DEAD.
 [Task_B] acquired Printer_Output.
 [Task_B] up(Printer_Output)
+[MemMgr] freed buffer for Task_B at @160
 [Task_B] marked DEAD.
 [Task_C] acquired Printer_Output.
 [Task_C] up(Printer_Output)
+[MemMgr] freed buffer for Task_C at @272
 [Task_C] marked DEAD.
 
 --- FINAL STATE DUMP (Before Garbage Collection) ---
@@ -140,6 +183,16 @@ Operations: down=3 up=3 contention=2
 Last Transition: Printer_Output released by T-3; resource is now available.
 
 
+Memory Manager Dump
+===================
+Capacity: 1024 bytes
+Used: 0 bytes
+Free: 1024 bytes
+Allocations: 0
+Segments:
+  [0..1023] FREE size=1024
+Internal segment count: 1
+
 
 
 --- POST-GARBAGE-COLLECTION DUMP ---
@@ -163,6 +216,16 @@ Wait Queue: [empty]
 Operations: down=3 up=3 contention=2
 Last Transition: Printer_Output released by T-3; resource is now available.
 
+
+Memory Manager Dump
+===================
+Capacity: 1024 bytes
+Used: 0 bytes
+Free: 1024 bytes
+Allocations: 0
+Segments:
+  [0..1023] FREE size=1024
+Internal segment count: 1
 
 
 System shutting down safely.

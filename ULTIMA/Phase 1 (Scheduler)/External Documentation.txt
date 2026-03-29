@@ -1,18 +1,19 @@
 Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg
-Phase Label: Phase 1 - Scheduler and Semaphore
+Phase Label: Phase 1 - Scheduler, Semaphore, and Memory Manager
 
 ULTIMA 2.0
-Phase 1: Scheduler and Semaphore
+Phase 1: Scheduler, Semaphore, and Memory Manager
 External Documentation
 
 1. Overview
 
-Phase 1 implements the two core mechanisms required by the assignment:
+Phase 1 implements three tightly connected mechanisms in one demonstrable system:
 
 - a dynamic scheduler with a process table of Task Control Blocks;
-- a binary semaphore that blocks and wakes tasks through a queue instead of busy waiting.
+- a binary semaphore that blocks and wakes tasks through a queue instead of busy waiting;
+- a deterministic first-fit memory manager that allocates, writes, frees, and dumps task buffers.
 
-The current Phase 1 solution is not just a console dump. It is a proof-board style ncurses application that keeps the scheduler state, semaphore state, task state, event log, and transcript evidence tied together in one executable workflow.
+The current Phase 1 solution is not just a console dump. It is a proof-board style ncurses application that keeps the scheduler state, semaphore state, memory-manager state, task state, event log, and transcript evidence tied together in one executable workflow.
 
 2. Repository and Build Structure
 
@@ -25,7 +26,8 @@ Root-level support files:
 
 Phase 1 implementation files:
 
-- Ultima.cpp: main driver, task scenario, transcript generation, curses layout, controls, and runtime flow.
+- Ultima.cpp: main driver, task scenario, transcript generation, curses layout, controls, memory-manager integration, and runtime flow.
+- Mem_mgr.h and Mem_mgr.cpp: deterministic first-fit memory manager with explicit heap segments, bounded reads/writes, and dump support.
 - U2_Scheduler.h: scheduler-facing data model, including State, TCB, TaskSnapshot, and Scheduler declarations.
 - Sched.cpp and Sched.h: scheduler implementation and compatibility include.
 - Sema.cpp and Sema.h: semaphore implementation and interface.
@@ -112,43 +114,78 @@ Behavior summary:
 
 This behavior directly satisfies the assignment requirement that semaphore contention must be handled through blocking rather than busy waiting.
 
-5. Demonstration Scenario
+5. Memory Manager Design
 
-The live proof uses three tasks and one shared resource.
+The memory manager models a small deterministic heap used by the Phase 1 demo to track task-owned buffers.
+
+Internal data tracked by the memory manager:
+
+- heap_bytes
+- segments
+- used_byte_count
+
+Public operations exposed by the memory manager:
+
+- reset()
+- allocate()
+- free_block()
+- write()
+- read()
+- describe_layout()
+- dump()
+
+Behavior summary:
+
+- reset() restores the heap to one free segment.
+- allocate() uses a first-fit scan and returns a stable offset address.
+- free_block() releases a segment, zeroes the released bytes, and coalesces adjacent free space.
+- write() and read() reject out-of-range access outside an allocated segment.
+- dump() prints capacity, used/free bytes, allocation count, and the current free/used segment map.
+
+This gives the Phase 1 proof board a concrete memory-lifetime trace rather than relying on implied cleanup alone.
+
+6. Demonstration Scenario
+
+The live proof uses three tasks, one shared resource, and one task buffer per task.
 
 Task_A:
 
 - first claimant;
+- reserves a 160-byte work buffer first;
 - acquires Printer_Output first;
 - yields while still holding the resource;
-- later releases the resource and becomes DEAD.
+- later releases the resource, frees its buffer, and becomes DEAD.
 
 Task_B:
 
 - second claimant;
+- reserves a 112-byte wait-record buffer;
 - attempts to acquire Printer_Output while Task_A still owns it;
 - becomes BLOCKED and enters the wait queue;
 - wakes after Task_A releases the resource;
-- acquires, releases, and becomes DEAD.
+- acquires the resource, releases it, frees its buffer, and becomes DEAD.
 
 Task_C:
 
 - third claimant;
+- reserves a 96-byte wait-record buffer;
 - attempts to acquire Printer_Output after Task_B;
 - becomes BLOCKED behind Task_B in FIFO order;
 - wakes only after Task_B releases the resource;
-- acquires, releases, and becomes DEAD.
+- acquires the resource, releases it, frees its buffer, and becomes DEAD.
 
 This sequence proves:
 
 - READY to RUNNING transitions,
 - RUNNING to BLOCKED transitions,
 - BLOCKED to READY wake-up behavior,
+- deterministic heap allocation and release for all three tasks,
+- return to one free heap segment at shutdown,
 - DEAD state entry,
 - post-run garbage collection,
 - and FIFO queue discipline in the semaphore.
 
-6. User Interface and Runtime Flow
+7. User Interface and Runtime Flow
 
 The terminal front end is implemented in Ultima.cpp using the U2_ui and U2_window wrappers.
 
@@ -157,7 +194,7 @@ The current preferred presentation layout at 140 columns by 62 rows is a full-wi
 - Header
 - Scheduler Class
 - Semaphore Class
-- State + Race Proof
+- State + Race + Memory
 - Task_A
 - Task_B
 - Task_C
@@ -168,23 +205,24 @@ Current runtime flow:
 
 1. The UI initializes and creates all windows.
 2. The initial system state is displayed and recorded.
-3. The scheduler dispatches tasks until no active tasks remain.
-4. Final state and post-garbage-collection state are shown on the proof board.
-5. In single-cycle mode, the completed windows remain visible.
-6. The user presses a key to transition from the final UI to the plain-text transcript.
-7. The transcript is written to phase1output.txt.
+3. Task buffers are allocated through Mem_mgr as each task begins its proof path.
+4. The scheduler dispatches tasks until no active tasks remain.
+5. Final state and post-garbage-collection state are shown on the proof board.
+6. In single-cycle mode, the completed windows remain visible.
+7. The user presses a key to transition from the final UI to the plain-text transcript.
+8. The transcript is written to phase1output.txt.
 
 Continuous mode still exists, but it is now opt-in through the command-line flag --continuous.
 
-7. Current Controls
+8. Current Controls
 
 - h refreshes the help/status panel.
-- d appends an on-demand scheduler and semaphore dump to the log window.
+- d appends an on-demand scheduler, semaphore, and memory-manager dump to the log window.
 - p pauses or resumes the paced demonstration.
 - q exits continuous mode after the current cycle.
 - mouse clicks are logged when the terminal supports mouse events.
 
-8. How to Run
+9. How to Run
 
 Preferred CMake path:
 
@@ -202,19 +240,19 @@ Transcript-only launcher:
 
 On macOS, the .command launchers can also be used from Finder or external-tool workflows.
 
-9. Assignment Compliance Notes
+10. Assignment Compliance Notes
 
 This implementation currently satisfies the assignment expectations in the following ways:
 
 - the process table is dynamic;
 - the scheduler tracks RUNNING, READY, BLOCKED, and DEAD states;
 - the semaphore uses a FIFO queue and does not busy wait;
-- the scheduler and semaphore both expose readable dump output;
-- the demonstration visibly proves queueing, blocking, wake-up order, and cleanup;
+- the scheduler, semaphore, and memory manager all expose readable dump output;
+- the demonstration visibly proves queueing, blocking, wake-up order, buffer lifetime, and cleanup;
 - the project includes both a live terminal demonstration and a transcript artifact;
 - the UI is protected by a pthread-based mutual-exclusion boundary so screen rendering remains coherent.
 
-10. Current Limitations and Notes
+11. Current Limitations and Notes
 
 - Some directories contain old object files, repeated binary copies, and debug symbol folders produced during development; they are not the authoritative source files.
 - The real source of truth is the current .cpp, .h, build, and launcher files described above.

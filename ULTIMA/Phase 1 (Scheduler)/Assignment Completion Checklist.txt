@@ -11,11 +11,12 @@ Completed In The Repository
   - Ultima Phase 1 Class Diagram.png
 - Phase 1 folder contains a copy of the assignment sheet:
   - OS Group Project 1.pdf
-- Phase 1 Abstract.txt updated with the current scheduler and semaphore implementation summary.
+- Phase 1 Abstract.txt updated with the current scheduler, semaphore, and memory-manager implementation summary.
 - External Documentation.txt updated with architecture, repository structure, runtime flow, and assignment-compliance notes.
 - Test Plan and Output.txt updated with concrete test cases and expected/observed behavior.
 - Source files are present and separated by module:
   - Ultima.cpp
+  - Mem_mgr.h / Mem_mgr.cpp
   - Sema.h / Sema.cpp
   - Sched.h / Sched.cpp
   - U2_Scheduler.h
@@ -41,6 +42,7 @@ Completed In This Cleanup Pass
 - Created a real cover-page text document.
 - Created a real team-resume index instead of a placeholder.
 - Created a Phase 1 submission document in Word format.
+- Integrated Mem_mgr.h / Mem_mgr.cpp into the live proof-board, transcript, and build flow.
 
 Still Not Fully Verifiable From The Repository Alone
 - The Introduction/Resumes folder currently contains Hayes Resume.pdf and Kobs Resume.pdf, but does not contain a Stewart Pawley resume file.

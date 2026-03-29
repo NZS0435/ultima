@@ -1,12 +1,12 @@
 ULTIMA 2.0
 CS-435 Operating Systems
-Phase 1 - Scheduler and Semaphore
+Phase 1 - Scheduler, Semaphore, and Memory Manager
 
 Team: Team Thunder
 Date: March 29, 2026
 
 Team Members
-- Stewart Pawley - Group Leader, Scheduler and Integration - spawley@iu.edu
+- Stewart Pawley - Group Leader, Scheduler, Memory Manager, and Integration - spawley@iu.edu
 - Nicholas Kobs - Semaphore Management - nicholaskobs444@gmail.com
 - Zander Hayes - Driver, Simulation and Documentation - contact information carried in the attached Hayes Resume.pdf
 
@@ -28,3 +28,4 @@ Key Phase 1 Deliverables
 - Test plan and output evidence
 - Transcript artifact
 - Phase 1 submission document
+- Memory-manager module: Mem_mgr.h / Mem_mgr.cpp

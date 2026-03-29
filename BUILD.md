@@ -1,6 +1,6 @@
 <img src="/Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg" alt="Team Thunder" />
 
-Phase Label: Phase 1 - Scheduler and Semaphore
+Phase Label: Phase 1 - Scheduler, Semaphore, and Memory Manager
 
 # Cross-Platform Build Guide (macOS + Windows + Cygwin)
 
@@ -52,6 +52,7 @@ Run:
 Default behavior:
 
 - `ultima_os` now runs a single presentation cycle, keeps the final UI state on screen, and waits for a key press before closing the ncurses windows and printing the transcript.
+- The live proof-board now includes the scheduler, semaphore, and a deterministic first-fit memory manager that tracks one task buffer per demo task.
 - It also writes `phase1output.txt` in the current working directory.
 - Use `--no-post-ui-transcript` only if you explicitly want the UI to exit without printing the transcript afterward.
 - Use `--continuous` only if you explicitly want the old repeating demo loop.
@@ -104,6 +105,7 @@ $env:USERPROFILE\\.ultima2\\build\\windows-debug\\ultima_os.exe
 Default behavior:
 
 - `ultima_os.exe` now runs a single presentation cycle, keeps the final UI state on screen, and waits for a key press before closing the ncurses windows and printing the transcript.
+- The live proof-board now includes the scheduler, semaphore, and a deterministic first-fit memory manager that tracks one task buffer per demo task.
 - It also writes `phase1output.txt` in the current working directory.
 - Use `--no-post-ui-transcript` only if you explicitly want the UI to exit without printing the transcript afterward.
 - Use `--continuous` only if you explicitly want the old repeating demo loop.
@@ -146,6 +148,7 @@ Run:
 Default behavior:
 
 - `ultima_os.exe` now runs a single presentation cycle, keeps the final UI state on screen, and waits for a key press before closing the ncurses windows and printing the transcript.
+- The live proof-board now includes the scheduler, semaphore, and a deterministic first-fit memory manager that tracks one task buffer per demo task.
 - It also writes `phase1output.txt` in the current working directory.
 - Use `--no-post-ui-transcript` only if you explicitly want the UI to exit without printing the transcript afterward.
 - Use `--continuous` only if you explicitly want the old repeating demo loop.
@@ -184,7 +187,7 @@ Preferred presentation layout at `140 x 62`:
 - `Header`: `5 x 138` at `(y=0, x=1)`
 - `Scheduler`: `7 x 138` at `(5, 1)`
 - `Semaphore`: `7 x 138` at `(12, 1)`
-- `State + Race Proof`: `7 x 138` at `(19, 1)`
+- `State + Race + Memory`: `7 x 138` at `(19, 1)`
 - `Task_A`: `7 x 138` at `(26, 1)`
 - `Task_B`: `7 x 138` at `(33, 1)`
 - `Task_C`: `7 x 138` at `(40, 1)`
@@ -211,3 +214,10 @@ Preferred presentation layout at `140 x 62`:
 - macOS/Linux: CMake uses `find_package(Curses)` and links native pthreads via `Threads::Threads`.
 - Cygwin: CMake uses `find_package(Curses)` with Cygwin ncurses and links pthreads via `Threads::Threads` (no manual path wiring).
 - Non-Cygwin Windows (MSYS2/MinGW/MSVC): CMake links PDCurses. Threading links through `Threads::Threads`; if native `pthread.h` is unavailable, the code automatically uses the local mutex compatibility shim in `platform_threads.h`.
+
+## Phase 1 Module Summary
+
+- `Sched.h` / `Sched.cpp`: round-robin scheduler, task-state transitions, and process-table dumps.
+- `Sema.h` / `Sema.cpp`: FIFO binary semaphore for `Printer_Output`.
+- `Mem_mgr.h` / `Mem_mgr.cpp`: deterministic first-fit memory manager used by the demo to allocate, track, and free one buffer per task.
+- `Ultima.cpp`: ties the scheduler, semaphore, and memory manager together in the live proof-board and transcript flow.

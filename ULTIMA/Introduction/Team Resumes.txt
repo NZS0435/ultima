@@ -6,7 +6,7 @@ Included Resume Files
 - Resumes/Kobs Resume.pdf
 
 Verified Contact Information Present In Repository Metadata
-- Stewart Pawley - spawley@iu.edu
+- Stewart Pawley - spawley@iu.edu (current repository role: scheduler, memory manager, and integration)
 - Nicholas Kobs - nicholaskobs444@gmail.com
 - Zander Hayes - resume file present in Resumes/Hayes Resume.pdf
 
