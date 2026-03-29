@@ -3,7 +3,6 @@
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
 
 #include <algorithm>
-#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -12,6 +11,8 @@
 #include <vector>
 
 #if defined(_WIN32)
+#include <direct.h>
+#include <io.h>
 #include <process.h>
 #else
 #include <unistd.h>
@@ -241,31 +242,78 @@ bool build_layout(WindowLayout& layout) {
     return layout.log_width >= 40;
 }
 
+std::string join_path(const std::string& directory, const std::string& filename) {
+    if (directory.empty()) {
+        return filename;
+    }
+    const char last_char = directory[directory.size() - 1];
+    if (last_char == '/' || last_char == '\\') {
+        return directory + filename;
+    }
+#if defined(_WIN32)
+    return directory + "\\" + filename;
+#else
+    return directory + "/" + filename;
+#endif
+}
+
+std::string current_working_directory() {
+    char buffer[4096];
+#if defined(_WIN32)
+    if (_getcwd(buffer, static_cast<int>(sizeof(buffer))) == nullptr) {
+        return "";
+    }
+#else
+    if (getcwd(buffer, sizeof(buffer)) == nullptr) {
+        return "";
+    }
+#endif
+    return std::string(buffer);
+}
+
+bool file_exists(const std::string& path) {
+#if defined(_WIN32)
+    return _access(path.c_str(), 0) == 0;
+#else
+    return access(path.c_str(), F_OK) == 0;
+#endif
+}
+
 bool try_launch_sibling_curses_binary(int argc, char* argv[]) {
     if (argc <= 0 || argv == nullptr || argv[0] == nullptr) {
         return false;
     }
 
-    std::error_code path_error;
-    std::filesystem::path invoked_path = std::filesystem::path(argv[0]);
-    if (invoked_path.is_relative()) {
-        invoked_path = std::filesystem::current_path(path_error) / invoked_path;
-        path_error.clear();
+    std::string invoked_path = argv[0];
+    if (invoked_path.empty()) {
+        return false;
     }
 
+    std::string resolved_path = invoked_path;
+    if (invoked_path.find('/') == std::string::npos && invoked_path.find('\\') == std::string::npos) {
+        const std::string cwd = current_working_directory();
+        if (!cwd.empty()) {
+            resolved_path = join_path(cwd, invoked_path);
+        }
+    }
+
+    const std::size_t separator_index = resolved_path.find_last_of("/\\");
+    const std::string binary_directory = (separator_index == std::string::npos)
+        ? current_working_directory()
+        : resolved_path.substr(0, separator_index);
 #if defined(_WIN32)
-    const std::filesystem::path sibling_binary = invoked_path.parent_path() / "ultima_os.exe";
+    const std::string sibling_binary = join_path(binary_directory, "ultima_os.exe");
 #else
-    const std::filesystem::path sibling_binary = invoked_path.parent_path() / "ultima_os";
+    const std::string sibling_binary = join_path(binary_directory, "ultima_os");
 #endif
 
-    if (!std::filesystem::exists(sibling_binary, path_error)) {
+    if (!file_exists(sibling_binary)) {
         return false;
     }
 
     std::vector<std::string> forwarded_arguments;
     forwarded_arguments.reserve(static_cast<std::size_t>(argc));
-    forwarded_arguments.push_back(sibling_binary.string());
+    forwarded_arguments.push_back(sibling_binary);
     for (int index = 1; index < argc; ++index) {
         forwarded_arguments.emplace_back(argv[index] != nullptr ? argv[index] : "");
     }
@@ -273,7 +321,7 @@ bool try_launch_sibling_curses_binary(int argc, char* argv[]) {
     std::vector<char*> raw_arguments;
     raw_arguments.reserve(forwarded_arguments.size() + 1);
     for (std::string& argument : forwarded_arguments) {
-        raw_arguments.push_back(argument.data());
+        raw_arguments.push_back(const_cast<char*>(argument.c_str()));
     }
     raw_arguments.push_back(nullptr);
 
