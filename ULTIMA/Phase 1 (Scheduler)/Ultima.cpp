@@ -63,17 +63,19 @@ constexpr bool kCursesUiCompiled = true;
 constexpr bool kCursesUiCompiled = false;
 #endif
 
-constexpr int kMinimumTerminalRows = 25;
-constexpr int kMinimumTerminalCols = 96;
+constexpr int kMinimumTerminalRows = 24;
+constexpr int kMinimumTerminalCols = 80;
 constexpr int kPreferredPresentationRows = 62;
 constexpr int kPreferredPresentationCols = 140;
 constexpr int kHorizontalMargin = 1;
 constexpr int kHorizontalGap = 1;
 constexpr int kVerticalGap = 1;
+constexpr int kCompactHeaderHeight = 4;
 constexpr int kReferenceHeaderHeight = 5;
 constexpr int kReferencePrimaryPanelHeight = 7;
 constexpr int kReferenceBottomHeight = 6;
 constexpr int kReferenceConsoleMinWidth = 28;
+constexpr int kMinimumCompactColumnWidth = 24;
 constexpr int kStepPauseMs = 900;
 constexpr int kDispatchPauseMs = 250;
 constexpr int kDumpPauseMs = 1500;
@@ -133,7 +135,7 @@ WindowLayout current_layout;
 bool transcript_only_mode = false;
 bool stop_after_cycle = false;
 bool demo_paused = false;
-bool auto_print_transcript_after_ui = true;
+bool auto_print_transcript_after_ui = false;
 bool continuous_demo_requested = false;
 
 int demo_cycle_number = 1;
@@ -173,13 +175,13 @@ bool build_layout(WindowLayout& layout) {
     const int column_width = usable_width / 3;
     const int column_remainder = usable_width - (column_width * 3);
 
-    if (column_width < 28) {
+    if (column_width < kMinimumCompactColumnWidth) {
         return false;
     }
 
     layout.header_y = 0;
     layout.header_x = horizontal_margin;
-    layout.header_height = kReferenceHeaderHeight;
+    layout.header_height = (LINES <= kMinimumTerminalRows) ? kCompactHeaderHeight : kReferenceHeaderHeight;
     layout.header_width = COLS - (horizontal_margin * 2);
 
     layout.class_y = layout.header_height;
@@ -954,8 +956,8 @@ void render_console() {
         console_window->draw_lines({
             "d dump | h help",
             std::string("p pause | q ") + (stop_after_cycle ? "exit" : "stop"),
-            "Cycle " + std::to_string(demo_cycle_number),
-            "A" + std::to_string(sys_scheduler.get_active_task_count())
+            "Cycle " + std::to_string(demo_cycle_number)
+                + " | A" + std::to_string(sys_scheduler.get_active_task_count())
                 + " W" + std::to_string(printer_semaphore.waiting_task_count()),
             abbreviate_text(console_status, panel_text_limit(current_layout.console_width))
         });
@@ -1543,6 +1545,11 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
+        if (argument == "--post-ui-transcript") {
+            auto_print_transcript_after_ui = true;
+            continue;
+        }
+
         if (argument == "--continuous") {
             continuous_demo_requested = true;
             continue;
@@ -1558,7 +1565,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (!transcript_only_mode && output_file_path.empty() && auto_print_transcript_after_ui) {
+    if (!transcript_only_mode && output_file_path.empty()) {
         const std::string cwd = current_working_directory();
         if (!cwd.empty()) {
             output_file_path = join_path(cwd, "phase1output.txt");
