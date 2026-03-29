@@ -2,9 +2,14 @@
 /* Creator: ZANDER HAYES - TEAM THUNDER */
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
 
+#if defined(__CYGWIN__) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <stdio.h>
 #include <cstdlib>
 #include <fstream>
 #include <functional>
@@ -343,8 +348,24 @@ std::string to_lower_copy(std::string text) {
     return text;
 }
 
+FILE* open_command_pipe(const std::string& command) {
+#if defined(_WIN32) && !defined(__CYGWIN__)
+    return _popen(command.c_str(), "r");
+#else
+    return ::popen(command.c_str(), "r");
+#endif
+}
+
+int close_command_pipe(FILE* pipe) {
+#if defined(_WIN32) && !defined(__CYGWIN__)
+    return _pclose(pipe);
+#else
+    return ::pclose(pipe);
+#endif
+}
+
 std::string read_command_output(const std::string& command) {
-    FILE* pipe = popen(command.c_str(), "r");
+    FILE* pipe = open_command_pipe(command);
     if (pipe == nullptr) {
         return "";
     }
@@ -354,7 +375,7 @@ std::string read_command_output(const std::string& command) {
     while (std::fgets(buffer, static_cast<int>(sizeof(buffer)), pipe) != nullptr) {
         output += buffer;
     }
-    pclose(pipe);
+    close_command_pipe(pipe);
     return trim_copy(output);
 }
 
