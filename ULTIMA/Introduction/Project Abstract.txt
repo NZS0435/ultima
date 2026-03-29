@@ -1,1 +1,12 @@
-Placeholder for Project Abstract.docx
+ULTIMA 2.0
+Project Abstract
+
+ULTIMA 2.0 is a modular operating-systems course project organized as a sequence of implementation phases. The long-term goal of the project is to build a coherent educational operating-system environment in which each phase adds a new systems concept while preserving a single repository structure, a common build flow, and a consistent style of technical documentation. Rather than treating each assignment as an isolated lab, ULTIMA 2.0 presents the work as one evolving codebase whose components are intended to connect across phases.
+
+The current repository centers on Phase 1, Scheduler and Semaphore. This phase establishes the execution-control foundation for later work by implementing two core operating-system mechanisms: a dynamic scheduler that manages a process table of Task Control Blocks, and a binary semaphore that protects a shared resource without busy waiting. The scheduler tracks the four required process states, RUNNING, READY, BLOCKED, and DEAD, while the semaphore demonstrates queue-based mutual exclusion and deterministic wake-up behavior.
+
+To make the behavior observable and easy to evaluate, the project includes a terminal-based proof-board interface written with curses-style windows. The interface displays the scheduler state, semaphore state, race-condition proof, individual task panels, an event log, and the control/status panel at the same time. The live interface is paired with a transcript export so the same execution can be reviewed both visually and as a plain-text artifact for screenshots, write-up material, and grading evidence.
+
+The project is also designed for team collaboration across different operating environments. The build system supports macOS, Windows, and Cygwin workflows through shared CMake presets, Makefile entrypoints, and platform compatibility headers for curses and pthread-style locking. This lets collaborators keep a shared source tree while using local build caches outside the shared workspace to avoid path and cache collisions.
+
+Phase 1 therefore serves two purposes. Technically, it proves correct task-state transitions, FIFO semaphore queueing, wake-up behavior, and cleanup through garbage collection. Structurally, it establishes the repository organization, build discipline, documentation flow, and evidence-driven demonstration pattern that later ULTIMA phases can build on.
