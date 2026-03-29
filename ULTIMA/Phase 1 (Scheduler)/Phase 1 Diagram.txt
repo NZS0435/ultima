@@ -1,8 +1,0 @@
-See `Phase 1 Diagram.md` for the current Mermaid class diagrams for:
-
-- Scheduler
-- Semaphore
-- U2_ui
-- U2_window
-
-The markdown file also includes the supporting `TCB`, `TaskSnapshot`, and `State` types used by the scheduler.
