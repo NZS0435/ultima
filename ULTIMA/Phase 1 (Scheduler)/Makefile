@@ -27,15 +27,17 @@ endif
 THREAD_LIBS ?= -pthread
 LDLIBS += $(THREAD_LIBS) $(CURSES_LIBS)
 
-.PHONY: all build run test transcript clean
+.PHONY: all build run test transcript clean FORCE
+
+FORCE:
 
 all build: $(TARGET) $(LEGACY_TARGET)
 
 $(TARGET): $(OBJS)
 	$(CXX) $(LDFLAGS) -o $(TARGET) $(OBJS) $(LDLIBS)
 
-$(LEGACY_TARGET): $(TARGET)
-	cp $(TARGET) $(LEGACY_TARGET)
+$(LEGACY_TARGET): FORCE $(TARGET)
+	cp -f $(TARGET) $(LEGACY_TARGET)
 
 %.o: %.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@

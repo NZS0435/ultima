@@ -38,6 +38,12 @@ U2_window* console_window = nullptr;
 
 namespace {
 
+#if defined(ULTIMA_ENABLE_CURSES)
+constexpr bool kCursesUiCompiled = true;
+#else
+constexpr bool kCursesUiCompiled = false;
+#endif
+
 constexpr int kMinimumTerminalRows = 24;
 constexpr int kMinimumTerminalCols = 80;
 constexpr int kHorizontalMargin = 1;
@@ -1201,6 +1207,14 @@ int main(int argc, char* argv[]) {
             output_file_path = argv[++index];
             continue;
         }
+    }
+
+    if (!transcript_only_mode && !kCursesUiCompiled) {
+        transcript_only_mode = true;
+        std::cerr << "This Ultima binary was built without ncurses support. "
+                  << "Rebuild it with the repository Makefile or CMake target "
+                  << "to open the multi-window Phase 1 UI."
+                  << std::endl;
     }
 
     if (!transcript_only_mode) {

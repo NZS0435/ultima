@@ -28,3 +28,14 @@ target_compile_definitions(ultima_os PRIVATE
 
 # 4. Link both libraries to your executable
 target_link_libraries(ultima_os Threads::Threads ${CURSES_LIBRARIES})
+
+set(PHASE1_LEGACY_DIR "${CMAKE_SOURCE_DIR}/ULTIMA/Phase 1 (Scheduler)")
+set(PHASE1_LEGACY_ULTIMA_OS "${PHASE1_LEGACY_DIR}/ultima_os")
+set(PHASE1_LEGACY_ULTIMA "${PHASE1_LEGACY_DIR}/Ultima")
+
+add_custom_command(TARGET ultima_os POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:ultima_os>" "${PHASE1_LEGACY_ULTIMA_OS}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:ultima_os>" "${PHASE1_LEGACY_ULTIMA}"
+    COMMENT "Syncing legacy Phase 1 executables"
+    VERBATIM
+)
