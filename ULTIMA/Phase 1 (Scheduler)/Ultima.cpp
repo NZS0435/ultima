@@ -1704,7 +1704,7 @@ void run_demo_cycle() {
     log_event("System shutting down safely.");
     add_state_trace("Cycle proof completed: tasks are DEAD and the process table has been collected.");
     latest_flow_summary = "Cycle complete. The scheduler proved READY/RUNNING/BLOCKED/DEAD and FIFO wake-up.";
-    pace_step("Cycle complete. Preparing transcript...", 1200);
+    pace_step("Cycle complete. Final state is now visible on the proof board.", 1200);
 }
 
 } // namespace
@@ -1827,8 +1827,9 @@ int main(int argc, char* argv[]) {
     if (!transcript_only_mode) {
         if (console_window != nullptr) {
             if (stop_after_cycle && auto_print_transcript_after_ui) {
-                set_console_status("Cycle complete. Showing transcript...");
-                visual_pause(900);
+                nodelay(console_window->get_win_ptr(), FALSE);
+                set_console_status("Cycle complete. Press any key to show the transcript.");
+                wgetch(console_window->get_win_ptr());
             } else {
                 nodelay(console_window->get_win_ptr(), FALSE);
                 set_console_status(stop_after_cycle
