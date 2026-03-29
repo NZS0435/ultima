@@ -13,7 +13,7 @@ LEGACY_TARGET ?= Ultima
 OUTPUT_FILE ?= $(CURDIR)/phase1output.txt
 APPLE_CODESIGN ?= codesign --force --sign -
 
-SOURCES := Ultima.cpp Sched.cpp Sema.cpp U2_UI.cpp U2_Window.cpp
+SOURCES := Ultima.cpp Mem_mgr.cpp Sched.cpp Sema.cpp U2_UI.cpp U2_Window.cpp
 OBJS := $(SOURCES:.cpp=.o)
 
 UNAME_S := $(shell uname -s 2>/dev/null)

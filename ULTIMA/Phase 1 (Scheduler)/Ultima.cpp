@@ -23,6 +23,7 @@
 #else
 #include <unistd.h>
 #endif
+#include "Mem_mgr.h"
 #include "platform_curses.h"
 #include "U2_Scheduler.h"
 #include "Sema.h"
@@ -38,6 +39,7 @@
 
 Scheduler sys_scheduler;
 Semaphore printer_semaphore("Printer_Output", 1, &sys_scheduler);
+Mem_mgr proof_memory_manager(1024);
 U2_ui ui_manager;
 
 U2_window* header_window = nullptr;
@@ -72,6 +74,9 @@ constexpr int kDumpPauseMs = 1500;
 constexpr int kCycleRestartPauseMs = 2200;
 constexpr std::size_t kMaxHistoryLines = 18;
 constexpr std::size_t kMaxStateTraceLines = 12;
+constexpr std::size_t kTaskABufferBytes = 160;
+constexpr std::size_t kTaskBBufferBytes = 112;
+constexpr std::size_t kTaskCBufferBytes = 96;
 
 struct WindowLayout {
     bool stacked_primary_layout = false;
@@ -145,6 +150,11 @@ bool post_release_dump_written = false;
 
 std::string console_status = "Phase 1 demo ready.";
 std::string latest_flow_summary = "No scheduler activity has executed yet.";
+std::string latest_memory_event = "Heap ready; no task buffers allocated.";
+
+std::size_t task_a_buffer_address = Mem_mgr::kInvalidAddress;
+std::size_t task_b_buffer_address = Mem_mgr::kInvalidAddress;
+std::size_t task_c_buffer_address = Mem_mgr::kInvalidAddress;
 
 std::vector<std::string> transcript_lines;
 std::vector<std::string> state_trace_lines;
@@ -915,6 +925,35 @@ std::string compact_semaphore_transition() {
     return transition;
 }
 
+std::string format_memory_address(std::size_t address) {
+    return (address == Mem_mgr::kInvalidAddress) ? "--" : ("@" + std::to_string(address));
+}
+
+std::string memory_usage_summary() {
+    std::ostringstream memory_stream;
+    memory_stream << "used=" << proof_memory_manager.used_bytes()
+                  << "/" << proof_memory_manager.capacity()
+                  << " free=" << proof_memory_manager.free_bytes()
+                  << " alloc=" << proof_memory_manager.allocation_count();
+    return memory_stream.str();
+}
+
+std::string compact_memory_usage() {
+    std::ostringstream memory_stream;
+    memory_stream << "M " << proof_memory_manager.used_bytes()
+                  << "/" << proof_memory_manager.capacity()
+                  << " A" << proof_memory_manager.allocation_count();
+    return memory_stream.str();
+}
+
+std::string memory_buffer_summary() {
+    std::ostringstream buffer_stream;
+    buffer_stream << "A=" << format_memory_address(task_a_buffer_address)
+                  << " B=" << format_memory_address(task_b_buffer_address)
+                  << " C=" << format_memory_address(task_c_buffer_address);
+    return buffer_stream.str();
+}
+
 std::string latest_history_line(const std::vector<std::string>& history) {
     return history.empty() ? "Awaiting first event." : history.back();
 }
@@ -949,7 +988,7 @@ void render_header() {
 
     if (use_compact_panels()) {
         header_window->draw_lines({
-            "Phase 1: scheduler + semaphore",
+            "Phase 1: scheduler + semaphore + memory",
             "Cycle " + std::to_string(demo_cycle_number) + " | " + latest_flow_summary
         });
         return;
@@ -957,7 +996,7 @@ void render_header() {
 
     header_window->draw_lines({
         fit_panel_text("ULTIMA 2.0 / Phase 1", current_layout.header_width),
-        fit_panel_text("ULTIMA 2.0 / Phase 1 - Scheduler and Semaphore", current_layout.header_width),
+        fit_panel_text("ULTIMA 2.0 / Phase 1 - Scheduler, Semaphore, and Memory", current_layout.header_width),
         fit_panel_text("Purpose: the scheduler scans READY tasks, dispatches one RUNNING task, and keeps BLOCKED tasks off the CPU.", current_layout.header_width)
     });
 }
@@ -1044,9 +1083,9 @@ void render_state_panel() {
     if (use_compact_panels()) {
         state_window->draw_lines({
             "READY>RUN>BLK>READY>DEAD",
-            "UI lock: pthread mutex",
-            "FIFO semaphore queue",
-            "Flow proof:",
+            abbreviate_text(compact_memory_usage(), panel_text_limit(current_layout.class_width_right)),
+            abbreviate_text(memory_buffer_summary(), panel_text_limit(current_layout.class_width_right)),
+            "Mem: " + abbreviate_text(latest_memory_event, panel_text_limit(current_layout.class_width_right) - 5),
             abbreviate_text(latest_flow_summary, panel_text_limit(current_layout.class_width_right))
         });
         return;
@@ -1054,10 +1093,10 @@ void render_state_panel() {
 
     state_window->draw_lines({
         fit_panel_text("State legend: READY -> RUNNING -> BLOCKED ->", current_layout.class_width_right),
-        fit_panel_text("READY -> DEAD", current_layout.class_width_right),
-        fit_panel_text("Race control: ncurses writes are serialized.", current_layout.class_width_right),
-        fit_panel_text("Mutex: a pthread mutex guards screen output.", current_layout.class_width_right),
-        fit_panel_text("Resource control: semaphore queue blocks contenders.", current_layout.class_width_right)
+        fit_panel_text("READY -> DEAD | Race proof: pthread mutex serialized ncurses writes.", current_layout.class_width_right),
+        fit_prefixed_panel_text("Memory: ", memory_usage_summary(), current_layout.class_width_right),
+        fit_prefixed_panel_text("Buffers: ", memory_buffer_summary(), current_layout.class_width_right),
+        fit_prefixed_panel_text("Latest: ", latest_memory_event, current_layout.class_width_right)
     });
 }
 
@@ -1131,7 +1170,8 @@ void render_console() {
             std::string("p pause | q ") + (stop_after_cycle ? "exit" : "stop"),
             "Cycle " + std::to_string(demo_cycle_number)
                 + " | A" + std::to_string(sys_scheduler.get_active_task_count())
-                + " W" + std::to_string(printer_semaphore.waiting_task_count()),
+                + " W" + std::to_string(printer_semaphore.waiting_task_count())
+                + " | " + compact_memory_usage(),
             abbreviate_text(console_status, panel_text_limit(current_layout.console_width))
         });
         return;
@@ -1143,7 +1183,8 @@ void render_console() {
         fit_prefixed_panel_text("Cycle: ", std::to_string(demo_cycle_number), current_layout.console_width),
         fit_panel_text(
             "Paused: " + std::string(demo_paused ? "yes" : "no")
-                + " | Stop: " + std::string(stop_after_cycle ? "yes" : "no"),
+                + " | Stop: " + std::string(stop_after_cycle ? "yes" : "no")
+                + " | " + memory_usage_summary(),
             current_layout.console_width
         )
     });
@@ -1173,6 +1214,59 @@ void log_event(const std::string& message) {
     write_line(log_window, message);
 }
 
+void note_memory_event(const std::string& message) {
+    latest_memory_event = message;
+    log_event("[MemMgr] " + message);
+    add_state_trace("Mem_mgr: " + message);
+}
+
+bool reserve_task_buffer(
+    const std::string& task_name,
+    std::size_t bytes,
+    const std::string& label,
+    const std::string& payload,
+    std::size_t& address
+) {
+    if (address != Mem_mgr::kInvalidAddress) {
+        return true;
+    }
+
+    address = proof_memory_manager.allocate(bytes, label);
+    if (address == Mem_mgr::kInvalidAddress) {
+        note_memory_event("allocation failed for " + task_name + " (" + std::to_string(bytes) + " bytes)");
+        return false;
+    }
+
+    const std::size_t payload_bytes = std::min(bytes, payload.size());
+    if (payload_bytes > 0 && !proof_memory_manager.write(address, payload.data(), payload_bytes)) {
+        note_memory_event("write failed for " + task_name + " at " + format_memory_address(address));
+        proof_memory_manager.free_block(address);
+        address = Mem_mgr::kInvalidAddress;
+        return false;
+    }
+
+    note_memory_event(
+        "allocated " + std::to_string(bytes) + " bytes for "
+        + task_name + " at " + format_memory_address(address)
+    );
+    return true;
+}
+
+void release_task_buffer(const std::string& task_name, std::size_t& address) {
+    if (address == Mem_mgr::kInvalidAddress) {
+        return;
+    }
+
+    const std::size_t released_address = address;
+    if (proof_memory_manager.free_block(address)) {
+        note_memory_event("freed buffer for " + task_name + " at " + format_memory_address(released_address));
+    } else {
+        note_memory_event("free failed for " + task_name + " at " + format_memory_address(released_address));
+    }
+
+    address = Mem_mgr::kInvalidAddress;
+}
+
 void visual_pause(int total_ms) {
     if (transcript_only_mode) {
         return;
@@ -1193,6 +1287,9 @@ void visual_pause(int total_ms) {
                         }));
                         write_block(log_window, capture_dump_text([] {
                             printer_semaphore.dump(1);
+                        }));
+                        write_block(log_window, capture_dump_text([] {
+                            proof_memory_manager.dump(1);
                         }));
                         log_event("");
                         console_status = "Manual dump captured.";
@@ -1279,6 +1376,12 @@ void show_system_snapshot(const std::string& title) {
     });
     append_transcript(semaphore_dump);
     write_block(log_window, semaphore_dump);
+
+    const std::string memory_dump = capture_dump_text([] {
+        proof_memory_manager.dump(1);
+    });
+    append_transcript(memory_dump);
+    write_block(log_window, memory_dump);
     log_event("");
 
     sync_visuals();
@@ -1293,6 +1396,7 @@ bool current_task_is_blocked() {
 void reset_cycle_state() {
     sys_scheduler.reset();
     printer_semaphore.reset();
+    proof_memory_manager.reset();
 
     transcript_lines.clear();
     state_trace_lines.clear();
@@ -1313,10 +1417,16 @@ void reset_cycle_state() {
     mid_execution_dump_written = false;
     post_release_dump_written = false;
 
+    task_a_buffer_address = Mem_mgr::kInvalidAddress;
+    task_b_buffer_address = Mem_mgr::kInvalidAddress;
+    task_c_buffer_address = Mem_mgr::kInvalidAddress;
+
     latest_flow_summary = "Printer_Output is free and the process table is empty.";
+    latest_memory_event = "Heap reset and ready for deterministic first-fit allocations.";
     console_status = "Preparing cycle " + std::to_string(demo_cycle_number) + ".";
 
     add_state_trace("Cycle " + std::to_string(demo_cycle_number) + ": scheduler reset; Printer_Output unlocked.");
+    add_state_trace("Cycle " + std::to_string(demo_cycle_number) + ": Mem_mgr reset to one free segment.");
 
     if (!transcript_only_mode) {
         ui_manager.clear_all();
@@ -1327,7 +1437,25 @@ void create_demo_tasks() {
     task_a_id = sys_scheduler.create_task("Task_A", [] {
         switch (task_a_phase) {
             case 0: {
-                sys_scheduler.set_task_note(task_a_id, "Attempting to claim Printer_Output.");
+                sys_scheduler.set_task_note(task_a_id, "Reserving a work buffer and attempting to claim Printer_Output.");
+                if (!reserve_task_buffer(
+                        "Task_A",
+                        kTaskABufferBytes,
+                        "Task_A_work",
+                        "Task_A acquired the first work buffer.",
+                        task_a_buffer_address
+                    )) {
+                    sys_scheduler.set_task_note(task_a_id, "Mem_mgr could not reserve Task_A's work buffer.");
+                    note_task_a("Mem_mgr allocation failed before Task_A could enter the critical section.");
+                    latest_flow_summary = "Task_A could not allocate its work buffer.";
+                    sys_scheduler.kill_task(task_a_id);
+                    task_a_phase = 2;
+                    return;
+                }
+                note_task_a(
+                    "Mem_mgr reserved " + std::to_string(kTaskABufferBytes)
+                    + " bytes at " + format_memory_address(task_a_buffer_address) + "."
+                );
                 note_task_a("Calling down(Printer_Output).");
                 log_event("[Task_A] down(Printer_Output)");
                 add_state_trace("Task_A moved READY -> RUNNING and requested Printer_Output.");
@@ -1343,7 +1471,7 @@ void create_demo_tasks() {
                     return;
                 }
 
-                sys_scheduler.set_task_note(task_a_id, "Holding Printer_Output inside the critical section.");
+                sys_scheduler.set_task_note(task_a_id, "Holding Printer_Output and Task_A's work buffer inside the critical section.");
                 note_task_a("Acquired Printer_Output and now owns the critical section.");
                 note_task_a("Yielding once so Task_B and Task_C can contend for the resource.");
                 log_event("[Task_A] acquired Printer_Output.");
@@ -1353,13 +1481,15 @@ void create_demo_tasks() {
                 return;
             }
             case 1:
-                sys_scheduler.set_task_note(task_a_id, "Releasing Printer_Output and preparing to exit.");
+                sys_scheduler.set_task_note(task_a_id, "Releasing Printer_Output, freeing the work buffer, and preparing to exit.");
                 note_task_a("Calling up(Printer_Output) to release the resource.");
                 log_event("[Task_A] up(Printer_Output)");
                 add_state_trace("Task_A is releasing Printer_Output and waking the next waiter.");
                 pace_step("Task_A is releasing Printer_Output.");
 
                 printer_semaphore.up();
+                release_task_buffer("Task_A", task_a_buffer_address);
+                note_task_a("Freed Task_A's work buffer after the critical section.");
                 latest_flow_summary = "Task_A released Printer_Output; Task_B is the next READY owner.";
 
                 if (!post_release_dump_written) {
@@ -1384,7 +1514,25 @@ void create_demo_tasks() {
     task_b_id = sys_scheduler.create_task("Task_B", [] {
         switch (task_b_phase) {
             case 0: {
-                sys_scheduler.set_task_note(task_b_id, "Attempting to claim Printer_Output behind Task_A.");
+                sys_scheduler.set_task_note(task_b_id, "Reserving a wait-record buffer and attempting to claim Printer_Output behind Task_A.");
+                if (!reserve_task_buffer(
+                        "Task_B",
+                        kTaskBBufferBytes,
+                        "Task_B_wait_record",
+                        "Task_B is queued behind Task_A.",
+                        task_b_buffer_address
+                    )) {
+                    sys_scheduler.set_task_note(task_b_id, "Mem_mgr could not reserve Task_B's wait-record buffer.");
+                    note_task_b("Mem_mgr allocation failed before Task_B could contend for Printer_Output.");
+                    latest_flow_summary = "Task_B could not allocate its wait-record buffer.";
+                    sys_scheduler.kill_task(task_b_id);
+                    task_b_phase = 3;
+                    return;
+                }
+                note_task_b(
+                    "Mem_mgr reserved " + std::to_string(kTaskBBufferBytes)
+                    + " bytes at " + format_memory_address(task_b_buffer_address) + "."
+                );
                 note_task_b("Calling down(Printer_Output).");
                 log_event("[Task_B] down(Printer_Output)");
                 add_state_trace("Task_B moved READY -> RUNNING and contended for Printer_Output.");
@@ -1421,13 +1569,15 @@ void create_demo_tasks() {
                 task_b_phase = 2;
                 return;
             case 2:
-                sys_scheduler.set_task_note(task_b_id, "Releasing Printer_Output and preparing to exit.");
+                sys_scheduler.set_task_note(task_b_id, "Releasing Printer_Output, freeing the wait-record buffer, and preparing to exit.");
                 note_task_b("Calling up(Printer_Output).");
                 log_event("[Task_B] up(Printer_Output)");
                 add_state_trace("Task_B released Printer_Output and should wake Task_C.");
                 pace_step("Task_B is releasing Printer_Output.");
 
                 printer_semaphore.up();
+                release_task_buffer("Task_B", task_b_buffer_address);
+                note_task_b("Freed Task_B's wait-record buffer.");
                 sys_scheduler.kill_task(task_b_id);
                 sys_scheduler.set_task_note(task_b_id, "DEAD after finishing the second critical section.");
                 note_task_b("kill_task() moved Task_B into DEAD.");
@@ -1445,7 +1595,25 @@ void create_demo_tasks() {
     task_c_id = sys_scheduler.create_task("Task_C", [] {
         switch (task_c_phase) {
             case 0: {
-                sys_scheduler.set_task_note(task_c_id, "Attempting to claim Printer_Output behind Task_B.");
+                sys_scheduler.set_task_note(task_c_id, "Reserving a wait-record buffer and attempting to claim Printer_Output behind Task_B.");
+                if (!reserve_task_buffer(
+                        "Task_C",
+                        kTaskCBufferBytes,
+                        "Task_C_wait_record",
+                        "Task_C is queued behind Task_B.",
+                        task_c_buffer_address
+                    )) {
+                    sys_scheduler.set_task_note(task_c_id, "Mem_mgr could not reserve Task_C's wait-record buffer.");
+                    note_task_c("Mem_mgr allocation failed before Task_C could contend for Printer_Output.");
+                    latest_flow_summary = "Task_C could not allocate its wait-record buffer.";
+                    sys_scheduler.kill_task(task_c_id);
+                    task_c_phase = 3;
+                    return;
+                }
+                note_task_c(
+                    "Mem_mgr reserved " + std::to_string(kTaskCBufferBytes)
+                    + " bytes at " + format_memory_address(task_c_buffer_address) + "."
+                );
                 note_task_c("Calling down(Printer_Output).");
                 log_event("[Task_C] down(Printer_Output)");
                 add_state_trace("Task_C moved READY -> RUNNING and contended for Printer_Output.");
@@ -1488,13 +1656,15 @@ void create_demo_tasks() {
                 task_c_phase = 2;
                 return;
             case 2:
-                sys_scheduler.set_task_note(task_c_id, "Releasing Printer_Output and preparing to exit.");
+                sys_scheduler.set_task_note(task_c_id, "Releasing Printer_Output, freeing the wait-record buffer, and preparing to exit.");
                 note_task_c("Calling up(Printer_Output).");
                 log_event("[Task_C] up(Printer_Output)");
                 add_state_trace("Task_C released Printer_Output and will exit.");
                 pace_step("Task_C is releasing Printer_Output.");
 
                 printer_semaphore.up();
+                release_task_buffer("Task_C", task_c_buffer_address);
+                note_task_c("Freed Task_C's wait-record buffer.");
                 sys_scheduler.kill_task(task_c_id);
                 sys_scheduler.set_task_note(task_c_id, "DEAD after finishing the final critical section.");
                 note_task_c("kill_task() moved Task_C into DEAD.");
@@ -1515,13 +1685,17 @@ void create_demo_tasks() {
 
     add_task_history(task_a_history, "Created in READY state.");
     add_task_history(task_a_history, "Will acquire Printer_Output first and yield while holding it.");
+    add_task_history(task_a_history, "Mem_mgr will reserve a work buffer before the critical section.");
     add_task_history(task_b_history, "Created in READY state.");
     add_task_history(task_b_history, "Should block when Task_A still owns Printer_Output.");
+    add_task_history(task_b_history, "Mem_mgr will reserve a wait-record buffer before blocking.");
     add_task_history(task_c_history, "Created in READY state.");
     add_task_history(task_c_history, "Should block behind Task_B in the FIFO queue.");
+    add_task_history(task_c_history, "Mem_mgr will reserve a wait-record buffer before blocking.");
 
     add_state_trace("Three tasks were inserted into the process table.");
     add_state_trace("The scheduler will rotate Task_A -> Task_B -> Task_C by READY order.");
+    add_state_trace("Mem_mgr will track one buffer per task through acquire, block, wake, and release.");
 }
 
 void create_windows() {
@@ -1560,7 +1734,7 @@ void create_windows() {
         current_layout.class_width_right,
         current_layout.full_width_panels ? current_layout.state_y : (current_layout.stacked_primary_layout ? current_layout.bottom_y : current_layout.class_y),
         current_layout.class_x_right,
-        "State + Race Proof",
+        "State + Race + Memory",
         false
     );
 
@@ -1675,6 +1849,7 @@ void run_demo_cycle() {
     log_event("=== ULTIMA Phase 1 terminal demonstration / cycle " + std::to_string(demo_cycle_number) + " ===");
     log_event("Scheduler purpose: manage the dynamic process table and choose the next READY task to run.");
     log_event("Semaphore purpose: prevent a shared Printer_Output race by blocking and queueing contenders.");
+    log_event("Memory manager purpose: provide deterministic first-fit task buffers and show their lifetime in the proof board.");
     log_event("Pthread purpose: protect ncurses writes so the proof-board display stays coherent.");
     if (stop_after_cycle) {
         log_event("Single-cycle mode: the final state will remain on screen when the demo finishes.");
@@ -1697,7 +1872,7 @@ void run_demo_cycle() {
     show_system_snapshot("--- POST-GARBAGE-COLLECTION DUMP ---");
     log_event("System shutting down safely.");
     add_state_trace("Cycle proof completed: tasks are DEAD and the process table has been collected.");
-    latest_flow_summary = "Cycle complete. The scheduler proved READY/RUNNING/BLOCKED/DEAD and FIFO wake-up.";
+    latest_flow_summary = "Cycle complete. The scheduler, semaphore, and Mem_mgr proved task state, FIFO wake-up, and buffer lifetime.";
     pace_step("Cycle complete. Final state is now visible on the proof board.", 1200);
 }
 
@@ -1869,6 +2044,7 @@ int main(int argc, char* argv[]) {
  * compile these modules as independent translation units instead.
  */
 #include "Sched.cpp"
+#include "Mem_mgr.cpp"
 #include "Sema.cpp"
 #include "U2_UI.cpp"
 #include "U2_Window.cpp"

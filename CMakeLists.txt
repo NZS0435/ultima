@@ -14,6 +14,7 @@ include_directories(${CURSES_INCLUDE_DIR})
 
 # 3. Add your executable and source files (include all your .cpp files here)
 add_executable(ultima_os
+    "ULTIMA/Phase 1 (Scheduler)/Mem_mgr.cpp"
     "ULTIMA/Phase 1 (Scheduler)/Sched.cpp"
     "ULTIMA/Phase 1 (Scheduler)/Sema.cpp"
     "ULTIMA/Phase 1 (Scheduler)/U2_UI.cpp"
