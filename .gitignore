@@ -19,6 +19,11 @@ CMakeUserPresets.json
 *.exe
 *.out
 ultima_os
+*.dSYM/
+/phase1output.txt
+ULTIMA/Phase 1 (Scheduler)/Ultima
+ULTIMA/Phase 1 (Scheduler)/Ultima [0-9]*
+ULTIMA/Phase 1 (Scheduler)/ultima_os [0-9]*
 
 # Local caches
 tmp/
