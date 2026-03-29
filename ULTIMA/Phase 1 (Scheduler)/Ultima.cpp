@@ -130,7 +130,7 @@ WindowLayout current_layout;
 bool transcript_only_mode = false;
 bool stop_after_cycle = false;
 bool demo_paused = false;
-bool auto_print_transcript_after_ui = false;
+bool auto_print_transcript_after_ui = true;
 bool continuous_demo_requested = false;
 
 int demo_cycle_number = 1;
