@@ -108,8 +108,6 @@ Run:
    - `windows-debug` for MSYS2/MinGW or MSVC workflows
    - `cygwin-debug` for Cygwin workflows
 4. Do not use `cmake-build-debug` inside the SharePoint project tree.
-5. The ncurses Phase 1 UI needs a real terminal surface. In CLion, open `Run | Edit Configurations` for the app and enable `Emulate terminal in output console` if you want the multi-window TUI inside the IDE.
-6. If terminal emulation is unavailable or unreliable in the current CLion setup, run the executable from the Terminal tool window or an external terminal. Otherwise the app will fall back to transcript-only mode or print raw control sequences instead of drawing windows.
 
 ### CLion Cygwin Toolchain/Profile Setup
 

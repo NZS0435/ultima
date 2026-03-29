@@ -3,19 +3,12 @@
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
 
 #include <algorithm>
-#include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
-#if defined(_WIN32)
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
 #include "platform_curses.h"
 #include "U2_Scheduler.h"
 #include "Sema.h"
@@ -93,7 +86,11 @@ struct WindowLayout {
 
 WindowLayout current_layout;
 
+#if defined(ULTIMA_ENABLE_CURSES)
 bool transcript_only_mode = false;
+#else
+bool transcript_only_mode = true;
+#endif
 bool stop_after_cycle = false;
 bool demo_paused = false;
 
@@ -120,52 +117,6 @@ std::vector<std::string> state_trace_lines;
 std::vector<std::string> task_a_history;
 std::vector<std::string> task_b_history;
 std::vector<std::string> task_c_history;
-
-bool stream_is_tty(FILE* stream) {
-#if defined(_WIN32)
-    return _isatty(_fileno(stream)) != 0;
-#else
-    return isatty(fileno(stream)) != 0;
-#endif
-}
-
-void seed_default_term_if_missing() {
-    if (!stream_is_tty(stdin) || !stream_is_tty(stdout)) {
-        return;
-    }
-
-    const char* term_value = std::getenv("TERM");
-    if (term_value != nullptr && term_value[0] != '\0') {
-        return;
-    }
-
-#if defined(_WIN32)
-    _putenv_s("TERM", "xterm-256color");
-#else
-    setenv("TERM", "xterm-256color", 1);
-#endif
-}
-
-std::string describe_terminal_issue() {
-    const bool stdin_is_tty = stream_is_tty(stdin);
-    const bool stdout_is_tty = stream_is_tty(stdout);
-    const char* term_value = std::getenv("TERM");
-
-    if (!stdin_is_tty || !stdout_is_tty) {
-        return "ncurses UI requires a real terminal; stdin/stdout are not attached to a TTY.";
-    }
-
-    if (term_value == nullptr || std::string(term_value).empty()) {
-        return "ncurses UI requires a valid TERM value, but TERM is unset.";
-    }
-
-    const std::string term_name(term_value);
-    if (term_name == "unknown" || term_name == "dumb") {
-        return "ncurses UI requires a usable TERM value, but TERM=" + term_name + ".";
-    }
-
-    return "";
-}
 
 bool build_layout(WindowLayout& layout) {
     layout = WindowLayout {};
@@ -1256,19 +1207,6 @@ int main(int argc, char* argv[]) {
     }
 
     if (!transcript_only_mode) {
-        seed_default_term_if_missing();
-        const std::string terminal_issue = describe_terminal_issue();
-        if (!terminal_issue.empty()) {
-            transcript_only_mode = true;
-            std::cerr << terminal_issue << '\n'
-                      << "Falling back to transcript-only mode. "
-                      << "Run the executable inside a real terminal, or enable an external terminal in CLion, "
-                      << "to see the multi-window ncurses UI."
-                      << std::endl;
-        }
-    }
-
-    if (!transcript_only_mode) {
         ui_manager.init_ncurses_env();
 
         if (!build_layout(current_layout)) {
@@ -1329,3 +1267,16 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+#if !defined(ULTIMA_SEPARATE_COMPILATION)
+/*
+ * Support direct one-file builds such as:
+ * c++ "/path/to/Ultima.cpp" -o Ultima
+ * The repository build entrypoints define ULTIMA_SEPARATE_COMPILATION=1 and
+ * compile these modules as independent translation units instead.
+ */
+#include "Sched.cpp"
+#include "Sema.cpp"
+#include "U2_UI.cpp"
+#include "U2_Window.cpp"
+#endif
