@@ -49,6 +49,12 @@ Run:
 ~/.ultima2/build/macos-debug/ultima_os
 ```
 
+If you want the Phase 1 ncurses windows from Finder or a JetBrains external tool on macOS, you can also launch:
+
+```bash
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_ui.command
+```
+
 ### Windows (MSYS2 MinGW64)
 
 Install dependencies from `MSYS2 MinGW x64` shell:
@@ -108,6 +114,11 @@ Run:
    - `windows-debug` for MSYS2/MinGW or MSVC workflows
    - `cygwin-debug` for Cygwin workflows
 4. Do not use `cmake-build-debug` inside the SharePoint project tree.
+
+CLion note:
+
+- The plain Run output console is not a full ncurses terminal and can print raw escape codes instead of drawing the windows.
+- Use `Emulate terminal in output console`, run in an external terminal, or use `ULTIMA/Phase 1 (Scheduler)/run_ultima_ui.command` on macOS.
 
 ### CLion Cygwin Toolchain/Profile Setup
 

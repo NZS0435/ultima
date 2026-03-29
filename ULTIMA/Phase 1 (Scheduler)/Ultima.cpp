@@ -3,6 +3,7 @@
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
 
 #include <algorithm>
+#include <cstdlib>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -276,6 +277,24 @@ bool file_exists(const std::string& path) {
     return _access(path.c_str(), 0) == 0;
 #else
     return access(path.c_str(), F_OK) == 0;
+#endif
+}
+
+bool environment_supports_curses_ui() {
+    const char* term_value = std::getenv("TERM");
+    if (term_value == nullptr || term_value[0] == '\0') {
+        return false;
+    }
+
+    const std::string term_name(term_value);
+    if (term_name == "dumb" || term_name == "unknown") {
+        return false;
+    }
+
+#if defined(_WIN32)
+    return _isatty(_fileno(stdin)) != 0 && _isatty(_fileno(stdout)) != 0;
+#else
+    return isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0;
 #endif
 }
 
@@ -1316,6 +1335,14 @@ int main(int argc, char* argv[]) {
         std::cerr << "This Ultima binary was built without ncurses support. "
                   << "Rebuild it with the repository Makefile or CMake target "
                   << "to open the multi-window Phase 1 UI."
+                  << std::endl;
+    }
+
+    if (!transcript_only_mode && !environment_supports_curses_ui()) {
+        transcript_only_mode = true;
+        std::cerr << "Current console does not provide a usable ncurses terminal surface. "
+                  << "Falling back to transcript-only mode. Run Ultima from Terminal/iTerm, "
+                  << "or use the macOS .command launcher, to see the multi-window UI."
                   << std::endl;
     }
 
