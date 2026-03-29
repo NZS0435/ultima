@@ -4,7 +4,7 @@ ULTIMA 2.0 - Phase 1 transcript
 Scheduler purpose: manage the dynamic process table and choose the next READY task to run.
 Semaphore purpose: prevent a shared Printer_Output race by blocking and queueing contenders.
 Pthread purpose: protect ncurses writes so the proof-board display stays coherent.
-Continuous mode: the interactive demo will restart automatically until you press q.
+Single-cycle mode: the final state will remain on screen when the demo finishes.
 
 --- INITIAL SYSTEM STATE ---
 Scheduler Dump
