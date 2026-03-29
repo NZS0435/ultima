@@ -11,6 +11,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <chrono>
 #include <vector>
 
 #if defined(_WIN32)
@@ -57,6 +59,8 @@ constexpr bool kCursesUiCompiled = false;
 
 constexpr int kMinimumTerminalRows = 24;
 constexpr int kMinimumTerminalCols = 80;
+constexpr int kPreferredPresentationRows = 62;
+constexpr int kPreferredPresentationCols = 140;
 constexpr int kHorizontalMargin = 1;
 constexpr int kHorizontalGap = 1;
 constexpr int kVerticalGap = 1;
@@ -379,6 +383,18 @@ bool terminal_program_is_known_good() {
         || program == "vscode";
 }
 
+bool running_in_terminal_app_family() {
+    const char* term_program = std::getenv("TERM_PROGRAM");
+    if (term_program == nullptr || term_program[0] == '\0') {
+        return false;
+    }
+
+    const std::string program = to_lower_copy(term_program);
+    return program == "apple_terminal"
+        || program == "iterm.app"
+        || program == "wezterm";
+}
+
 bool running_inside_jetbrains_debugger() {
 #if defined(__APPLE__)
     long process_id = static_cast<long>(getppid());
@@ -412,6 +428,29 @@ bool environment_supports_curses_ui() {
 #else
     return isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0;
 #endif
+}
+
+void request_preferred_terminal_size_if_needed(const std::string& output_file_path) {
+    if (output_file_path.empty()) {
+        return;
+    }
+
+    if (!running_in_terminal_app_family()) {
+        return;
+    }
+
+#if defined(_WIN32)
+    if (_isatty(_fileno(stdout)) == 0) {
+        return;
+    }
+#else
+    if (isatty(STDOUT_FILENO) == 0) {
+        return;
+    }
+#endif
+
+    std::cout << "\033[8;" << kPreferredPresentationRows << ';' << kPreferredPresentationCols << 't' << std::flush;
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 }
 
 bool try_open_external_terminal_launcher(int argc, char* argv[]) {
@@ -1571,6 +1610,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (!transcript_only_mode) {
+        request_preferred_terminal_size_if_needed(output_file_path);
         ui_manager.init_ncurses_env();
 
         if (!build_layout(current_layout)) {
