@@ -70,10 +70,10 @@ constexpr int kPreferredPresentationCols = 140;
 constexpr int kHorizontalMargin = 1;
 constexpr int kHorizontalGap = 1;
 constexpr int kVerticalGap = 1;
-constexpr int kCompactHeaderHeight = 4;
 constexpr int kReferenceHeaderHeight = 5;
 constexpr int kReferencePrimaryPanelHeight = 7;
 constexpr int kReferenceBottomHeight = 6;
+constexpr int kReferenceLogPanelHeight = 9;
 constexpr int kReferenceConsoleMinWidth = 28;
 constexpr int kMinimumCompactColumnWidth = 24;
 constexpr int kStepPauseMs = 900;
@@ -171,6 +171,64 @@ bool build_layout(WindowLayout& layout) {
 
     const int horizontal_margin = (COLS >= 100) ? kHorizontalMargin : 0;
     const int horizontal_gap = (COLS >= 100) ? kHorizontalGap : 0;
+    const int full_width = COLS - (horizontal_margin * 2);
+
+    const int full_width_required_rows =
+        kReferenceHeaderHeight
+        + (kReferencePrimaryPanelHeight * 6)
+        + kReferenceLogPanelHeight
+        + kReferenceBottomHeight;
+
+    if (LINES >= full_width_required_rows) {
+        layout.full_width_panels = true;
+
+        layout.header_y = 0;
+        layout.header_x = horizontal_margin;
+        layout.header_height = kReferenceHeaderHeight;
+        layout.header_width = full_width;
+
+        layout.class_y = layout.header_height;
+        layout.class_height = kReferencePrimaryPanelHeight;
+        layout.class_width_left = full_width;
+        layout.class_width_middle = full_width;
+        layout.class_width_right = full_width;
+        layout.class_x_left = horizontal_margin;
+        layout.class_x_middle = horizontal_margin;
+        layout.class_x_right = horizontal_margin;
+
+        layout.semaphore_y = layout.class_y + layout.class_height;
+        layout.state_y = layout.semaphore_y + layout.class_height;
+        layout.state_height = kReferencePrimaryPanelHeight;
+
+        layout.task_height = kReferencePrimaryPanelHeight;
+        layout.task_width_left = full_width;
+        layout.task_width_middle = full_width;
+        layout.task_width_right = full_width;
+        layout.task_x_left = horizontal_margin;
+        layout.task_x_middle = horizontal_margin;
+        layout.task_x_right = horizontal_margin;
+
+        layout.task_a_y = layout.state_y + layout.state_height;
+        layout.task_b_y = layout.task_a_y + layout.task_height;
+        layout.task_c_y = layout.task_b_y + layout.task_height;
+        layout.task_y = layout.task_a_y;
+
+        layout.log_y = layout.task_c_y + layout.task_height;
+        layout.log_height = kReferenceLogPanelHeight + (LINES - full_width_required_rows);
+        layout.log_width = full_width;
+        layout.log_x = horizontal_margin;
+
+        layout.console_y = layout.log_y + layout.log_height;
+        layout.console_height = kReferenceBottomHeight;
+        layout.console_width = full_width;
+        layout.console_x = horizontal_margin;
+
+        layout.bottom_y = layout.log_y;
+        layout.bottom_height = layout.console_height;
+
+        return true;
+    }
+
     const int usable_width = COLS - (horizontal_margin * 2) - (horizontal_gap * 2);
     const int column_width = usable_width / 3;
     const int column_remainder = usable_width - (column_width * 3);
@@ -602,7 +660,7 @@ std::string format_task_id(int task_id) {
 
 bool use_compact_panels() {
     if (current_layout.full_width_panels) {
-        return true;
+        return false;
     }
 
     if (current_layout.stacked_primary_layout) {
