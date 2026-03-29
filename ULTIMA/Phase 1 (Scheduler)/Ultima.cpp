@@ -307,10 +307,9 @@ bool build_layout(WindowLayout& layout) {
     layout.task_x_right = layout.class_x_right;
 
     const int bottom_width = COLS - (horizontal_margin * 2) - horizontal_gap;
-    layout.console_width = std::clamp(
-        bottom_width / 4,
+    layout.console_width = std::max(
         kReferenceConsoleMinWidth,
-        kReferenceConsoleMaxWidth
+        std::min(bottom_width / 4, kReferenceConsoleMaxWidth)
     );
     layout.log_width = bottom_width - layout.console_width;
     layout.log_x = horizontal_margin;
@@ -1865,7 +1864,7 @@ int main(int argc, char* argv[]) {
 #if !defined(ULTIMA_SEPARATE_COMPILATION)
 /*
  * Support direct one-file builds. One example command is
- * c++ "/path/to/Ultima.cpp" -o Ultima
+ * c++ "/path/to/Ultima.cpp" -o ultima_single
  * The repository build entrypoints define ULTIMA_SEPARATE_COMPILATION=1 and
  * compile these modules as independent translation units instead.
  */
