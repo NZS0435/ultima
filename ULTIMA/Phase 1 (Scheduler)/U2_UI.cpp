@@ -1,7 +1,5 @@
 #include "U2_UI.h"
 
-#include "platform_curses.h"
-
 U2_ui::U2_ui() {
     // Left empty, environment initialization separated to init_ncurses_env()
 }

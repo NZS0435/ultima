@@ -52,12 +52,6 @@ U2_window* console_window = nullptr;
 
 namespace {
 
-#if defined(ULTIMA_ENABLE_CURSES)
-constexpr bool kCursesUiCompiled = true;
-#else
-constexpr bool kCursesUiCompiled = false;
-#endif
-
 constexpr int kMinimumTerminalRows = 24;
 constexpr int kMinimumTerminalCols = 80;
 constexpr int kPreferredPresentationRows = 62;
@@ -70,6 +64,7 @@ constexpr int kReferencePrimaryPanelHeight = 7;
 constexpr int kReferenceBottomHeight = 6;
 constexpr int kReferenceLogPanelHeight = 9;
 constexpr int kReferenceConsoleMinWidth = 28;
+constexpr int kReferenceConsoleMaxWidth = 34;
 constexpr int kMinimumCompactColumnWidth = 24;
 constexpr int kStepPauseMs = 900;
 constexpr int kDispatchPauseMs = 250;
@@ -156,9 +151,6 @@ std::vector<std::string> state_trace_lines;
 std::vector<std::string> task_a_history;
 std::vector<std::string> task_b_history;
 std::vector<std::string> task_c_history;
-
-int clamp_int(int value, int minimum, int maximum);
-bool file_exists(const std::string& path);
 
 bool build_layout(WindowLayout& layout) {
     layout = {};
@@ -315,7 +307,11 @@ bool build_layout(WindowLayout& layout) {
     layout.task_x_right = layout.class_x_right;
 
     const int bottom_width = COLS - (horizontal_margin * 2) - horizontal_gap;
-    layout.console_width = clamp_int(bottom_width / 4, kReferenceConsoleMinWidth, 34);
+    layout.console_width = std::clamp(
+        bottom_width / 4,
+        kReferenceConsoleMinWidth,
+        kReferenceConsoleMaxWidth
+    );
     layout.log_width = bottom_width - layout.console_width;
     layout.log_x = horizontal_margin;
     layout.console_x = layout.log_x + layout.log_width + horizontal_gap;
@@ -333,6 +329,10 @@ bool build_layout(WindowLayout& layout) {
 
     return layout.log_width >= 40;
 }
+
+#if !defined(ULTIMA_ENABLE_CURSES) || defined(__APPLE__)
+bool file_exists(const std::string& path);
+#endif
 
 std::string join_path(const std::string& directory, const std::string& filename) {
     if (directory.empty()) {
@@ -360,19 +360,10 @@ std::string current_working_directory() {
         return "";
     }
 #endif
-    return std::string(buffer);
+    return {buffer};
 }
 
-int clamp_int(int value, int minimum, int maximum) {
-    if (value < minimum) {
-        return minimum;
-    }
-    if (value > maximum) {
-        return maximum;
-    }
-    return value;
-}
-
+#if !defined(ULTIMA_ENABLE_CURSES)
 std::string shell_quote_single(const std::string& text) {
     std::string quoted = "'";
     for (char ch : text) {
@@ -436,6 +427,9 @@ bool try_rebuild_native_curses_binary(const std::string& binary_directory) {
 #endif
 }
 
+#endif
+
+#if !defined(ULTIMA_ENABLE_CURSES) || defined(__APPLE__)
 bool file_exists(const std::string& path) {
 #if defined(_WIN32)
     return _access(path.c_str(), 0) == 0;
@@ -444,6 +438,32 @@ bool file_exists(const std::string& path) {
 #endif
 }
 
+std::string resolve_invoked_binary_directory(char* argv[]) {
+    if (argv == nullptr || argv[0] == nullptr) {
+        return current_working_directory();
+    }
+
+    std::string invoked_path = argv[0];
+    if (invoked_path.empty()) {
+        return current_working_directory();
+    }
+
+    std::string resolved_path = invoked_path;
+    if (invoked_path.find('/') == std::string::npos && invoked_path.find('\\') == std::string::npos) {
+        const std::string cwd = current_working_directory();
+        if (!cwd.empty()) {
+            resolved_path = join_path(cwd, invoked_path);
+        }
+    }
+
+    const std::size_t separator_index = resolved_path.find_last_of("/\\");
+    return (separator_index == std::string::npos)
+        ? current_working_directory()
+        : resolved_path.substr(0, separator_index);
+}
+#endif
+
+#if defined(ULTIMA_ENABLE_CURSES)
 std::string to_lower_copy(std::string text) {
     for (char& character : text) {
         character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
@@ -510,6 +530,7 @@ std::string process_command_line(long process_id) {
 }
 #endif
 
+#if defined(__APPLE__)
 //noinspection SpellCheckingInspection
 bool terminal_program_is_known_good() {
     const char* term_program = std::getenv("TERM_PROGRAM");
@@ -523,8 +544,8 @@ bool terminal_program_is_known_good() {
         || program == "wezterm"
         || program == "vscode";
 }
+#endif
 
-//noinspection SpellCheckingInspection
 bool terminal_supports_resize_request() {
     if (std::getenv("WT_SESSION") != nullptr || std::getenv("CYGWIN") != nullptr) {
         return true;
@@ -555,9 +576,8 @@ bool terminal_supports_resize_request() {
         || program == "wezterm";
 }
 
-//noinspection SpellCheckingInspection
-bool running_inside_jetbrains_debugger() {
 #if defined(__APPLE__)
+bool running_inside_jetbrains_debugger() {
     long process_id = static_cast<long>(getppid());
     for (int depth = 0; depth < 3 && process_id > 1; ++depth) {
         const std::string command = process_command_line(process_id);
@@ -569,9 +589,9 @@ bool running_inside_jetbrains_debugger() {
         }
         process_id = process_parent_pid(process_id);
     }
-#endif
     return false;
 }
+#endif
 
 bool environment_supports_curses_ui() {
     const char* term_value = std::getenv("TERM");
@@ -614,40 +634,16 @@ void request_preferred_terminal_size_if_needed() {
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 }
 
-std::string resolve_invoked_binary_directory(int argc, char* argv[]) {
-    if (argc <= 0 || argv == nullptr || argv[0] == nullptr) {
-        return current_working_directory();
-    }
-
-    std::string invoked_path = argv[0];
-    if (invoked_path.empty()) {
-        return current_working_directory();
-    }
-
-    std::string resolved_path = invoked_path;
-    if (invoked_path.find('/') == std::string::npos && invoked_path.find('\\') == std::string::npos) {
-        const std::string cwd = current_working_directory();
-        if (!cwd.empty()) {
-            resolved_path = join_path(cwd, invoked_path);
-        }
-    }
-
-    const std::size_t separator_index = resolved_path.find_last_of("/\\");
-    return (separator_index == std::string::npos)
-        ? current_working_directory()
-        : resolved_path.substr(0, separator_index);
-}
-
-bool try_open_external_terminal_launcher(int argc, char* argv[]) {
 #if defined(__APPLE__)
-    if (argc <= 0 || argv == nullptr || argv[0] == nullptr) {
+bool try_open_external_terminal_launcher(char* argv[]) {
+    if (argv == nullptr || argv[0] == nullptr) {
         return false;
     }
     if (std::getenv("ULTIMA_OPENED_EXTERNAL_TERMINAL") != nullptr) {
         return false;
     }
 
-    const std::string binary_directory = resolve_invoked_binary_directory(argc, argv);
+    const std::string binary_directory = resolve_invoked_binary_directory(argv);
     const std::string launcher_path = join_path(binary_directory, "run_ultima_ui.command");
 
     if (!file_exists(launcher_path)) {
@@ -664,19 +660,17 @@ bool try_open_external_terminal_launcher(int argc, char* argv[]) {
         _exit(127);
     }
     return true;
-#else
-    (void) argc;
-    (void) argv;
-    return false;
-#endif
 }
+#endif
+#endif
 
+#if !defined(ULTIMA_ENABLE_CURSES)
 bool try_launch_sibling_curses_binary(int argc, char* argv[]) {
-    if (argc <= 0 || argv == nullptr || argv[0] == nullptr) {
+    if (argv == nullptr || argv[0] == nullptr) {
         return false;
     }
 
-    const std::string binary_directory = resolve_invoked_binary_directory(argc, argv);
+    const std::string binary_directory = resolve_invoked_binary_directory(argv);
 #if defined(_WIN32)
     const std::string sibling_binary = join_path(binary_directory, "ultima_os.exe");
 #else
@@ -712,6 +706,7 @@ bool try_launch_sibling_curses_binary(int argc, char* argv[]) {
 #endif
     return false;
 }
+#endif
 
 std::string state_to_text(State state) {
     switch (state) {
@@ -1755,11 +1750,12 @@ int main(int argc, char* argv[]) {
     std::signal(SIGHUP, SIG_IGN);
 #endif
 
-    if (!transcript_only_mode && !kCursesUiCompiled) {
+    #if !defined(ULTIMA_ENABLE_CURSES)
+    if (!transcript_only_mode) {
         if (try_launch_sibling_curses_binary(argc, argv)) {
             return 0;
         }
-        const std::string binary_directory = resolve_invoked_binary_directory(argc, argv);
+        const std::string binary_directory = resolve_invoked_binary_directory(argv);
         if (!binary_directory.empty()
             && try_rebuild_native_curses_binary(binary_directory)
             && try_launch_sibling_curses_binary(argc, argv)) {
@@ -1771,15 +1767,19 @@ int main(int argc, char* argv[]) {
                   << "to open the multi-window Phase 1 UI."
                   << std::endl;
     }
+    #endif
 
+    #if defined(ULTIMA_ENABLE_CURSES) && defined(__APPLE__)
     if (!transcript_only_mode && !terminal_program_is_known_good() && running_inside_jetbrains_debugger()) {
-        if (try_open_external_terminal_launcher(argc, argv)) {
+        if (try_open_external_terminal_launcher(argv)) {
             std::cerr << "Opening Terminal.app because the current JetBrains debug console does not render ncurses windows."
                       << std::endl;
             return 0;
         }
     }
+    #endif
 
+    #if defined(ULTIMA_ENABLE_CURSES)
     if (!transcript_only_mode && !environment_supports_curses_ui()) {
         transcript_only_mode = true;
         std::cerr << "Current console does not provide a usable ncurses terminal surface. "
@@ -1840,6 +1840,7 @@ int main(int argc, char* argv[]) {
         }
         ui_manager.close_ncurses_env();
     }
+    #endif
 
     const std::string transcript_text = build_transcript_text();
     const bool print_transcript_to_stdout = transcript_only_mode
@@ -1863,7 +1864,7 @@ int main(int argc, char* argv[]) {
 
 #if !defined(ULTIMA_SEPARATE_COMPILATION)
 /*
- * Support direct one-file builds such as:
+ * Support direct one-file builds. One example command is
  * c++ "/path/to/Ultima.cpp" -o Ultima
  * The repository build entrypoints define ULTIMA_SEPARATE_COMPILATION=1 and
  * compile these modules as independent translation units instead.
