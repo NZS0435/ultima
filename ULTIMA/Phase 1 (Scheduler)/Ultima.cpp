@@ -383,7 +383,25 @@ bool terminal_program_is_known_good() {
         || program == "vscode";
 }
 
-bool running_in_terminal_app_family() {
+bool terminal_supports_resize_request() {
+    if (std::getenv("WT_SESSION") != nullptr || std::getenv("CYGWIN") != nullptr) {
+        return true;
+    }
+
+    const char* term_value = std::getenv("TERM");
+    if (term_value != nullptr && term_value[0] != '\0') {
+        const std::string term_name = to_lower_copy(term_value);
+        if (term_name.find("xterm") != std::string::npos
+            || term_name.find("screen") != std::string::npos
+            || term_name.find("tmux") != std::string::npos
+            || term_name.find("rxvt") != std::string::npos
+            || term_name.find("cygwin") != std::string::npos
+            || term_name.find("mintty") != std::string::npos
+            || term_name.find("wezterm") != std::string::npos) {
+            return true;
+        }
+    }
+
     const char* term_program = std::getenv("TERM_PROGRAM");
     if (term_program == nullptr || term_program[0] == '\0') {
         return false;
@@ -435,7 +453,7 @@ void request_preferred_terminal_size_if_needed(const std::string& output_file_pa
         return;
     }
 
-    if (!running_in_terminal_app_family()) {
+    if (!terminal_supports_resize_request()) {
         return;
     }
 

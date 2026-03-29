@@ -55,10 +55,22 @@ If you want the Phase 1 ncurses windows from Finder or a JetBrains external tool
 ./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_ui.command
 ```
 
+If you want the same shell command your Cygwin collaborators can use, launch:
+
+```bash
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_ui.sh
+```
+
 If you want the exact plain-text transcript output for screenshots or write-up material, launch:
 
 ```bash
 ./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_transcript.command
+```
+
+Portable shell equivalent:
+
+```bash
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_transcript.sh
 ```
 
 ### Windows (MSYS2 MinGW64)
@@ -111,6 +123,18 @@ Run:
 /cygdrive/c/Users/<YourUser>/.ultima2/build/cygwin-debug/ultima_os.exe
 ```
 
+Or, from the shared source tree, use the same launcher command your macOS teammates can use:
+
+```bash
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_ui.sh
+```
+
+Transcript-only:
+
+```bash
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_transcript.sh
+```
+
 ## CLion Setup (Recommended)
 
 1. `Settings > Build, Execution, Deployment > CMake`.
@@ -126,6 +150,7 @@ CLion note:
 - The plain Run output console is not a full ncurses terminal and can print raw escape codes instead of drawing the windows.
 - The LLDB Debug console shown during `Debug` runs is also not a real ncurses terminal; it will show the escape stream instead of the Phase 1 subwindows.
 - Use `Emulate terminal in output console`, run in an external terminal, or use `ULTIMA/Phase 1 (Scheduler)/run_ultima_ui.command` on macOS.
+- For a team-wide shell entrypoint that works in macOS Terminal and Cygwin shells, use `ULTIMA/Phase 1 (Scheduler)/run_ultima_ui.sh`.
 
 ### CLion Cygwin Toolchain/Profile Setup
 
