@@ -7,35 +7,31 @@ Pthread purpose: protect ncurses writes so the larger multi-window display stays
 Continuous mode: the interactive demo will restart automatically until you press q.
 
 --- INITIAL SYSTEM STATE ---
+Scheduler Dump
+==============
+Tick: 0
+Current Task: -1
+Last Event: Created Task_C (T-3).
+Run Queue: Task_A(T-1, READY) -> Task_B(T-2, READY) -> Task_C(T-3, READY)
 
-Scheduler Dump:
-Policy:        Strict cooperative round robin
-SchedulerTick: 0
-CurrentTask:   [None]
-Counts:        READY=3 BLOCKED=0 DEAD=0 ACTIVE=3
-RunQueue:      Task_A(T-1) -> Task_B(T-2) -> Task_C(T-3)
-LastEvent:     Task_C inserted into the process table as READY.
-
-Task        ID      State     Run#      Yield#    Block#    Wake#     Note
-------------------------------------------------------------------------------------------------
-Task_A      1       READY     0         0         0         0         READY: first claimant that should acquire Printer_Output.
-  Transition: Entered READY state.
-Task_B      2       READY     0         0         0         0         READY: second claimant that should block behind Task_A.
-  Transition: Entered READY state.
-Task_C      3       READY     0         0         0         0         READY: third claimant that should block behind Task_B.
-  Transition: Entered READY state.
-------------------------------------------------------------------------------------------------
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A          READY     0       0       0       0       READY: first claimant that should acquire Printer_Output.
+         Last transition: Entered READY state.
+2       Task_B          READY     0       0       0       0       READY: second claimant that should block behind Task_A.
+         Last transition: Entered READY state.
+3       Task_C          READY     0       0       0       0       READY: third claimant that should block behind Task_B.
+         Last transition: Entered READY state.
 
 
-Semaphore Dump:
-Resource:    Printer_Output
-Purpose:     Prevent the Printer_Output race by allowing one owner at a time.
-Sema_value:  1 (AVAILABLE)
-Owner:       [None]
-Waiters:     0
-Sema_queue:  [Empty]
-Operations:  down=0 up=0 contention=0
-LastEvent:   Semaphore reset. Resource is available.
+Semaphore Dump
+==============
+Resource: Printer_Output
+Value: 1
+Owner: -1
+Wait Queue: [empty]
+Operations: down=0 up=0 contention=0
+Last Transition: Semaphore reset and available.
 
 
 
@@ -49,70 +45,62 @@ LastEvent:   Semaphore reset. Resource is available.
 FLOW: Task_A -> Task_B BLOCKED -> Task_C BLOCKED
 
 --- MID-EXECUTION STATE DUMP (Proving Queueing) ---
+Scheduler Dump
+==============
+Tick: 3
+Current Task: 3
+Last Event: Blocked Task_C (T-3).
+Run Queue: Task_A(T-1, READY) -> Task_B(T-2, BLOCKED) -> Task_C(T-3, BLOCKED)
 
-Scheduler Dump:
-Policy:        Strict cooperative round robin
-SchedulerTick: 3
-CurrentTask:   Task_C (T-3)
-Counts:        READY=1 BLOCKED=2 DEAD=0 ACTIVE=3
-RunQueue:      Task_A(T-1)
-LastEvent:     Task_C entered BLOCKED while waiting on a resource.
-
-Task        ID      State     Run#      Yield#    Block#    Wake#     Note
-------------------------------------------------------------------------------------------------
-Task_A      1       READY     1         1         0         0         Holding Printer_Output inside the critical section.
-  Transition: yield() returned the task to READY.
-Task_B      2       BLOCKED   1         0         1         0         BLOCKED behind Task_A in the semaphore queue.
-  Transition: Task was blocked and removed from the run queue.
-Task_C      3       BLOCKED   1         0         1         0         BLOCKED behind Task_B in the semaphore queue.
-  Transition: Task was blocked and removed from the run queue.
-------------------------------------------------------------------------------------------------
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A          READY     1       1       0       0       Holding Printer_Output inside the critical section.
+         Last transition: Yielded CPU and returned to READY.
+2       Task_B          BLOCKED   1       0       1       0       BLOCKED behind Task_A in the semaphore queue.
+         Last transition: Entered BLOCKED state.
+3       Task_C          BLOCKED   1       0       1       0       BLOCKED behind Task_B in the semaphore queue.
+         Last transition: Entered BLOCKED state.
 
 
-Semaphore Dump:
-Resource:    Printer_Output
-Purpose:     Prevent the Printer_Output race by allowing one owner at a time.
-Sema_value:  0 (BUSY)
-Owner:       Task_A (T-1)
-Waiters:     2
-Sema_queue:  T-2 --> T-3
-Operations:  down=3 up=0 contention=2
-LastEvent:   Task_C encountered a busy resource and joined the FIFO wait queue: T-2 --> T-3.
+Semaphore Dump
+==============
+Resource: Printer_Output
+Value: 0
+Owner: 1
+Wait Queue: Task_B(T-2) -> Task_C(T-3)
+Operations: down=3 up=0 contention=2
+Last Transition: Printer_Output busy; queued T-3.
 
 
 
 [Task_A] up(Printer_Output)
 
 --- POST-RELEASE STATE DUMP ---
+Scheduler Dump
+==============
+Tick: 4
+Current Task: 1
+Last Event: Unblocked Task_B (T-2).
+Run Queue: Task_A(T-1, RUNNING) -> Task_B(T-2, READY) -> Task_C(T-3, BLOCKED)
 
-Scheduler Dump:
-Policy:        Strict cooperative round robin
-SchedulerTick: 4
-CurrentTask:   Task_A (T-1)
-Counts:        READY=1 BLOCKED=1 DEAD=0 ACTIVE=3
-RunQueue:      Task_B(T-2)
-LastEvent:     Task_B left BLOCKED and rejoined the READY queue.
-
-Task        ID      State     Run#      Yield#    Block#    Wake#     Note
-------------------------------------------------------------------------------------------------
-Task_A      1       RUNNING   2         1         0         0         Releasing Printer_Output and preparing to exit.
-  Transition: Round-robin dispatcher selected this task.
-Task_B      2       READY     1         0         1         1         BLOCKED behind Task_A in the semaphore queue.
-  Transition: Task was unblocked and returned to READY.
-Task_C      3       BLOCKED   1         0         1         0         BLOCKED behind Task_B in the semaphore queue.
-  Transition: Task was blocked and removed from the run queue.
-------------------------------------------------------------------------------------------------
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A          RUNNING   2       1       0       0       Releasing Printer_Output and preparing to exit.
+         Last transition: Entered RUNNING at scheduler tick 4.
+2       Task_B          READY     1       0       1       1       BLOCKED behind Task_A in the semaphore queue.
+         Last transition: Woken from BLOCKED and returned to READY.
+3       Task_C          BLOCKED   1       0       1       0       BLOCKED behind Task_B in the semaphore queue.
+         Last transition: Entered BLOCKED state.
 
 
-Semaphore Dump:
-Resource:    Printer_Output
-Purpose:     Prevent the Printer_Output race by allowing one owner at a time.
-Sema_value:  0 (BUSY)
-Owner:       Task_B (T-2)
-Waiters:     1
-Sema_queue:  T-3
-Operations:  down=3 up=1 contention=2
-LastEvent:   Task_B was woken from the wait queue and is now the next owner.
+Semaphore Dump
+==============
+Resource: Printer_Output
+Value: 0
+Owner: 2
+Wait Queue: Task_C(T-3)
+Operations: down=3 up=1 contention=2
+Last Transition: Printer_Output released by T-1; woke T-2.
 
 
 
@@ -125,63 +113,55 @@ LastEvent:   Task_B was woken from the wait queue and is now the next owner.
 [Task_C] marked DEAD.
 
 --- FINAL STATE DUMP (Before Garbage Collection) ---
+Scheduler Dump
+==============
+Tick: 8
+Current Task: 3
+Last Event: Marked Task_C (T-3) DEAD.
+Run Queue: [empty]
 
-Scheduler Dump:
-Policy:        Strict cooperative round robin
-SchedulerTick: 8
-CurrentTask:   Task_C (T-3)
-Counts:        READY=0 BLOCKED=0 DEAD=3 ACTIVE=0
-RunQueue:      [No READY tasks]
-LastEvent:     Task_C finished execution and entered DEAD.
-
-Task        ID      State     Run#      Yield#    Block#    Wake#     Note
-------------------------------------------------------------------------------------------------
-Task_A      1       DEAD      2         1         0         0         DEAD after completing the first critical section.
-  Transition: kill_task() moved the task into DEAD.
-Task_B      2       DEAD      3         1         1         1         DEAD after finishing the second critical section.
-  Transition: kill_task() moved the task into DEAD.
-Task_C      3       DEAD      3         1         1         1         DEAD after finishing the final critical section.
-  Transition: kill_task() moved the task into DEAD.
-------------------------------------------------------------------------------------------------
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A          DEAD      2       1       0       0       DEAD after completing the first critical section.
+         Last transition: Entered DEAD state.
+2       Task_B          DEAD      3       1       1       1       DEAD after finishing the second critical section.
+         Last transition: Entered DEAD state.
+3       Task_C          DEAD      3       1       1       1       DEAD after finishing the final critical section.
+         Last transition: Entered DEAD state.
 
 
-Semaphore Dump:
-Resource:    Printer_Output
-Purpose:     Prevent the Printer_Output race by allowing one owner at a time.
-Sema_value:  1 (AVAILABLE)
-Owner:       [None]
-Waiters:     0
-Sema_queue:  [Empty]
-Operations:  down=3 up=3 contention=2
-LastEvent:   Printer_Output was released; no tasks were waiting.
+Semaphore Dump
+==============
+Resource: Printer_Output
+Value: 1
+Owner: -1
+Wait Queue: [empty]
+Operations: down=3 up=3 contention=2
+Last Transition: Printer_Output released by T-3; resource is now available.
 
 
 
 
 --- POST-GARBAGE-COLLECTION DUMP ---
+Scheduler Dump
+==============
+Tick: 8
+Current Task: -1
+Last Event: Garbage collection removed DEAD tasks from the process table.
+Run Queue: [empty]
 
-Scheduler Dump:
-Policy:        Strict cooperative round robin
-SchedulerTick: 8
-CurrentTask:   [None]
-Counts:        READY=0 BLOCKED=0 DEAD=0 ACTIVE=0
-RunQueue:      Process table empty.
-LastEvent:     Garbage collector removed 3 DEAD task(s).
-
-Task        ID      State     Run#      Yield#    Block#    Wake#     Note
-------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
 
 
-Semaphore Dump:
-Resource:    Printer_Output
-Purpose:     Prevent the Printer_Output race by allowing one owner at a time.
-Sema_value:  1 (AVAILABLE)
-Owner:       [None]
-Waiters:     0
-Sema_queue:  [Empty]
-Operations:  down=3 up=3 contention=2
-LastEvent:   Printer_Output was released; no tasks were waiting.
+Semaphore Dump
+==============
+Resource: Printer_Output
+Value: 1
+Owner: -1
+Wait Queue: [empty]
+Operations: down=3 up=3 contention=2
+Last Transition: Printer_Output released by T-3; resource is now available.
 
 
 

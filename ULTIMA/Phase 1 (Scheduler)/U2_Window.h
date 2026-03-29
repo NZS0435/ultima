@@ -1,10 +1,11 @@
 #ifndef U2_WINDOW_H
 #define U2_WINDOW_H
 
-#include <ncurses.h>
-#include <pthread.h>
 #include <string>
 #include <vector>
+
+#include "platform_curses.h"
+#include "platform_threads.h"
 
 class U2_window {
 private:

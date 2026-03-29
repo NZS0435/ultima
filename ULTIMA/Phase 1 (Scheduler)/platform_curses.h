@@ -23,6 +23,8 @@ typedef struct {
     unsigned long bstate;
 } MEVENT;
 
+typedef unsigned long chtype;
+
 extern WINDOW* stdscr;
 extern int LINES;
 extern int COLS;
@@ -70,17 +72,24 @@ int doupdate(void);
 int wrefresh(WINDOW* win);
 int wnoutrefresh(WINDOW* win);
 int scrollok(WINDOW* win, int bf);
+int idlok(WINDOW* win, int bf);
 WINDOW* newwin(int nlines, int ncols, int begin_y, int begin_x);
 WINDOW* derwin(WINDOW* orig, int nlines, int ncols, int begin_y, int begin_x);
 int box(WINDOW* win, int verch, int horch);
 int delwin(WINDOW* win);
 int wprintw(WINDOW* win, const char* fmt, ...);
 int mvwprintw(WINDOW* win, int y, int x, const char* fmt, ...);
+int mvwhline(WINDOW* win, int y, int x, chtype ch, int n);
+int mvwaddnstr(WINDOW* win, int y, int x, const char* str, int n);
 int wclear(WINDOW* win);
 int werase(WINDOW* win);
 int wgetch(WINDOW* win);
 int keypad(WINDOW* win, int bf);
 int nodelay(WINDOW* win, int bf);
+int getcury(WINDOW* win);
+int wmove(WINDOW* win, int y, int x);
+int wscrl(WINDOW* win, int n);
+int wsetscrreg(WINDOW* win, int top, int bottom);
 unsigned long mousemask(unsigned long newmask, unsigned long* oldmask);
 void mouseinterval(int erval);
 void napms(int ms);
