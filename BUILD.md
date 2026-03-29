@@ -127,6 +127,12 @@ cmake --preset cygwin-debug
 cmake --build --preset cygwin-debug
 ```
 
+Why this preset uses a `/cygdrive/...` path:
+
+- The Cygwin preset intentionally resolves into `/cygdrive/c/Users/<user>/.ultima2/build/cygwin-debug` so CLion's Cygwin toolchain and direct Cygwin login shells agree on the same cache directory.
+- Using Cygwin `HOME` here can resolve to `/home/<user>/.ultima2/build/cygwin-debug`, which causes the exact `is not a directory` error when the actual cache lives under `C:\Users\<user>\.ultima2\build\cygwin-debug`.
+- Using a raw Windows path here can be misread as a relative path by a real Cygwin shell, so the preset keeps the directory in native Cygwin form.
+
 Run:
 
 ```bash
