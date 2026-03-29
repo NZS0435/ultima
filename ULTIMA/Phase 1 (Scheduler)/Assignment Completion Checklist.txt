@@ -1,0 +1,52 @@
+ULTIMA 2.0
+Phase 1 Assignment Completion Checklist
+Audit Date: March 29, 2026
+
+Completed In The Repository
+- Introduction/Project Abstract.txt updated with the current cross-platform Phase 1 summary.
+- Introduction/Cover Page.txt updated from placeholder to a real cover-page text version.
+- Introduction folder contains design diagrams:
+  - ASSIGNMENT 1 DIAGRAM.png
+  - Ultima Class Diagram.png
+  - Ultima Phase 1 Class Diagram.png
+- Phase 1 folder contains a copy of the assignment sheet:
+  - OS Group Project 1.pdf
+- Phase 1 Abstract.txt updated with the current scheduler and semaphore implementation summary.
+- External Documentation.txt updated with architecture, repository structure, runtime flow, and assignment-compliance notes.
+- Test Plan and Output.txt updated with concrete test cases and expected/observed behavior.
+- Source files are present and separated by module:
+  - Ultima.cpp
+  - Sema.h / Sema.cpp
+  - Sched.h / Sched.cpp
+  - U2_Scheduler.h
+  - U2_UI.h / U2_UI.cpp
+  - U2_Window.h / U2_Window.cpp
+  - platform_curses.h
+  - platform_threads.h
+- Build files are present:
+  - Makefile
+  - root CMakeLists.txt
+  - root CMakePresets.json
+  - root BUILD.md
+- Transcript artifact is present:
+  - phase1output.txt
+- Shared shell launchers are present for macOS and Cygwin:
+  - run_ultima_ui.sh
+  - run_ultima_transcript.sh
+- macOS convenience launchers are present:
+  - run_ultima_ui.command
+  - run_ultima_transcript.command
+
+Completed In This Cleanup Pass
+- Created a real cover-page text document.
+- Created a real team-resume index instead of a placeholder.
+- Created a Phase 1 submission document in Word format.
+
+Still Not Fully Verifiable From The Repository Alone
+- The Introduction/Resumes folder currently contains Hayes Resume.pdf and Kobs Resume.pdf, but does not contain a Stewart Pawley resume file.
+- The repository does not currently contain standalone static UI screenshot image files; the current evidence path is the live ncurses proof-board plus phase1output.txt.
+
+Recommended Final Submission Check Before Zipping
+1. Add Stewart's resume file to Introduction/Resumes if the instructor expects every member's resume in the zip.
+2. If required by the instructor, add one or more static UI screenshots to the Phase 1 folder in addition to the live demo and transcript.
+3. Zip the Introduction folder and the Phase 1 (Scheduler) folder after those final checks.

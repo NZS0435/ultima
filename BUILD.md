@@ -51,8 +51,9 @@ Run:
 
 Default behavior:
 
-- `ultima_os` now runs a single presentation cycle, keeps the final UI state on screen until you press a key, and writes `phase1output.txt` in the current working directory.
-- Use `--post-ui-transcript` only if you explicitly want the old behavior that prints the transcript to stdout after the UI closes.
+- `ultima_os` now runs a single presentation cycle, keeps the final UI state on screen, and waits for a key press before closing the ncurses windows and printing the transcript.
+- It also writes `phase1output.txt` in the current working directory.
+- Use `--no-post-ui-transcript` only if you explicitly want the UI to exit without printing the transcript afterward.
 - Use `--continuous` only if you explicitly want the old repeating demo loop.
 
 If you want the Phase 1 ncurses windows from Finder or a JetBrains external tool on macOS, you can also launch:
@@ -102,8 +103,9 @@ $env:USERPROFILE\\.ultima2\\build\\windows-debug\\ultima_os.exe
 
 Default behavior:
 
-- `ultima_os.exe` now runs a single presentation cycle, keeps the final UI state on screen until you press a key, and writes `phase1output.txt` in the current working directory.
-- Use `--post-ui-transcript` only if you explicitly want the old behavior that prints the transcript to stdout after the UI closes.
+- `ultima_os.exe` now runs a single presentation cycle, keeps the final UI state on screen, and waits for a key press before closing the ncurses windows and printing the transcript.
+- It also writes `phase1output.txt` in the current working directory.
+- Use `--no-post-ui-transcript` only if you explicitly want the UI to exit without printing the transcript afterward.
 - Use `--continuous` only if you explicitly want the old repeating demo loop.
 
 If CMake cannot find PDCurses, add:
@@ -143,8 +145,9 @@ Run:
 
 Default behavior:
 
-- `ultima_os.exe` now runs a single presentation cycle, keeps the final UI state on screen until you press a key, and writes `phase1output.txt` in the current working directory.
-- Use `--post-ui-transcript` only if you explicitly want the old behavior that prints the transcript to stdout after the UI closes.
+- `ultima_os.exe` now runs a single presentation cycle, keeps the final UI state on screen, and waits for a key press before closing the ncurses windows and printing the transcript.
+- It also writes `phase1output.txt` in the current working directory.
+- Use `--no-post-ui-transcript` only if you explicitly want the UI to exit without printing the transcript afterward.
 - Use `--continuous` only if you explicitly want the old repeating demo loop.
 
 Or, from the shared source tree, use the same launcher command your macOS teammates can use:

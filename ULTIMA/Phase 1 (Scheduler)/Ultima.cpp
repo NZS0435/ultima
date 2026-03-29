@@ -130,7 +130,7 @@ WindowLayout current_layout;
 bool transcript_only_mode = false;
 bool stop_after_cycle = false;
 bool demo_paused = false;
-bool auto_print_transcript_after_ui = false;
+bool auto_print_transcript_after_ui = true;
 bool continuous_demo_requested = false;
 
 int demo_cycle_number = 1;
@@ -156,6 +156,9 @@ std::vector<std::string> state_trace_lines;
 std::vector<std::string> task_a_history;
 std::vector<std::string> task_b_history;
 std::vector<std::string> task_c_history;
+
+int clamp_int(int value, int minimum, int maximum);
+bool file_exists(const std::string& path);
 
 bool build_layout(WindowLayout& layout) {
     layout = {};
@@ -312,7 +315,7 @@ bool build_layout(WindowLayout& layout) {
     layout.task_x_right = layout.class_x_right;
 
     const int bottom_width = COLS - (horizontal_margin * 2) - horizontal_gap;
-    layout.console_width = std::clamp(bottom_width / 4, kReferenceConsoleMinWidth, 34);
+    layout.console_width = clamp_int(bottom_width / 4, kReferenceConsoleMinWidth, 34);
     layout.log_width = bottom_width - layout.console_width;
     layout.log_x = horizontal_margin;
     layout.console_x = layout.log_x + layout.log_width + horizontal_gap;
@@ -358,6 +361,79 @@ std::string current_working_directory() {
     }
 #endif
     return std::string(buffer);
+}
+
+int clamp_int(int value, int minimum, int maximum) {
+    if (value < minimum) {
+        return minimum;
+    }
+    if (value > maximum) {
+        return maximum;
+    }
+    return value;
+}
+
+std::string shell_quote_single(const std::string& text) {
+    std::string quoted = "'";
+    for (char ch : text) {
+        if (ch == '\'') {
+            quoted += "'\\''";
+        } else {
+            quoted.push_back(ch);
+        }
+    }
+    quoted.push_back('\'');
+    return quoted;
+}
+
+bool read_file_prefix(const std::string& path, unsigned char* buffer, std::size_t size) {
+    std::ifstream input(path.c_str(), std::ios::binary);
+    if (!input.is_open()) {
+        return false;
+    }
+
+    input.read(reinterpret_cast<char*>(buffer), static_cast<std::streamsize>(size));
+    return static_cast<std::size_t>(input.gcount()) >= size;
+}
+
+bool binary_looks_runnable_on_this_platform(const std::string& path) {
+    unsigned char prefix[4] = {0, 0, 0, 0};
+    if (!read_file_prefix(path, prefix, sizeof(prefix))) {
+        return false;
+    }
+
+#if defined(__APPLE__)
+    const bool is_macho =
+        (prefix[0] == 0xfe && prefix[1] == 0xed && prefix[2] == 0xfa && prefix[3] == 0xce) ||
+        (prefix[0] == 0xce && prefix[1] == 0xfa && prefix[2] == 0xed && prefix[3] == 0xfe) ||
+        (prefix[0] == 0xfe && prefix[1] == 0xed && prefix[2] == 0xfa && prefix[3] == 0xcf) ||
+        (prefix[0] == 0xcf && prefix[1] == 0xfa && prefix[2] == 0xed && prefix[3] == 0xfe) ||
+        (prefix[0] == 0xca && prefix[1] == 0xfe && prefix[2] == 0xba && prefix[3] == 0xbe) ||
+        (prefix[0] == 0xbe && prefix[1] == 0xba && prefix[2] == 0xfe && prefix[3] == 0xca);
+    return is_macho;
+#elif defined(_WIN32)
+    return prefix[0] == 'M' && prefix[1] == 'Z';
+#else
+    const bool is_elf =
+        prefix[0] == 0x7f && prefix[1] == 'E' && prefix[2] == 'L' && prefix[3] == 'F';
+    return is_elf;
+#endif
+}
+
+bool try_rebuild_native_curses_binary(const std::string& binary_directory) {
+#if defined(_WIN32) && !defined(__CYGWIN__)
+    (void) binary_directory;
+    return false;
+#else
+    const std::string makefile_path = join_path(binary_directory, "Makefile");
+    if (!file_exists(makefile_path)) {
+        return false;
+    }
+
+    const std::string rebuild_command =
+        "make -s -C " + shell_quote_single(binary_directory) + " build >/dev/null 2>&1";
+    return std::system(rebuild_command.c_str()) == 0;
+#endif
 }
 
 bool file_exists(const std::string& path) {
@@ -538,18 +614,14 @@ void request_preferred_terminal_size_if_needed() {
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 }
 
-bool try_open_external_terminal_launcher(int argc, char* argv[]) {
-#if defined(__APPLE__)
+std::string resolve_invoked_binary_directory(int argc, char* argv[]) {
     if (argc <= 0 || argv == nullptr || argv[0] == nullptr) {
-        return false;
-    }
-    if (std::getenv("ULTIMA_OPENED_EXTERNAL_TERMINAL") != nullptr) {
-        return false;
+        return current_working_directory();
     }
 
     std::string invoked_path = argv[0];
     if (invoked_path.empty()) {
-        return false;
+        return current_working_directory();
     }
 
     std::string resolved_path = invoked_path;
@@ -561,9 +633,21 @@ bool try_open_external_terminal_launcher(int argc, char* argv[]) {
     }
 
     const std::size_t separator_index = resolved_path.find_last_of("/\\");
-    const std::string binary_directory = (separator_index == std::string::npos)
+    return (separator_index == std::string::npos)
         ? current_working_directory()
         : resolved_path.substr(0, separator_index);
+}
+
+bool try_open_external_terminal_launcher(int argc, char* argv[]) {
+#if defined(__APPLE__)
+    if (argc <= 0 || argv == nullptr || argv[0] == nullptr) {
+        return false;
+    }
+    if (std::getenv("ULTIMA_OPENED_EXTERNAL_TERMINAL") != nullptr) {
+        return false;
+    }
+
+    const std::string binary_directory = resolve_invoked_binary_directory(argc, argv);
     const std::string launcher_path = join_path(binary_directory, "run_ultima_ui.command");
 
     if (!file_exists(launcher_path)) {
@@ -592,23 +676,7 @@ bool try_launch_sibling_curses_binary(int argc, char* argv[]) {
         return false;
     }
 
-    std::string invoked_path = argv[0];
-    if (invoked_path.empty()) {
-        return false;
-    }
-
-    std::string resolved_path = invoked_path;
-    if (invoked_path.find('/') == std::string::npos && invoked_path.find('\\') == std::string::npos) {
-        const std::string cwd = current_working_directory();
-        if (!cwd.empty()) {
-            resolved_path = join_path(cwd, invoked_path);
-        }
-    }
-
-    const std::size_t separator_index = resolved_path.find_last_of("/\\");
-    const std::string binary_directory = (separator_index == std::string::npos)
-        ? current_working_directory()
-        : resolved_path.substr(0, separator_index);
+    const std::string binary_directory = resolve_invoked_binary_directory(argc, argv);
 #if defined(_WIN32)
     const std::string sibling_binary = join_path(binary_directory, "ultima_os.exe");
 #else
@@ -616,6 +684,10 @@ bool try_launch_sibling_curses_binary(int argc, char* argv[]) {
 #endif
 
     if (!file_exists(sibling_binary)) {
+        return false;
+    }
+
+    if (!binary_looks_runnable_on_this_platform(sibling_binary)) {
         return false;
     }
 
@@ -1632,7 +1704,7 @@ void run_demo_cycle() {
     log_event("System shutting down safely.");
     add_state_trace("Cycle proof completed: tasks are DEAD and the process table has been collected.");
     latest_flow_summary = "Cycle complete. The scheduler proved READY/RUNNING/BLOCKED/DEAD and FIFO wake-up.";
-    pace_step("Cycle complete. Preparing transcript...", 1200);
+    pace_step("Cycle complete. Final state is now visible on the proof board.", 1200);
 }
 
 } // namespace
@@ -1685,6 +1757,12 @@ int main(int argc, char* argv[]) {
 
     if (!transcript_only_mode && !kCursesUiCompiled) {
         if (try_launch_sibling_curses_binary(argc, argv)) {
+            return 0;
+        }
+        const std::string binary_directory = resolve_invoked_binary_directory(argc, argv);
+        if (!binary_directory.empty()
+            && try_rebuild_native_curses_binary(binary_directory)
+            && try_launch_sibling_curses_binary(argc, argv)) {
             return 0;
         }
         transcript_only_mode = true;
@@ -1749,8 +1827,9 @@ int main(int argc, char* argv[]) {
     if (!transcript_only_mode) {
         if (console_window != nullptr) {
             if (stop_after_cycle && auto_print_transcript_after_ui) {
-                set_console_status("Cycle complete. Showing transcript...");
-                visual_pause(900);
+                nodelay(console_window->get_win_ptr(), FALSE);
+                set_console_status("Cycle complete. Press any key to show the transcript.");
+                wgetch(console_window->get_win_ptr());
             } else {
                 nodelay(console_window->get_win_ptr(), FALSE);
                 set_console_status(stop_after_cycle

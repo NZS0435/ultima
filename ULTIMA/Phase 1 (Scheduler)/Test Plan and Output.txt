@@ -1,1 +1,149 @@
-Placeholder for Test Plan and Output.docx
+ULTIMA 2.0
+Phase 1 Test Plan and Output
+
+1. Objective
+
+The objective of this test plan is to prove that the Phase 1 scheduler and semaphore implementation satisfies the assignment requirements. The tests focus on four main claims:
+
+- the scheduler maintains a dynamic process table;
+- tasks transition correctly through READY, RUNNING, BLOCKED, and DEAD;
+- the semaphore blocks on contention instead of busy waiting and wakes queued tasks in FIFO order;
+- the system produces readable evidence through both the ncurses proof board and the plain-text transcript.
+
+2. Build and Run Procedure
+
+Recommended CMake path:
+
+cmake --preset macos-debug
+cmake --build --preset macos-debug
+~/.ultima2/build/macos-debug/ultima_os
+
+Shared shell launcher:
+
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_ui.sh
+
+Transcript-only launcher:
+
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_transcript.sh
+
+Behavior expected from the current default build:
+
+- the program runs one presentation cycle;
+- the final task and proof windows remain visible on screen;
+- the user presses a key to transition from the completed UI to the transcript;
+- the transcript is written to phase1output.txt.
+
+3. Test Scenario
+
+The test uses one shared resource, Printer_Output, and three tasks:
+
+- Task_A is the first claimant and should acquire the semaphore first.
+- Task_B is the second claimant and should block behind Task_A.
+- Task_C is the third claimant and should block behind Task_B.
+
+Expected execution order:
+
+1. Task_A acquires Printer_Output.
+2. Task_A yields while still holding the resource.
+3. Task_B calls down() and becomes BLOCKED.
+4. Task_C calls down() and becomes BLOCKED behind Task_B.
+5. Task_A calls up() and wakes Task_B.
+6. Task_B acquires the resource, releases it, and becomes DEAD.
+7. Task_C acquires the resource, releases it, and becomes DEAD.
+8. Garbage collection removes all DEAD tasks from the process table.
+
+4. Test Cases
+
+Test Case 1: Initial process table and semaphore state
+
+Expected result:
+
+- three tasks are created in READY state;
+- scheduler tick starts at 0;
+- current task is -1 before first dispatch;
+- semaphore value is 1;
+- semaphore wait queue is empty.
+
+Observed result:
+
+- transcript header shows Tick: 0 and Current Task: -1;
+- run queue shows Task_A, Task_B, and Task_C in READY state;
+- semaphore dump shows Value: 1 and Wait Queue: [empty].
+
+Test Case 2: Blocking and queue formation
+
+Expected result:
+
+- after Task_A acquires Printer_Output, Task_B and Task_C must become BLOCKED;
+- the semaphore wait queue must show Task_B before Task_C;
+- semaphore value must remain 0 while the resource is owned.
+
+Observed result:
+
+- transcript shows:
+  [Task_B] transitioned to BLOCKED.
+  [Task_C] transitioned to BLOCKED.
+- mid-execution dump shows:
+  Task_B BLOCKED
+  Task_C BLOCKED
+  Wait Queue: Task_B(T-2) -> Task_C(T-3)
+  Value: 0
+  Owner: 1
+
+Test Case 3: FIFO wake-up order
+
+Expected result:
+
+- Task_A releasing Printer_Output must wake Task_B first;
+- Task_C must remain BLOCKED until Task_B releases the resource.
+
+Observed result:
+
+- post-release dump shows:
+  Last Event: Unblocked Task_B (T-2).
+  Wait Queue: Task_C(T-3)
+  Owner: 2
+- Task_C remains BLOCKED until Task_B finishes.
+
+Test Case 4: Completion and cleanup
+
+Expected result:
+
+- all three tasks must reach DEAD;
+- semaphore must return to value 1 with no owner and no waiters;
+- garbage_collect() must empty the process table.
+
+Observed result:
+
+- final dump before collection shows Task_A, Task_B, and Task_C all in DEAD state;
+- semaphore dump shows Value: 1, Owner: -1, and Wait Queue: [empty];
+- post-garbage-collection dump shows an empty process table and Run Queue: [empty].
+
+Test Case 5: UI and transcript handoff
+
+Expected result:
+
+- the proof-board UI remains visible after the final state is reached;
+- the user presses a key to show the transcript;
+- phase1output.txt is written.
+
+Observed result:
+
+- current build is configured for a single-cycle proof-board presentation;
+- transcript output is saved in phase1output.txt in the Phase 1 directory.
+
+5. Current Output Evidence
+
+Key lines from the current transcript artifact:
+
+- Scheduler purpose: manage the dynamic process table and choose the next READY task to run.
+- Semaphore purpose: prevent a shared Printer_Output race by blocking and queueing contenders.
+- FLOW: Task_A -> Task_B BLOCKED -> Task_C BLOCKED
+- Wait Queue: Task_B(T-2) -> Task_C(T-3)
+- Last Event: Unblocked Task_B (T-2).
+- Garbage collection removed DEAD tasks from the process table.
+- System shutting down safely.
+
+6. Conclusion
+
+The observed output matches the required scheduler and semaphore behavior. The process table is dynamic, state transitions are visible and correct, blocking occurs without busy waiting, FIFO wake-up order is preserved, and the final transcript provides readable evidence of the complete execution cycle.

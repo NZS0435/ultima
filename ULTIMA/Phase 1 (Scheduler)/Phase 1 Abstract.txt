@@ -1,1 +1,9 @@
-Placeholder for Phase 1 Abstract.docx
+ULTIMA 2.0
+Phase 1 Abstract
+Scheduler and Semaphore
+
+Phase 1 of ULTIMA 2.0 implements the execution-control layer required by the assignment: a dynamic scheduler and a binary semaphore working together in one demonstrable system. The scheduler owns a process table of Task Control Blocks and performs strict round-robin dispatch across READY tasks. Each task moves through the required state model of RUNNING, READY, BLOCKED, and DEAD, and completed tasks are removed through garbage collection. The semaphore protects a single shared resource named Printer_Output and uses a FIFO wait queue so contention is resolved by blocking and waking tasks rather than busy waiting.
+
+The demonstration scenario uses three tasks. Task_A acquires the shared resource first and yields while still holding it. Task_B then requests the same resource and becomes BLOCKED. Task_C requests the same resource after Task_B and becomes BLOCKED behind it in the queue. When Task_A releases the resource, Task_B is awakened first, then Task_C, proving both correct blocking behavior and FIFO wake-up order.
+
+To support grading and presentation, the phase includes a multi-window terminal interface that keeps the scheduler panel, semaphore panel, proof panel, per-task panels, log window, and controls visible together. After the final task states are shown, the program can export a transcript that records the same execution as plain text. This phase therefore demonstrates the assignment requirements in both live visual form and written evidence form while preserving a cross-platform build path for macOS, Windows, and Cygwin collaborators.

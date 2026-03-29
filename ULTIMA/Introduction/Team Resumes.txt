@@ -1,1 +1,15 @@
-Placeholder for Team Resumes.pdf
+ULTIMA 2.0
+Introduction Resume Index
+
+Included Resume Files
+- Resumes/Hayes Resume.pdf
+- Resumes/Kobs Resume.pdf
+
+Verified Contact Information Present In Repository Metadata
+- Stewart Pawley - spawley@iu.edu
+- Nicholas Kobs - nicholaskobs444@gmail.com
+- Zander Hayes - resume file present in Resumes/Hayes Resume.pdf
+
+Audit Note
+- A separate Stewart Pawley resume PDF or DOCX is not currently present in the shared Introduction/Resumes folder.
+- If the instructor requires a resume file from every member in the zipped submission, Stewart's resume still needs to be added before final Canvas upload.

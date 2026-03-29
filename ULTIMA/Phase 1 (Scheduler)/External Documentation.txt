@@ -1,80 +1,221 @@
 Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg
 Phase Label: Phase 1 - Scheduler and Semaphore
 
+ULTIMA 2.0
 Phase 1: Scheduler and Semaphore
-
 External Documentation
 
-Overview
-This phase implements the two core components required by the assignment:
-1. A dynamic scheduler with a process table of Task Control Blocks.
-2. A binary semaphore that blocks and wakes tasks without busy waiting.
+1. Overview
 
-Architecture
-- Scheduler class:
-  Maintains the dynamic process table.
-  Creates tasks with a task name and entry point.
-  Performs strict round-robin dispatch across READY tasks.
-  Marks finished tasks as DEAD and later removes them through garbage_collect().
-  Exposes dump(int level) so the process table can be printed in a readable form.
+Phase 1 implements the two core mechanisms required by the assignment:
 
-- Semaphore class:
-  Stores the managed resource name, current binary value, and a queue of waiting task IDs.
-  down() grants the resource if it is free, otherwise pushes the caller into the queue and blocks it.
-  up() releases the resource or wakes the next queued task by moving it back to READY.
-  Exposes dump(int level) so the semaphore value and queue contents can be inspected.
+- a dynamic scheduler with a process table of Task Control Blocks;
+- a binary semaphore that blocks and wakes tasks through a queue instead of busy waiting.
 
-- Terminal Driver:
-  Ultima.cpp presents the Phase 1 proof inside ncurses windows so the team can capture annotated screenshots and run a live demo in the terminal.
-  Separate windows are now dedicated to the Scheduler class, Semaphore class, state/race-condition proof, Task_A, Task_B, Task_C, the system log, and a control/status panel.
-  The terminal layout now uses a fixed top-anchored proof board that mirrors the screenshot deliverable and leaves the remainder of taller terminals blank for stable captures.
-  The slowed-down proof runs in a single cycle by default, while continuous mode remains available only when the team explicitly wants the older repeating loop.
-  The terminal front end preserves the visual workflow from the labs, but the mechanism being demonstrated is the scheduler and semaphore assignment rather than a standalone pthread race-condition lab.
+The current Phase 1 solution is not just a console dump. It is a proof-board style ncurses application that keeps the scheduler state, semaphore state, task state, event log, and transcript evidence tied together in one executable workflow.
 
-Test Scenario
-The demonstration uses three tasks and one shared resource named Printer_Output.
+2. Repository and Build Structure
 
-1. Task_A acquires Printer_Output and yields while still holding it.
-2. Task_B requests the same resource and becomes BLOCKED.
-3. Task_C requests the same resource and becomes BLOCKED behind Task_B.
-4. A mid-execution snapshot is written to the log window showing:
-   Task_A in READY or RUNNING state.
-   Task_B and Task_C in BLOCKED state.
-   Sema_value equal to 0.
-   Sema_queue showing T-2 --> T-3.
-   A flow marker reading Task_A -> Task_B BLOCKED -> Task_C BLOCKED.
-5. Task_A releases the resource.
-6. Task_B resumes, acquires the resource, releases it, and exits.
-7. Task_C resumes, acquires the resource, releases it, and exits.
-8. Final snapshots show DEAD tasks before garbage collection and an empty process table after cleanup.
+Root-level support files:
 
-How To Run
-1. Configure the local build cache:
-   cmake --preset macos-debug
-2. Build the phase:
-   cmake --build --preset macos-debug
-3. Run the terminal demonstration:
-   ~/.ultima2/build/macos-debug/ultima_os
+- BUILD.md: cross-platform build and launch instructions for macOS, Windows, and Cygwin.
+- CMakeLists.txt: main CMake target definition for ultima_os.
+- CMakePresets.json: preset-based build cache locations for macOS, Windows, Cygwin, and Linux.
+- Makefile: root convenience wrapper that forwards build, run, transcript, and clean commands into the Phase 1 folder.
 
-Controls
-- h refreshes the help and status panel.
-- d appends an on-demand scheduler/semaphore dump to the log window.
-- p pauses or resumes the visual scheduler proof.
-- q stops the continuous demo after the current cycle finishes.
-- Mouse clicks are logged to the terminal log window.
+Phase 1 implementation files:
 
-Assignment Compliance Notes
-- The process table is dynamic.
-- The scheduler tracks RUNNING, READY, BLOCKED, and DEAD states.
-- The semaphore uses a queue and does not busy wait.
-- dump() output is readable for both the scheduler and semaphore and now includes ownership, queue, counters, and live task notes.
-- The test plan demonstrates queueing, blocking, waking, and cleanup.
-- The phase folder includes the assignment sheet, abstract, source files, make/build support, and output documentation.
-- The pthread-protected UI directly addresses the race-condition concerns demonstrated in Lab 7.
+- Ultima.cpp: main driver, task scenario, transcript generation, curses layout, controls, and runtime flow.
+- U2_Scheduler.h: scheduler-facing data model, including State, TCB, TaskSnapshot, and Scheduler declarations.
+- Sched.cpp and Sched.h: scheduler implementation and compatibility include.
+- Sema.cpp and Sema.h: semaphore implementation and interface.
+- U2_UI.cpp and U2_UI.h: ncurses environment and window-list manager.
+- U2_Window.cpp and U2_Window.h: boxed window wrapper, wrapped text drawing, scrolling log support, and thread-safe rendering.
+- platform_curses.h: curses portability wrapper.
+- platform_threads.h: pthread portability wrapper with std::mutex fallback when needed.
+- run_ultima_ui.sh and run_ultima_transcript.sh: shared shell launchers for Terminal and Cygwin-style shells.
+- run_ultima_ui.command and run_ultima_transcript.command: macOS convenience wrappers.
+- phase1output.txt: current transcript artifact.
 
-Planning Estimate
-Estimated team effort for Phase 1:
-- Core scheduler and semaphore logic: 4 to 6 hours
-- Terminal integration and screenshots: 2 to 3 hours
-- Testing, debugging, and documentation: 3 to 4 hours
-- Total estimated range: 9 to 13 hours
+Documentation and deliverable support files in the same folder:
+
+- OS Group Project 1.pdf
+- ASSIGNMENT 1 DIAGRAM.png
+- Ultima Class Diagram.png
+- Ultima Phase 1 Class Diagram.png
+- Phase 1 Abstract.txt
+- Test Plan and Output.txt
+
+3. Scheduler Design
+
+The scheduler owns a dynamic process table implemented as a vector of Task Control Block pointers.
+
+Each TCB stores:
+
+- task_id
+- task_name
+- task_state
+- task_entry
+- context_pointer
+- dispatch_count
+- yield_count
+- block_count
+- unblock_count
+- detail_note
+- last_transition
+
+The scheduler exposes the methods required to drive the phase:
+
+- create_task()
+- kill_task()
+- yield()
+- garbage_collect()
+- block_task()
+- unblock_task()
+- dump()
+
+Behavior summary:
+
+- create_task() allocates a new TCB, assigns a unique task ID, and inserts it into the process table.
+- yield() performs strict round-robin selection across READY tasks.
+- block_task() moves a task into BLOCKED.
+- unblock_task() returns a blocked task to READY.
+- kill_task() marks a task DEAD without immediately removing it.
+- garbage_collect() deletes DEAD tasks and compacts the process table.
+
+The scheduler also records counters, queue summaries, and last-event text so both the UI and transcript can present readable proof of each transition.
+
+4. Semaphore Design
+
+The semaphore manages one binary resource, Printer_Output.
+
+Internal data tracked by the semaphore:
+
+- resource_name
+- initial_value
+- value
+- scheduler pointer
+- wait_queue
+- owner_task_id
+- down_operations
+- up_operations
+- contention_events
+- last_transition
+
+Behavior summary:
+
+- down() acquires the resource if it is free.
+- If the resource is busy, down() increments contention, appends the task to the FIFO wait queue, and blocks the current task through the scheduler.
+- up() releases the current owner.
+- If the queue is not empty, up() wakes the next queued task and transfers ownership to that task.
+- dump() prints the resource name, value, owner, queue, operation counters, and last transition.
+
+This behavior directly satisfies the assignment requirement that semaphore contention must be handled through blocking rather than busy waiting.
+
+5. Demonstration Scenario
+
+The live proof uses three tasks and one shared resource.
+
+Task_A:
+
+- first claimant;
+- acquires Printer_Output first;
+- yields while still holding the resource;
+- later releases the resource and becomes DEAD.
+
+Task_B:
+
+- second claimant;
+- attempts to acquire Printer_Output while Task_A still owns it;
+- becomes BLOCKED and enters the wait queue;
+- wakes after Task_A releases the resource;
+- acquires, releases, and becomes DEAD.
+
+Task_C:
+
+- third claimant;
+- attempts to acquire Printer_Output after Task_B;
+- becomes BLOCKED behind Task_B in FIFO order;
+- wakes only after Task_B releases the resource;
+- acquires, releases, and becomes DEAD.
+
+This sequence proves:
+
+- READY to RUNNING transitions,
+- RUNNING to BLOCKED transitions,
+- BLOCKED to READY wake-up behavior,
+- DEAD state entry,
+- post-run garbage collection,
+- and FIFO queue discipline in the semaphore.
+
+6. User Interface and Runtime Flow
+
+The terminal front end is implemented in Ultima.cpp using the U2_ui and U2_window wrappers.
+
+The current preferred presentation layout at 140 columns by 62 rows is a full-width stacked proof board:
+
+- Header
+- Scheduler Class
+- Semaphore Class
+- State + Race Proof
+- Task_A
+- Task_B
+- Task_C
+- Output Log + Dumps
+- Controls
+
+Current runtime flow:
+
+1. The UI initializes and creates all windows.
+2. The initial system state is displayed and recorded.
+3. The scheduler dispatches tasks until no active tasks remain.
+4. Final state and post-garbage-collection state are shown on the proof board.
+5. In single-cycle mode, the completed windows remain visible.
+6. The user presses a key to transition from the final UI to the plain-text transcript.
+7. The transcript is written to phase1output.txt.
+
+Continuous mode still exists, but it is now opt-in through the command-line flag --continuous.
+
+7. Current Controls
+
+- h refreshes the help/status panel.
+- d appends an on-demand scheduler and semaphore dump to the log window.
+- p pauses or resumes the paced demonstration.
+- q exits continuous mode after the current cycle.
+- mouse clicks are logged when the terminal supports mouse events.
+
+8. How to Run
+
+Preferred CMake path:
+
+1. cmake --preset macos-debug
+2. cmake --build --preset macos-debug
+3. ~/.ultima2/build/macos-debug/ultima_os
+
+Shared shell launcher:
+
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_ui.sh
+
+Transcript-only launcher:
+
+./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_transcript.sh
+
+On macOS, the .command launchers can also be used from Finder or external-tool workflows.
+
+9. Assignment Compliance Notes
+
+This implementation currently satisfies the assignment expectations in the following ways:
+
+- the process table is dynamic;
+- the scheduler tracks RUNNING, READY, BLOCKED, and DEAD states;
+- the semaphore uses a FIFO queue and does not busy wait;
+- the scheduler and semaphore both expose readable dump output;
+- the demonstration visibly proves queueing, blocking, wake-up order, and cleanup;
+- the project includes both a live terminal demonstration and a transcript artifact;
+- the UI is protected by a pthread-based mutual-exclusion boundary so screen rendering remains coherent.
+
+10. Current Limitations and Notes
+
+- Some directories contain old object files, repeated binary copies, and debug symbol folders produced during development; they are not the authoritative source files.
+- The real source of truth is the current .cpp, .h, build, and launcher files described above.
+- The ncurses UI must run in a real terminal surface. IDE debug consoles can still misrepresent the output even when the build itself is correct.
