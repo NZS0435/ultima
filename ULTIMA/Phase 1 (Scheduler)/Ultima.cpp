@@ -69,6 +69,7 @@ constexpr std::size_t kMaxStateTraceLines = 12;
 
 struct WindowLayout {
     bool stacked_primary_layout = false;
+    bool full_width_panels = false;
 
     int header_height = 0;
     int header_width = 0;
@@ -99,6 +100,17 @@ struct WindowLayout {
     int log_x = 0;
     int console_width = 0;
     int console_x = 0;
+
+    int semaphore_y = 0;
+    int state_y = 0;
+    int state_height = 0;
+    int task_a_y = 0;
+    int task_b_y = 0;
+    int task_c_y = 0;
+    int log_y = 0;
+    int log_height = 0;
+    int console_y = 0;
+    int console_height = 0;
 };
 
 WindowLayout current_layout;
@@ -144,6 +156,105 @@ bool build_layout(WindowLayout& layout) {
     const int vertical_gap = (LINES >= 30) ? kVerticalGap : 0;
     const int minimum_panel_height = (LINES >= 34) ? 10 : 6;
     const int minimum_bottom_height = (LINES >= 34) ? 10 : 6;
+
+    if (LINES >= 40) {
+        layout.full_width_panels = true;
+        layout.header_y = 0;
+        layout.header_x = 0;
+        layout.header_height = 4;
+        layout.header_width = COLS;
+
+        const int available_rows = LINES - layout.header_height;
+        if (available_rows < 36) {
+            return false;
+        }
+
+        int scheduler_height = 5;
+        int semaphore_height = 5;
+        int state_height = 6;
+        int task_height = 4;
+        int log_height = 4;
+        int console_height = 4;
+
+        int extra_rows = available_rows - (scheduler_height + semaphore_height + state_height + (task_height * 3) + log_height + console_height);
+        while (extra_rows > 0) {
+            ++task_height;
+            --extra_rows;
+            if (extra_rows <= 0) {
+                break;
+            }
+            ++log_height;
+            --extra_rows;
+            if (extra_rows <= 0) {
+                break;
+            }
+            ++state_height;
+            --extra_rows;
+            if (extra_rows <= 0) {
+                break;
+            }
+            ++scheduler_height;
+            --extra_rows;
+            if (extra_rows <= 0) {
+                break;
+            }
+            ++semaphore_height;
+            --extra_rows;
+            if (extra_rows <= 0) {
+                break;
+            }
+            ++console_height;
+            --extra_rows;
+        }
+
+        int next_y = layout.header_height;
+
+        layout.class_y = next_y;
+        layout.class_height = scheduler_height;
+        layout.class_x_left = 0;
+        layout.class_width_left = COLS;
+        next_y += scheduler_height;
+
+        layout.semaphore_y = next_y;
+        layout.class_x_middle = 0;
+        layout.class_width_middle = COLS;
+        next_y += semaphore_height;
+
+        layout.state_y = next_y;
+        layout.state_height = state_height;
+        layout.class_x_right = 0;
+        layout.class_width_right = COLS;
+        next_y += state_height;
+
+        layout.task_height = task_height;
+        layout.task_width_left = COLS;
+        layout.task_width_middle = COLS;
+        layout.task_width_right = COLS;
+        layout.task_x_left = 0;
+        layout.task_x_middle = 0;
+        layout.task_x_right = 0;
+
+        layout.task_a_y = next_y;
+        next_y += task_height;
+        layout.task_b_y = next_y;
+        next_y += task_height;
+        layout.task_c_y = next_y;
+        next_y += task_height;
+
+        layout.log_x = 0;
+        layout.log_width = COLS;
+        layout.log_y = next_y;
+        layout.log_height = log_height;
+        next_y += log_height;
+
+        layout.console_x = 0;
+        layout.console_width = COLS;
+        layout.console_y = next_y;
+        layout.console_height = console_height;
+        layout.bottom_y = layout.log_y;
+        layout.bottom_height = log_height + console_height;
+        return true;
+    }
 
     layout.header_y = 0;
     layout.header_x = horizontal_margin;
