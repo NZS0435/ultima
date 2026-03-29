@@ -3,12 +3,19 @@
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 #include "platform_curses.h"
 #include "U2_Scheduler.h"
 #include "Sema.h"
@@ -113,6 +120,35 @@ std::vector<std::string> state_trace_lines;
 std::vector<std::string> task_a_history;
 std::vector<std::string> task_b_history;
 std::vector<std::string> task_c_history;
+
+bool stream_is_tty(FILE* stream) {
+#if defined(_WIN32)
+    return _isatty(_fileno(stream)) != 0;
+#else
+    return isatty(fileno(stream)) != 0;
+#endif
+}
+
+std::string describe_terminal_issue() {
+    const bool stdin_is_tty = stream_is_tty(stdin);
+    const bool stdout_is_tty = stream_is_tty(stdout);
+    const char* term_value = std::getenv("TERM");
+
+    if (!stdin_is_tty || !stdout_is_tty) {
+        return "ncurses UI requires a real terminal; stdin/stdout are not attached to a TTY.";
+    }
+
+    if (term_value == nullptr || std::string(term_value).empty()) {
+        return "ncurses UI requires a valid TERM value, but TERM is unset.";
+    }
+
+    const std::string term_name(term_value);
+    if (term_name == "unknown" || term_name == "dumb") {
+        return "ncurses UI requires a usable TERM value, but TERM=" + term_name + ".";
+    }
+
+    return "";
+}
 
 bool build_layout(WindowLayout& layout) {
     layout = WindowLayout {};
@@ -1199,6 +1235,18 @@ int main(int argc, char* argv[]) {
             }
             output_file_path = argv[++index];
             continue;
+        }
+    }
+
+    if (!transcript_only_mode) {
+        const std::string terminal_issue = describe_terminal_issue();
+        if (!terminal_issue.empty()) {
+            transcript_only_mode = true;
+            std::cerr << terminal_issue << '\n'
+                      << "Falling back to transcript-only mode. "
+                      << "Run the executable inside a real terminal, or enable an external terminal in CLion, "
+                      << "to see the multi-window ncurses UI."
+                      << std::endl;
         }
     }
 
