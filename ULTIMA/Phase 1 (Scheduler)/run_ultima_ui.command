@@ -6,5 +6,9 @@ cd "$SCRIPT_DIR"
 
 export ULTIMA_OPENED_EXTERNAL_TERMINAL=1
 
+# Ask xterm-compatible terminals, including macOS Terminal, for a larger canvas.
+printf '\033[8;62;140t'
+sleep 0.2
+
 make build
 exec ./Ultima "$@"

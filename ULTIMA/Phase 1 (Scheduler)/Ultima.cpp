@@ -157,7 +157,7 @@ bool build_layout(WindowLayout& layout) {
     const int minimum_panel_height = (LINES >= 34) ? 10 : 6;
     const int minimum_bottom_height = (LINES >= 34) ? 10 : 6;
 
-    if (LINES >= 40) {
+    if (LINES >= 60) {
         layout.full_width_panels = true;
         layout.header_y = 0;
         layout.header_x = 0;
@@ -165,47 +165,17 @@ bool build_layout(WindowLayout& layout) {
         layout.header_width = COLS;
 
         const int available_rows = LINES - layout.header_height;
-        if (available_rows < 36) {
+        if (available_rows < 56) {
             return false;
         }
 
-        int scheduler_height = 5;
-        int semaphore_height = 5;
-        int state_height = 6;
-        int task_height = 4;
-        int log_height = 4;
-        int console_height = 4;
-
-        int extra_rows = available_rows - (scheduler_height + semaphore_height + state_height + (task_height * 3) + log_height + console_height);
-        while (extra_rows > 0) {
-            ++task_height;
-            --extra_rows;
-            if (extra_rows <= 0) {
-                break;
-            }
-            ++log_height;
-            --extra_rows;
-            if (extra_rows <= 0) {
-                break;
-            }
-            ++state_height;
-            --extra_rows;
-            if (extra_rows <= 0) {
-                break;
-            }
-            ++scheduler_height;
-            --extra_rows;
-            if (extra_rows <= 0) {
-                break;
-            }
-            ++semaphore_height;
-            --extra_rows;
-            if (extra_rows <= 0) {
-                break;
-            }
-            ++console_height;
-            --extra_rows;
-        }
+        const int scheduler_height = 7;
+        const int semaphore_height = 7;
+        const int state_height = 7;
+        const int task_height = 7;
+        int log_height = 7;
+        const int console_height = 7;
+        log_height += available_rows - (scheduler_height + semaphore_height + state_height + (task_height * 3) + log_height + console_height);
 
         int next_y = layout.header_height;
 
@@ -613,7 +583,11 @@ std::string format_task_id(int task_id) {
 }
 
 bool use_compact_panels() {
-    if (current_layout.stacked_primary_layout || current_layout.full_width_panels) {
+    if (current_layout.full_width_panels) {
+        return true;
+    }
+
+    if (current_layout.stacked_primary_layout) {
         return false;
     }
 
