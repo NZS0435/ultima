@@ -67,7 +67,7 @@ Assignment Compliance Notes
 - The process table is dynamic.
 - The scheduler tracks RUNNING, READY, BLOCKED, and DEAD states.
 - The semaphore uses a queue and does not busy wait.
-- dump() output is readable for both the scheduler and semaphore and now includes ownership, queue, counters, and live task notes.
+- dump() output is readable for both the scheduler and semaphore, and now includes ownership, queue, counters, and live task notes.
 - The test plan demonstrates queueing, blocking, waking, and cleanup.
 - The phase folder includes the assignment sheet, abstract, source files, make/build support, and output documentation.
 - The pthread-protected UI directly addresses the race-condition concerns demonstrated in Lab 7.
