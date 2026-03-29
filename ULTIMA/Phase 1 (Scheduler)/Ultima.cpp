@@ -1,15 +1,10 @@
-/* Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg */
+/* Team Thunder reference artwork */
 /* Creator: ZANDER HAYES - TEAM THUNDER */
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
-
-#if defined(__CYGWIN__) && !defined(_POSIX_C_SOURCE)
-#define _POSIX_C_SOURCE 200809L
-#endif
 
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-#include <stdio.h>
 #include <cstdlib>
 #include <fstream>
 #include <functional>
@@ -69,7 +64,6 @@ constexpr int kPreferredPresentationRows = 62;
 constexpr int kPreferredPresentationCols = 140;
 constexpr int kHorizontalMargin = 1;
 constexpr int kHorizontalGap = 1;
-constexpr int kVerticalGap = 1;
 constexpr int kCompactHeaderHeight = 4;
 constexpr int kReferenceHeaderHeight = 5;
 constexpr int kReferencePrimaryPanelHeight = 7;
@@ -164,7 +158,7 @@ std::vector<std::string> task_b_history;
 std::vector<std::string> task_c_history;
 
 bool build_layout(WindowLayout& layout) {
-    layout = WindowLayout {};
+    layout = {};
 
     if (LINES < kMinimumTerminalRows || COLS < kMinimumTerminalCols) {
         return false;
@@ -223,7 +217,7 @@ bool build_layout(WindowLayout& layout) {
         return true;
     }
 
-    const int full_width_required_rows =
+    constexpr int full_width_required_rows =
         kReferenceHeaderHeight
         + (kReferencePrimaryPanelHeight * 6)
         + kReferenceLogPanelHeight
@@ -374,6 +368,14 @@ bool file_exists(const std::string& path) {
 #endif
 }
 
+std::string to_lower_copy(std::string text) {
+    for (char& character : text) {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    }
+    return text;
+}
+
+#if defined(__APPLE__)
 std::string trim_copy(const std::string& text) {
     std::size_t begin = 0;
     while (begin < text.size() && std::isspace(static_cast<unsigned char>(text[begin])) != 0) {
@@ -386,13 +388,6 @@ std::string trim_copy(const std::string& text) {
     }
 
     return text.substr(begin, end - begin);
-}
-
-std::string to_lower_copy(std::string text) {
-    for (char& character : text) {
-        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-    }
-    return text;
 }
 
 FILE* open_command_pipe(const std::string& command) {
@@ -437,7 +432,9 @@ std::string process_command_line(long process_id) {
     command << "/bin/ps -p " << process_id << " -o command=";
     return to_lower_copy(read_command_output(command.str()));
 }
+#endif
 
+//noinspection SpellCheckingInspection
 bool terminal_program_is_known_good() {
     const char* term_program = std::getenv("TERM_PROGRAM");
     if (term_program == nullptr || term_program[0] == '\0') {
@@ -451,6 +448,7 @@ bool terminal_program_is_known_good() {
         || program == "vscode";
 }
 
+//noinspection SpellCheckingInspection
 bool terminal_supports_resize_request() {
     if (std::getenv("WT_SESSION") != nullptr || std::getenv("CYGWIN") != nullptr) {
         return true;
@@ -481,6 +479,7 @@ bool terminal_supports_resize_request() {
         || program == "wezterm";
 }
 
+//noinspection SpellCheckingInspection
 bool running_inside_jetbrains_debugger() {
 #if defined(__APPLE__)
     long process_id = static_cast<long>(getppid());
@@ -807,7 +806,7 @@ std::string compact_scheduler_queue() {
 }
 
 std::string compact_scheduler_event() {
-    const std::string event = sys_scheduler.get_last_scheduler_event();
+    std::string event = sys_scheduler.get_last_scheduler_event();
     const int task_id = sys_scheduler.get_current_task_id();
 
     if (event.find("Dispatching") != std::string::npos) {
@@ -833,7 +832,7 @@ std::string compact_scheduler_event() {
 }
 
 std::string compact_semaphore_transition() {
-    const std::string transition = printer_semaphore.get_last_transition();
+    std::string transition = printer_semaphore.get_last_transition();
     if (transition.find("queued") != std::string::npos) {
         return "queued waiter";
     }

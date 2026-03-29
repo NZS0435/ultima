@@ -4,7 +4,11 @@
 #ifndef ULTIMA_PLATFORM_CURSES_H
 #define ULTIMA_PLATFORM_CURSES_H
 
-#if defined(ULTIMA_ENABLE_CURSES)
+#if defined(__clangd__) || defined(__INTELLISENSE__) || defined(__JETBRAINS_IDE__)
+#define ULTIMA_EDITOR_CURSES_STUBS 1
+#endif
+
+#if defined(ULTIMA_ENABLE_CURSES) && !defined(ULTIMA_EDITOR_CURSES_STUBS)
 #if defined(__has_include)
 #if __has_include(<ncurses.h>)
 #include <ncurses.h>
@@ -18,9 +22,9 @@
 #endif
 #else
 /*
- * Transcript-only fallback used for single-translation-unit builds that do not
- * link against curses. Full ncurses support is enabled explicitly by the
- * repository build entrypoints via ULTIMA_ENABLE_CURSES.
+ * Transcript-only and editor-analysis fallback used for single-translation-unit
+ * builds that do not link against curses, or for IDE parsing environments that
+ * do not have the active toolchain's curses headers on the default include path.
  */
 struct WINDOW {
     int height;
