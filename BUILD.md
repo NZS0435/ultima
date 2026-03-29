@@ -118,6 +118,7 @@ Run:
 CLion note:
 
 - The plain Run output console is not a full ncurses terminal and can print raw escape codes instead of drawing the windows.
+- The LLDB Debug console shown during `Debug` runs is also not a real ncurses terminal; it will show the escape stream instead of the Phase 1 subwindows.
 - Use `Emulate terminal in output console`, run in an external terminal, or use `ULTIMA/Phase 1 (Scheduler)/run_ultima_ui.command` on macOS.
 
 ### CLion Cygwin Toolchain/Profile Setup

@@ -3,6 +3,8 @@
 /* Phase Label: Phase 1 - Scheduler and Semaphore */
 
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <functional>
@@ -280,6 +282,84 @@ bool file_exists(const std::string& path) {
 #endif
 }
 
+std::string trim_copy(const std::string& text) {
+    std::size_t begin = 0;
+    while (begin < text.size() && std::isspace(static_cast<unsigned char>(text[begin])) != 0) {
+        ++begin;
+    }
+
+    std::size_t end = text.size();
+    while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0) {
+        --end;
+    }
+
+    return text.substr(begin, end - begin);
+}
+
+std::string to_lower_copy(std::string text) {
+    for (char& character : text) {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    }
+    return text;
+}
+
+std::string read_command_output(const std::string& command) {
+    FILE* pipe = popen(command.c_str(), "r");
+    if (pipe == nullptr) {
+        return "";
+    }
+
+    std::string output;
+    char buffer[256];
+    while (std::fgets(buffer, static_cast<int>(sizeof(buffer)), pipe) != nullptr) {
+        output += buffer;
+    }
+    pclose(pipe);
+    return trim_copy(output);
+}
+
+long process_parent_pid(long process_id) {
+    std::ostringstream command;
+    command << "/bin/ps -p " << process_id << " -o ppid=";
+    return std::strtol(read_command_output(command.str()).c_str(), nullptr, 10);
+}
+
+std::string process_command_line(long process_id) {
+    std::ostringstream command;
+    command << "/bin/ps -p " << process_id << " -o command=";
+    return to_lower_copy(read_command_output(command.str()));
+}
+
+bool terminal_program_is_known_good() {
+    const char* term_program = std::getenv("TERM_PROGRAM");
+    if (term_program == nullptr || term_program[0] == '\0') {
+        return false;
+    }
+
+    const std::string program = to_lower_copy(term_program);
+    return program == "apple_terminal"
+        || program == "iterm.app"
+        || program == "wezterm"
+        || program == "vscode";
+}
+
+bool running_inside_jetbrains_debugger() {
+#if defined(__APPLE__)
+    long process_id = static_cast<long>(getppid());
+    for (int depth = 0; depth < 3 && process_id > 1; ++depth) {
+        const std::string command = process_command_line(process_id);
+        if (command.find("clion") != std::string::npos
+            || command.find("jetbrains") != std::string::npos
+            || command.find("lldb") != std::string::npos
+            || command.find("debugserver") != std::string::npos) {
+            return true;
+        }
+        process_id = process_parent_pid(process_id);
+    }
+#endif
+    return false;
+}
+
 bool environment_supports_curses_ui() {
     const char* term_value = std::getenv("TERM");
     if (term_value == nullptr || term_value[0] == '\0') {
@@ -295,6 +375,55 @@ bool environment_supports_curses_ui() {
     return _isatty(_fileno(stdin)) != 0 && _isatty(_fileno(stdout)) != 0;
 #else
     return isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0;
+#endif
+}
+
+bool try_open_external_terminal_launcher(int argc, char* argv[]) {
+#if defined(__APPLE__)
+    if (argc <= 0 || argv == nullptr || argv[0] == nullptr) {
+        return false;
+    }
+    if (std::getenv("ULTIMA_OPENED_EXTERNAL_TERMINAL") != nullptr) {
+        return false;
+    }
+
+    std::string invoked_path = argv[0];
+    if (invoked_path.empty()) {
+        return false;
+    }
+
+    std::string resolved_path = invoked_path;
+    if (invoked_path.find('/') == std::string::npos && invoked_path.find('\\') == std::string::npos) {
+        const std::string cwd = current_working_directory();
+        if (!cwd.empty()) {
+            resolved_path = join_path(cwd, invoked_path);
+        }
+    }
+
+    const std::size_t separator_index = resolved_path.find_last_of("/\\");
+    const std::string binary_directory = (separator_index == std::string::npos)
+        ? current_working_directory()
+        : resolved_path.substr(0, separator_index);
+    const std::string launcher_path = join_path(binary_directory, "run_ultima_ui.command");
+
+    if (!file_exists(launcher_path)) {
+        return false;
+    }
+
+    pid_t child_process = fork();
+    if (child_process < 0) {
+        return false;
+    }
+
+    if (child_process == 0) {
+        execl("/usr/bin/open", "open", "-a", "Terminal", launcher_path.c_str(), static_cast<char*>(nullptr));
+        _exit(127);
+    }
+    return true;
+#else
+    (void) argc;
+    (void) argv;
+    return false;
 #endif
 }
 
@@ -1336,6 +1465,14 @@ int main(int argc, char* argv[]) {
                   << "Rebuild it with the repository Makefile or CMake target "
                   << "to open the multi-window Phase 1 UI."
                   << std::endl;
+    }
+
+    if (!transcript_only_mode && !terminal_program_is_known_good() && running_inside_jetbrains_debugger()) {
+        if (try_open_external_terminal_launcher(argc, argv)) {
+            std::cerr << "Opening Terminal.app because the current JetBrains debug console does not render ncurses windows."
+                      << std::endl;
+            return 0;
+        }
     }
 
     if (!transcript_only_mode && !environment_supports_curses_ui()) {
