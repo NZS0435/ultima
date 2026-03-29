@@ -21,5 +21,10 @@ add_executable(ultima_os
     "ULTIMA/Phase 1 (Scheduler)/Ultima.cpp"
 )
 
+target_compile_definitions(ultima_os PRIVATE
+    ULTIMA_ENABLE_CURSES=1
+    ULTIMA_SEPARATE_COMPILATION=1
+)
+
 # 4. Link both libraries to your executable
 target_link_libraries(ultima_os Threads::Threads ${CURSES_LIBRARIES})

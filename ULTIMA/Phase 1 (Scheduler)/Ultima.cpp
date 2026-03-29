@@ -86,7 +86,11 @@ struct WindowLayout {
 
 WindowLayout current_layout;
 
+#if defined(ULTIMA_ENABLE_CURSES)
 bool transcript_only_mode = false;
+#else
+bool transcript_only_mode = true;
+#endif
 bool stop_after_cycle = false;
 bool demo_paused = false;
 
@@ -1263,3 +1267,16 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+#if !defined(ULTIMA_SEPARATE_COMPILATION)
+/*
+ * Support direct one-file builds such as:
+ * c++ "/path/to/Ultima.cpp" -o Ultima
+ * The repository build entrypoints define ULTIMA_SEPARATE_COMPILATION=1 and
+ * compile these modules as independent translation units instead.
+ */
+#include "Sched.cpp"
+#include "Sema.cpp"
+#include "U2_UI.cpp"
+#include "U2_Window.cpp"
+#endif
