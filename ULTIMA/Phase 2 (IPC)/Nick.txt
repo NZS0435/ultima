@@ -1,7 +1,7 @@
 Phase 2 Handoff for Nicholas Kobs
 
 Primary working directory:
-/Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)
+https://github.com/NZS0435/ultima.git
 
 Your owned Phase 2 responsibilities:
 1. Complete the IPC utility methods in ipc.cpp.

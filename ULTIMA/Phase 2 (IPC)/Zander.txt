@@ -1,7 +1,7 @@
 Phase 2 Handoff for Zander Hayes
 
 Primary working directory:
-/Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)
+https://github.com/NZS0435/ultima.git
 
 Your owned Phase 2 responsibilities:
 1. Finalize the core IPC data definitions in Message.h.
