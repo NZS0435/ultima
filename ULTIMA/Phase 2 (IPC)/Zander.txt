@@ -1,0 +1,74 @@
+Phase 2 Handoff for Zander Hayes
+
+Primary working directory:
+/Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)
+
+Your owned Phase 2 responsibilities:
+1. Finalize the core IPC data definitions in Message.h.
+2. Complete the IPC constructor in ipc.cpp.
+3. Complete the core send/receive logic in ipc.cpp.
+
+Files already in place for you:
+- Message.h
+- ipc.h
+- ipc.cpp
+- MCB.h
+- Sched.h
+- Sched.cpp
+- U2_Scheduler.h
+- Sema_sync.cpp
+- CMakeLists.txt
+- Makefile
+- phase2_smoke_test.cpp
+
+What you should edit:
+1. Message.h
+   - Keep this file in the Phase 2 folder.
+   - Review and finalize Message_Type and Message so they match the Phase 2 rubric.
+   - Do not create a duplicate Message header somewhere else.
+
+2. ipc.cpp
+   - Fill in the existing placeholder blocks for:
+     - ipc::ipc(int max_tasks, Scheduler* sched)
+     - int ipc::Message_Send(int S_Id, int D_Id, const char* Mess, int Mess_Type)
+     - int ipc::Message_Send(int S_Id, int D_Id, Message* msg)
+     - int ipc::Message_Receive(int Task_Id, Message* msg)
+     - int ipc::Message_Receive(int Task_Id, char* Mess, int* Mess_Type)
+   - Use the existing per-task mailbox already attached to TCB in U2_Scheduler.h.
+   - Do not create a second mailbox system outside the TCB.
+
+Important integration rules:
+- Leave Stewart's semaphore boundaries in place.
+  - Send must keep down()/up() around the destination task mailbox.
+  - Receive must keep down()/up() around the source task mailbox.
+- Do not remove mailbox_semaphore setup from Scheduler::create_task().
+- Do not remove mailbox_semaphore cleanup from Scheduler::reset() or garbage_collect().
+- Do not create duplicate scheduler or semaphore source files in Phase 2.
+
+If you need helper code:
+- Prefer adding small private helpers inside ipc.cpp or declarations in ipc.h.
+- If you must add a new .h or .cpp, put it in this same Phase 2 folder.
+- If you add a new source file, update both:
+  - /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)/CMakeLists.txt
+  - /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)/Makefile
+
+Current build/test commands:
+- From the repo root:
+  - make phase2-test
+- From the Phase 2 folder:
+  - make test
+
+Cygwin note:
+- The Phase 2 Makefile already handles .exe naming for Cygwin.
+- Keep file names ASCII and cross-platform safe.
+
+Where everything belongs:
+- All Phase 2 code files stay in:
+  /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)
+- Do not put your Phase 2 code in the Phase 1 folder.
+- Do not create duplicate copies of files that already exist in Phase 2.
+
+Before you hand your work back:
+- Make sure Phase 2 still builds from the existing Makefile.
+- Make sure your IPC logic does not break the current Phase 2 smoke test flow.
+- If you change final success return values from the current placeholders, update the smoke test in phase2_smoke_test.cpp so the test still matches the final interface.

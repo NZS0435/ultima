@@ -1,0 +1,74 @@
+Phase 2 Handoff for Nicholas Kobs
+
+Primary working directory:
+/Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)
+
+Your owned Phase 2 responsibilities:
+1. Complete the IPC utility methods in ipc.cpp.
+2. Add the Phase 2 utility/testing output for the messenger.
+3. Add any Phase 2 helper test files needed for your utility functions.
+
+Files already in place for you:
+- ipc.h
+- ipc.cpp
+- Message.h
+- MCB.h
+- Sched.h
+- Sched.cpp
+- U2_Scheduler.h
+- Sema_sync.cpp
+- CMakeLists.txt
+- Makefile
+- phase2_smoke_test.cpp
+
+What you should edit:
+1. ipc.cpp
+   - Fill in the existing placeholder blocks for:
+     - int ipc::Message_Count(int Task_id) const
+     - int ipc::Message_Count() const
+     - void ipc::Message_Print(int Task_id) const
+     - int ipc::Message_DeleteAll(int Task_id)
+     - void ipc::ipc_Message_Dump() const
+   - Keep your work inside the existing utility section so ownership stays clear.
+
+2. Optional new Phase 2 test/demo files
+   - If you need a dedicated utility test or message dump demo, create it in:
+     /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)
+   - Suggested file names:
+     - phase2_utility_test.cpp
+     - phase2_demo_output.txt
+   - If you add a new .cpp file, update both:
+     - /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)/CMakeLists.txt
+     - /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)/Makefile
+
+Formatting/output expectations:
+- Match the assignment's messenger output formatting as closely as possible.
+- Keep all output cross-platform text only.
+- Do not use Mac-only paths or tools in the actual code.
+
+Important integration rules:
+- Do not remove Stewart's scheduler, MCB, or semaphore integration.
+- Do not remove the existing semaphore down()/up() calls in ipc.cpp.
+- Do not create duplicate copies of ipc.cpp, ipc.h, Message.h, or scheduler files.
+- Use the current TCB mailbox already defined in U2_Scheduler.h.
+
+Build/test commands:
+- From the repo root:
+  - make phase2-test
+- From the Phase 2 folder:
+  - make test
+
+Cygwin note:
+- The Phase 2 Makefile already handles .exe naming for Cygwin.
+- Keep any new filenames portable for both macOS and Cygwin.
+
+Where everything belongs:
+- All Phase 2 code files stay in:
+  /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)
+- Keep documentation or output examples for Phase 2 in the same Phase 2 folder unless Stewart later reorganizes final submission packaging.
+- Do not place your Phase 2 utilities in the Phase 1 folder.
+
+Before you hand your work back:
+- Make sure the utility methods compile under the existing Phase 2 build.
+- Add or update a Phase 2 test file if your utility code needs verification beyond the current smoke test.
+- Re-run make phase2-test after your changes.

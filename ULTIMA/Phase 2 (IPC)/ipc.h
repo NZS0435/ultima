@@ -12,7 +12,7 @@
 class ipc {
 private:
     Scheduler* scheduler_ref;
-    int max_active_tasks;
+    [[maybe_unused]] int max_active_tasks;
 
 public:
     // Zander: Constructor & Setup

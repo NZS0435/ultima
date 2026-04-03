@@ -26,11 +26,26 @@ if(NOT CYGWIN)
 endif()
 
 add_library(ultima_os_phase2 STATIC
+    "MCB.h"
+    "Message.h"
+    "Sched.h"
     "Sched.cpp"
+    "U2_Scheduler.h"
+    "ipc.h"
     "ipc.cpp"
+    "Sema_sync.cpp"
+)
+
+add_executable(ultima_os_phase2_smoke
+    "phase2_smoke_test.cpp"
 )
 
 target_include_directories(ultima_os_phase2 PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${PHASE1_SCHEDULER_DIR}"
+)
+
+target_include_directories(ultima_os_phase2_smoke PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${PHASE1_SCHEDULER_DIR}"
 )
@@ -41,8 +56,13 @@ set_target_properties(ultima_os_phase2 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${ULTIMA_PHASE2_OUTPUT_DIR}"
 )
 
+set_target_properties(ultima_os_phase2_smoke PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${ULTIMA_PHASE2_OUTPUT_DIR}"
+)
+
 target_compile_definitions(ultima_os_phase2 PRIVATE
     ULTIMA_SEPARATE_COMPILATION=1
 )
 
 target_link_libraries(ultima_os_phase2 PRIVATE Threads::Threads)
+target_link_libraries(ultima_os_phase2_smoke PRIVATE ultima_os_phase2 Threads::Threads)
