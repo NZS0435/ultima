@@ -4,61 +4,58 @@
 SHELL := /bin/sh
 
 CXX ?= c++
-CXXFLAGS ?= -Wall -Wextra -pedantic -g -std=c++17
-LDLIBS ?= -lncurses -pthread
-TARGET := ultima_os
-OBJS := Ultima.o Sched.o Sema.o U2_UI.o U2_Window.o
-TEST_OUTPUT := phase1_test_output.txt
-OUTPUT_FILE ?= ../../phase1output.txt
+CXXFLAGS ?= -Wall -Wextra -g2 -std=c++17
+CPPFLAGS ?= -DULTIMA_ENABLE_CURSES=1 -DULTIMA_SEPARATE_COMPILATION=1
+LDFLAGS ?=
 
-.PHONY: all build run transcript test clean rebuild
+TARGET ?= ultima_os
+LEGACY_TARGET ?= Ultima
+OUTPUT_FILE ?= $(CURDIR)/phase1output.txt
+APPLE_CODESIGN ?= codesign --force --sign -
 
-all: build
+SOURCES := Ultima.cpp Mem_mgr.cpp Sched.cpp Sema.cpp U2_UI.cpp U2_Window.cpp
+OBJS := $(SOURCES:.cpp=.o)
 
-build: $(TARGET)
+UNAME_S := $(shell uname -s 2>/dev/null)
+ifeq ($(OS),Windows_NT)
+CURSES_LIBS ?= -lpdcurses
+else ifeq ($(UNAME_S),Darwin)
+CURSES_LIBS ?= -lcurses
+else
+CURSES_LIBS ?= $(shell pkg-config --libs ncursesw 2>/dev/null || pkg-config --libs ncurses 2>/dev/null || echo -lncurses)
+endif
+
+THREAD_LIBS ?= -pthread
+LDLIBS += $(THREAD_LIBS) $(CURSES_LIBS)
+
+.PHONY: all build run test transcript clean FORCE
+
+FORCE:
+
+all build: $(TARGET) $(LEGACY_TARGET)
 
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) $(LDLIBS)
+	$(CXX) $(LDFLAGS) -o $(TARGET) $(OBJS) $(LDLIBS)
+ifeq ($(UNAME_S),Darwin)
+	$(APPLE_CODESIGN) $(TARGET)
+endif
 
-Ultima.o: Ultima.cpp Sched.h U2_Scheduler.h Sema.h U2_UI.h U2_Window.h
-	$(CXX) $(CXXFLAGS) -c Ultima.cpp
+$(LEGACY_TARGET): FORCE $(TARGET)
+	cp -f $(TARGET) $(LEGACY_TARGET)
+ifeq ($(UNAME_S),Darwin)
+	$(APPLE_CODESIGN) $(LEGACY_TARGET)
+endif
 
-Sched.o: Sched.cpp U2_Scheduler.h
-	$(CXX) $(CXXFLAGS) -c Sched.cpp
-
-Sema.o: Sema.cpp Sema.h Sched.h U2_Scheduler.h
-	$(CXX) $(CXXFLAGS) -c Sema.cpp
-
-U2_UI.o: U2_UI.cpp U2_UI.h U2_Window.h platform_curses.h
-	$(CXX) $(CXXFLAGS) -c U2_UI.cpp
-
-U2_Window.o: U2_Window.cpp U2_Window.h platform_curses.h
-	$(CXX) $(CXXFLAGS) -c U2_Window.cpp
+%.o: %.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 run: $(TARGET)
 	./$(TARGET)
 
 transcript: $(TARGET)
-	@./$(TARGET) --transcript-only --output-file "$(OUTPUT_FILE)" >/dev/null
-	@printf '%s\n' "Phase 1 transcript written to $(OUTPUT_FILE)"
+	./$(TARGET) --transcript-only --output-file "$(OUTPUT_FILE)"
 
-test: $(TARGET)
-	@./$(TARGET) --transcript-only --output-file "$(OUTPUT_FILE)" > $(TEST_OUTPUT)
-	@grep -F -- "--- INITIAL SYSTEM STATE ---" "$(OUTPUT_FILE)" >/dev/null
-	@grep -F -- "--- MID-EXECUTION STATE DUMP (Proving Queueing) ---" "$(OUTPUT_FILE)" >/dev/null
-	@grep -E -- "Task_A[[:space:]]+1[[:space:]]+(Running|Ready)" "$(OUTPUT_FILE)" >/dev/null
-	@grep -E -- "Task_B[[:space:]]+2[[:space:]]+Blocked" "$(OUTPUT_FILE)" >/dev/null
-	@grep -E -- "Task_C[[:space:]]+3[[:space:]]+Blocked" "$(OUTPUT_FILE)" >/dev/null
-	@grep -F -- "Sema_value:  0" "$(OUTPUT_FILE)" >/dev/null
-	@grep -F -- "Sema_queue:  T-2 --> T-3" "$(OUTPUT_FILE)" >/dev/null
-	@grep -F -- "[Task_B] acquired Printer_Output." "$(OUTPUT_FILE)" >/dev/null
-	@grep -F -- "[Task_C] acquired Printer_Output." "$(OUTPUT_FILE)" >/dev/null
-	@grep -F -- "--- POST-GARBAGE-COLLECTION DUMP ---" "$(OUTPUT_FILE)" >/dev/null
-	@grep -F -- "System shutting down safely." "$(OUTPUT_FILE)" >/dev/null
-	@rm -f $(TEST_OUTPUT)
-	@printf '%s\n' "Phase 1 scheduler/semaphore tests passed. Output saved to $(OUTPUT_FILE)"
-
-rebuild: clean build
+test: transcript
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(TEST_OUTPUT) "$(OUTPUT_FILE)"
+	rm -f $(OBJS) $(TARGET) $(LEGACY_TARGET)

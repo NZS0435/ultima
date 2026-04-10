@@ -1,23 +1,15 @@
-/* Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg */
-/* Phase Label: Phase 1 - Scheduler and Semaphore */
-
 #ifndef U2_WINDOW_H
 #define U2_WINDOW_H
 
+#include <string>
+#include <vector>
+
 #include "platform_curses.h"
 #include "platform_threads.h"
-#include <string>
-
-/**
- * ULTIMA 2.0 - Phase 1
- * Designed by: ZANDER HAYES
- */
-
 
 class U2_window {
 private:
     WINDOW *win;
-    WINDOW *text_win;
     std::string window_title;
     int h, w, start_y, start_x;
     bool scroll_enabled;
@@ -37,8 +29,11 @@ public:
     void render();
     void write_text(const char* text);
     void write_text_at(int y, int x, const char* text);
+    void draw_lines(const std::vector<std::string>& lines);
     void box_window();
     void clear_window();
+    int inner_height() const;
+    int inner_width() const;
 
     // Accessor
     WINDOW* get_win_ptr() const { return win; }

@@ -1,38 +1,43 @@
-/* Team Thunder JPEG: /Users/stewartpawley/Library/CloudStorage/OneDrive-SharedLibraries-IndianaUniversity/O365-IU-CSCI-CSCI-C435 - General/Ultima 2.0/Team Thunder.jpeg */
-/* Phase Label: Phase 1 - Scheduler and Semaphore */
-
 #ifndef SEMA_H
 #define SEMA_H
 
-#include <queue>
-#include <iostream>
+#include <deque>
+#include <string>
 
-/**
- * ULTIMA 2.0 - Phase 1
- * Designed by: NICHOLAS KOBS
- */
+#include "U2_Scheduler.h"
 
-
-/**
- * Class semaphore
- * Designed by: Nicholas Kobs
- * Manages access to shared resources without busy-waiting.
- */
 class Semaphore {
 private:
-    char resource_name[64];
-    int sema_value;
-    std::queue<int>* sema_queue;
+    std::string resource_name;
+    int initial_value;
+    int value;
+    Scheduler* scheduler;
+    std::deque<int> wait_queue;
+    int owner_task_id;
+    int down_operations;
+    int up_operations;
+    int contention_events;
+    std::string last_transition;
 
 public:
-    Semaphore(const char* name, int initial_value = 1);
-    ~Semaphore();
+    Semaphore(const std::string& resource, int init_val, Scheduler* sched = nullptr);
 
+    void reset();
     void down();
     void up();
+    void P();
+    void V();
     void dump(int level = 0) const;
-    bool has_waiters() const;
+
+    int get_sema_value() const;
+    int get_owner_task_id() const;
+    std::string get_resource_name() const;
     int waiting_task_count() const;
+    std::string describe_wait_queue() const;
+    int get_down_operations() const;
+    int get_up_operations() const;
+    int get_contention_events() const;
+    std::string get_last_transition() const;
 };
 
 #endif // SEMA_H

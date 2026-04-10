@@ -1,0 +1,128 @@
+Phase 2 Handoff for Zander Hayes
+
+Primary working directory:
+https://github.com/NZS0435/ultima.git
+
+Your owned Phase 2 responsibilities:
+1. Finalize the core IPC data definitions in Message.h.
+2. Complete the IPC constructor in ipc.cpp.
+3. Complete the core send/receive logic in ipc.cpp.
+
+Files already in place for you:
+- Message.h
+- ipc.h
+- ipc.cpp
+- MCB.h
+- Sched.h
+- Sched.cpp
+- U2_Scheduler.h
+- Sema_sync.cpp
+- CMakeLists.txt
+- Makefile
+- phase2_smoke_test.cpp
+
+What you should edit:
+1. Message.h
+   - Keep this file in the Phase 2 folder.
+   - Review and finalize Message_Type and Message so they match the Phase 2 rubric.
+   - Do not create a duplicate Message header somewhere else.
+
+2. ipc.cpp
+   - Fill in the existing placeholder blocks for:
+     - ipc::ipc(int max_tasks, Scheduler* sched)
+     - int ipc::Message_Send(int S_Id, int D_Id, const char* Mess, int Mess_Type)
+     - int ipc::Message_Send(int S_Id, int D_Id, Message* msg)
+     - int ipc::Message_Receive(int Task_Id, Message* msg)
+     - int ipc::Message_Receive(int Task_Id, char* Mess, int* Mess_Type)
+   - Use the existing per-task mailbox already attached to TCB in U2_Scheduler.h.
+   - Do not create a second mailbox system outside the TCB.
+
+Important integration rules:
+- Leave Stewart's semaphore boundaries in place.
+  - Send must keep down()/up() around the destination task mailbox.
+  - Receive must keep down()/up() around the source task mailbox.
+- Do not remove mailbox_semaphore setup from Scheduler::create_task().
+- Do not remove mailbox_semaphore cleanup from Scheduler::reset() or garbage_collect().
+- Do not create duplicate scheduler or semaphore source files in Phase 2.
+
+If you need helper code:
+- Prefer adding small private helpers inside ipc.cpp or declarations in ipc.h.
+- If you must add a new .h or .cpp, put it in this same Phase 2 folder.
+- If you add a new source file, update both:
+  - /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)/CMakeLists.txt
+  - /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)/Makefile
+
+Current build/test commands:
+- From the repo root:
+  - make phase2-test
+- From the Phase 2 folder:
+  - make test
+
+Cygwin note:
+- The Phase 2 Makefile already handles .exe naming for Cygwin.
+- Keep file names ASCII and cross-platform safe.
+
+Where everything belongs:
+- All Phase 2 code files stay in:
+  /Users/stewartpawley/Desktop/ultima/ULTIMA/Phase 2 (IPC)
+- Do not put your Phase 2 code in the Phase 1 folder.
+- Do not create duplicate copies of files that already exist in Phase 2.
+
+Before you hand your work back:
+- Make sure Phase 2 still builds from the existing Makefile.
+- Make sure your IPC logic does not break the current Phase 2 smoke test flow.
+- If you change final success return values from the current placeholders, update the smoke test in phase2_smoke_test.cpp so the test still matches the final interface.
+
+
+Engineering Roadmap: ULTIMA 2.0 Phase II (Message Passing)
+Team: * Stewart Pawley (Team Leader)
+●	Zander Hayes
+●	Nicholas Kobs
+Project Window: March 31, 2026 – April 11, 2026 (11:59 PM EST) Architecture Decision: Inter-Process Communication (IPC) via Message Passing (Mailboxes), rather than U_Pipe.
+1. Task Distribution & Roles
+To maintain an equal workload and prevent code overlap, the implementation is split into three core pillars: Architecture, Core Logic, and Testing/Utilities.
+Stewart Pawley (Architecture & Integration)
+●	Design & Infrastructure: Set up the shared cloud drive/repository and the main ULTIMA directory structure (Introduction, Phase 1, Phase 2).
+●	Scheduler/MCB Integration: Update the Master Control Block (MCB) or Scheduler to include the ipc object (Messenger). Register the scheduler with the IPC so messages can route to specific TCB mailboxes.
+●	Semaphore Management: Implement the exact down() and up() semaphore protection logic inside the send/receive methods to ensure thread-safe critical sections.
+●	Project Management: Final repository check, zip creation, and recording the final narrated demonstration video.
+Zander Hayes (Core IPC Data Structures & Logic)
+●	Data Structures: Implement the Message_Type and Message structs. Establish the underlying mailbox data structure (e.g., standard C++ std::queue<Message> linked to each task's TCB).
+●	Constructor & Setup: Write the ipc(int max_tasks) constructor to allocate mailboxes for all active tasks.
+●	Message Sending: Implement Message_Send(int S_Id, int D_Id, char *Mess, int Mess_Type) and its overloaded variant. Handle node allocation and copying.
+●	Message Receiving: Implement Message_Receive(int Task_Id, Message *Message) and its overloaded variant. Handle dequeue logic and memory cleanup.
+Nicholas Kobs (Utilities, Testing & Documentation)
+●	IPC Utilities: Implement the required helper methods: Message_Count, Message_Print, Message_DeleteAll, and ipc_Message_Dump.
+●	Test Scenarios: Build the simulated tasks to prove functionality. Create scenarios where Tasks 1 and 2 send messages to Task 3, and Task 3 processes them (demonstrating Text, Service, and Notification types).
+●	Output Formatting: Ensure the console output matches the "Possible output of the Messenger" table requested in the PDF.
+●	External Documentation: Compile the Phase Abstract, build the final Word document with screenshots, and draft the initial design diagram.
+2. Implementation Timeline (Mar 31 - Apr 11)
+Phase A: Design & Skeleton Setup (Mar 31 - Apr 2)
+●	Mar 31: * Kickoff meeting. Confirm the IPC (Mailbox) approach over U_Pipe.
+○	Nicholas: Draft the initial class hierarchy and design diagram.
+○	Stewart: Set up the shared workspace and commit the working Phase 1 codebase as the foundation.
+●	Apr 1: * Zander: Code the Message_Type and Message structures. Add a queue to the TCB for the mailbox.
+●	Apr 2: * Stewart: Modify the MCB to instantiate the semaphore Monitor and ipc Messenger.
+Phase B: Core Logic & Synchronization (Apr 3 - Apr 6)
+●	Apr 3: * Zander: Implement the base logic for Message_Send and Message_Receive.
+●	Apr 4: * Stewart: Inject semaphore locks (down() / up()) into Zander's send/receive functions. Ensure down() on destination mailbox during send, and down() on source mailbox during receive.
+●	Apr 5: * Nicholas: Write Message_Count and Message_DeleteAll.
+●	Apr 6: * Nicholas: Write Message_Print and ipc_Message_Dump.
+Phase C: Integration & Testing (Apr 7 - Apr 9)
+●	Apr 7: * Nicholas: Write test tasks (dummy processes) that invoke the send and receive commands.
+●	Apr 8: * Entire Team: Integration testing. Run the scheduler with the test tasks. Debug deadlocks, race conditions, or memory leaks.
+●	Apr 9: * Stewart & Nicholas: Polish the terminal output. Make sure the ipc_Message_Dump() output aligns perfectly with the rubric's formatting expectations.
+Phase D: Documentation & Delivery (Apr 10 - Apr 11)
+●	Apr 10: * Nicholas: Finalize the external documentation (Phase Abstract, Word doc with code snippets and screenshots).
+○	Stewart: Record the short, narrated video of the program execution.
+●	Apr 11: * Entire Team: Fill out the Self / Peer Evaluation forms independently.
+○	Stewart: Assemble the final ZIP file (Introduction folder, Phase 1 folder, Phase 2 folder) and submit via Canvas before 11:59 PM EST.
+3. Final Deliverables Checklist
+●	[ ] Updated Design Diagram (accumulated).
+●	[ ] Phase 2 Abstract.
+●	[ ] Source files with block comments indicating the primary author (Stewart, Zander, or Nick).
+●	[ ] Word document containing test cases, execution screenshots, and system dumps.
+●	[ ] Narrated video demonstrating the simulation.
+●	[ ] Self/Peer Evaluation Form (each member submits their own separately).
+●	[ ] Final Zipped folder containing Phase 1 and Phase 2, cleanly separated.
+
