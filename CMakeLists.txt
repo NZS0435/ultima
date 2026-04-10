@@ -52,6 +52,10 @@ add_subdirectory("ULTIMA/Phase 2 (IPC)")
 set(PHASE1_LEGACY_DIR "${CMAKE_SOURCE_DIR}/ULTIMA/Phase 1 (Scheduler)")
 set(PHASE1_LEGACY_ULTIMA_OS "${PHASE1_LEGACY_DIR}/ultima_os")
 set(PHASE1_LEGACY_ULTIMA "${PHASE1_LEGACY_DIR}/Ultima")
+set(PHASE1_RUNTIME_UI_SH "${ULTIMA_RUNTIME_OUTPUT_DIR}/run_ultima_ui.sh")
+set(PHASE1_RUNTIME_UI_COMMAND "${ULTIMA_RUNTIME_OUTPUT_DIR}/run_ultima_ui.command")
+set(PHASE1_RUNTIME_TRANSCRIPT_SH "${ULTIMA_RUNTIME_OUTPUT_DIR}/run_ultima_transcript.sh")
+set(PHASE1_RUNTIME_TRANSCRIPT_COMMAND "${ULTIMA_RUNTIME_OUTPUT_DIR}/run_ultima_transcript.command")
 
 add_custom_command(TARGET ultima_os POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:ultima_os>" "${PHASE1_LEGACY_ULTIMA_OS}"
@@ -62,10 +66,15 @@ add_custom_command(TARGET ultima_os POST_BUILD
 
 if(APPLE)
     add_custom_command(TARGET ultima_os POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PHASE1_LEGACY_DIR}/run_ultima_ui.sh" "${PHASE1_RUNTIME_UI_SH}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PHASE1_LEGACY_DIR}/run_ultima_ui.command" "${PHASE1_RUNTIME_UI_COMMAND}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PHASE1_LEGACY_DIR}/run_ultima_transcript.sh" "${PHASE1_RUNTIME_TRANSCRIPT_SH}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PHASE1_LEGACY_DIR}/run_ultima_transcript.command" "${PHASE1_RUNTIME_TRANSCRIPT_COMMAND}"
+        COMMAND /bin/chmod +x "${PHASE1_RUNTIME_UI_SH}" "${PHASE1_RUNTIME_UI_COMMAND}" "${PHASE1_RUNTIME_TRANSCRIPT_SH}" "${PHASE1_RUNTIME_TRANSCRIPT_COMMAND}"
         COMMAND /usr/bin/codesign --force --sign - "$<TARGET_FILE:ultima_os>"
         COMMAND /usr/bin/codesign --force --sign - "${PHASE1_LEGACY_ULTIMA_OS}"
         COMMAND /usr/bin/codesign --force --sign - "${PHASE1_LEGACY_ULTIMA}"
-        COMMENT "Ad hoc signing Phase 1 executables for macOS taskgated"
+        COMMENT "Syncing macOS Phase 1 launchers and ad hoc signing executables for taskgated"
         VERBATIM
     )
 endif()
