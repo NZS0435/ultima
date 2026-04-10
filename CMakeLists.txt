@@ -1,108 +1,80 @@
-# Phase Label: Phase 1 - Scheduler and Semaphore
-
-# 1. CRITICAL: Top-level declarations to fix the pkgRedirects crash
-cmake_minimum_required(VERSION 3.16)
-project(ULTIMA_2_0 LANGUAGES C CXX)
-
-if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
-    message(FATAL_ERROR
-            "In-source builds are not supported.\n"
-            "Configure with: cmake -S . -B <local-build-dir>"
-    )
-endif()
+cmake_minimum_required(VERSION 3.10)
+project(ULTIMA_2_0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include(CheckIncludeFileCXX)
+# 1. Find the pthread library
+find_package(Threads REQUIRED)
 
-# 2. PRESERVED DIRECTORY: Wrapped in quotes to ensure CMake treats it as a single string.
-# Ninja will natively handle the spaces during compilation.
-set(SCHEDULER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ULTIMA/Phase 1 (Scheduler)")
+# 2. Find the ncurses library
+find_package(Curses REQUIRED)
+include_directories(${CURSES_INCLUDE_DIR})
 
-set(ULTIMA_SOURCES
-        "${SCHEDULER_DIR}/Ultima.cpp"
-        "${SCHEDULER_DIR}/Sched.cpp"
-        "${SCHEDULER_DIR}/Sema.cpp"
-        "${SCHEDULER_DIR}/U2_UI.cpp"
-        "${SCHEDULER_DIR}/U2_Window.cpp"
+# 3. Add your executable and source files (include all your .cpp files here)
+add_executable(ultima_os
+    "ULTIMA/Phase 1 (Scheduler)/Mem_mgr.cpp"
+    "ULTIMA/Phase 1 (Scheduler)/Sched.cpp"
+    "ULTIMA/Phase 1 (Scheduler)/Sema.cpp"
+    "ULTIMA/Phase 1 (Scheduler)/U2_UI.cpp"
+    "ULTIMA/Phase 1 (Scheduler)/U2_Window.cpp"
+    "ULTIMA/Phase 1 (Scheduler)/Ultima.cpp"
 )
 
-# ULTIMA_SOURCES expands correctly as a list, no extra quotes needed here
-add_executable(ultima_os ${ULTIMA_SOURCES})
-
-find_package(Threads REQUIRED)
-target_link_libraries(ultima_os PRIVATE Threads::Threads)
-
-# 3. CYGWIN ROUTING: Bypasses Windows/MSYS2 blocks to use native Cygwin ncurses
-if(WIN32 AND NOT CYGWIN)
-    set(PDCURSES_ROOT "" CACHE PATH "Root path of a PDCurses install (optional)")
-
-    set(ULTIMA_CURSES_INCLUDE_HINTS
-            "$ENV{PDCURSES_ROOT}/include"
-            "C:/msys64/mingw64/include"
-            "C:/msys64/ucrt64/include"
-            "C:/msys64/clang64/include"
-            "C:/vcpkg/installed/x64-windows/include"
-    )
-    set(ULTIMA_CURSES_LIBRARY_HINTS
-            "$ENV{PDCURSES_ROOT}/lib"
-            "C:/msys64/mingw64/lib"
-            "C:/msys64/ucrt64/lib"
-            "C:/msys64/clang64/lib"
-            "C:/vcpkg/installed/x64-windows/lib"
-    )
-
-    if(PDCURSES_ROOT)
-        list(PREPEND ULTIMA_CURSES_INCLUDE_HINTS "${PDCURSES_ROOT}/include")
-        list(PREPEND ULTIMA_CURSES_LIBRARY_HINTS "${PDCURSES_ROOT}/lib")
-    endif()
-
-    find_path(ULTIMA_CURSES_INCLUDE_DIR
-            NAMES curses.h ncurses.h
-            HINTS ${ULTIMA_CURSES_INCLUDE_HINTS}
-    )
-
-    find_library(ULTIMA_CURSES_LIBRARY
-            NAMES pdcurses pdcursesw curses ncursesw ncurses
-            HINTS ${ULTIMA_CURSES_LIBRARY_HINTS}
-    )
-
-    if(NOT ULTIMA_CURSES_INCLUDE_DIR OR NOT ULTIMA_CURSES_LIBRARY)
-        message(FATAL_ERROR
-                "Curses library not found on Windows.\n"
-                "Install PDCurses (MSYS2: pacman -S mingw-w64-x86_64-pdcurses)\n"
-                "or install through vcpkg, then pass -DPDCURSES_ROOT=<path> if needed."
-        )
-    endif()
-
-    target_include_directories(ultima_os PRIVATE "${ULTIMA_CURSES_INCLUDE_DIR}")
-    target_link_libraries(ultima_os PRIVATE "${ULTIMA_CURSES_LIBRARY}")
+if(CYGWIN)
+    set(ULTIMA_RUNTIME_OUTPUT_DIR "/cygdrive/c/Users/$ENV{USERNAME}/.ultima2/run/cygwin-debug")
+elseif(WIN32)
+    set(ULTIMA_RUNTIME_OUTPUT_DIR "$ENV{USERPROFILE}/.ultima2/run/windows-debug")
+elseif(APPLE)
+    set(ULTIMA_RUNTIME_OUTPUT_DIR "$ENV{HOME}/.ultima2/run/macos-debug")
 else()
-    # Requires `libncurses-devel` in your Cygwin environment
-    find_package(Curses REQUIRED)
-
-    if(CURSES_INCLUDE_DIRS)
-        target_include_directories(ultima_os PRIVATE ${CURSES_INCLUDE_DIRS})
-    elseif(CURSES_INCLUDE_DIR)
-        target_include_directories(ultima_os PRIVATE "${CURSES_INCLUDE_DIR}")
-    endif()
-
-    if(CURSES_LIBRARIES)
-        target_link_libraries(ultima_os PRIVATE ${CURSES_LIBRARIES})
-    elseif(CURSES_LIBRARY)
-        target_link_libraries(ultima_os PRIVATE "${CURSES_LIBRARY}")
-    else()
-        message(FATAL_ERROR "Curses package found, but no link libraries were provided by CMake.")
-    endif()
+    set(ULTIMA_RUNTIME_OUTPUT_DIR "$ENV{HOME}/.ultima2/run/linux-debug")
 endif()
 
-check_include_file_cxx("pthread.h" ULTIMA_HAS_PTHREAD_HEADER)
-if(ULTIMA_HAS_PTHREAD_HEADER)
-    target_compile_definitions(ultima_os PRIVATE ULTIMA_USE_NATIVE_PTHREADS=1)
+if(NOT CYGWIN)
+    file(TO_CMAKE_PATH "${ULTIMA_RUNTIME_OUTPUT_DIR}" ULTIMA_RUNTIME_OUTPUT_DIR)
 endif()
+set_target_properties(ultima_os PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${ULTIMA_RUNTIME_OUTPUT_DIR}"
+)
 
-if(MSVC)
-    target_compile_definitions(ultima_os PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
+target_compile_definitions(ultima_os PRIVATE
+    ULTIMA_ENABLE_CURSES=1
+    ULTIMA_SEPARATE_COMPILATION=1
+)
+
+# 4. Link both libraries to your executable
+target_link_libraries(ultima_os Threads::Threads ${CURSES_LIBRARIES})
+
+add_subdirectory("ULTIMA/Phase 2 (IPC)")
+
+set(PHASE1_LEGACY_DIR "${CMAKE_SOURCE_DIR}/ULTIMA/Phase 1 (Scheduler)")
+set(PHASE1_LEGACY_ULTIMA_OS "${PHASE1_LEGACY_DIR}/ultima_os")
+set(PHASE1_LEGACY_ULTIMA "${PHASE1_LEGACY_DIR}/Ultima")
+set(PHASE1_RUNTIME_UI_SH "${ULTIMA_RUNTIME_OUTPUT_DIR}/run_ultima_ui.sh")
+set(PHASE1_RUNTIME_UI_COMMAND "${ULTIMA_RUNTIME_OUTPUT_DIR}/run_ultima_ui.command")
+set(PHASE1_RUNTIME_TRANSCRIPT_SH "${ULTIMA_RUNTIME_OUTPUT_DIR}/run_ultima_transcript.sh")
+set(PHASE1_RUNTIME_TRANSCRIPT_COMMAND "${ULTIMA_RUNTIME_OUTPUT_DIR}/run_ultima_transcript.command")
+
+add_custom_command(TARGET ultima_os POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:ultima_os>" "${PHASE1_LEGACY_ULTIMA_OS}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:ultima_os>" "${PHASE1_LEGACY_ULTIMA}"
+    COMMENT "Syncing legacy Phase 1 executables"
+    VERBATIM
+)
+
+if(APPLE)
+    add_custom_command(TARGET ultima_os POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PHASE1_LEGACY_DIR}/run_ultima_ui.sh" "${PHASE1_RUNTIME_UI_SH}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PHASE1_LEGACY_DIR}/run_ultima_ui.command" "${PHASE1_RUNTIME_UI_COMMAND}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PHASE1_LEGACY_DIR}/run_ultima_transcript.sh" "${PHASE1_RUNTIME_TRANSCRIPT_SH}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PHASE1_LEGACY_DIR}/run_ultima_transcript.command" "${PHASE1_RUNTIME_TRANSCRIPT_COMMAND}"
+        COMMAND /bin/chmod +x "${PHASE1_RUNTIME_UI_SH}" "${PHASE1_RUNTIME_UI_COMMAND}" "${PHASE1_RUNTIME_TRANSCRIPT_SH}" "${PHASE1_RUNTIME_TRANSCRIPT_COMMAND}"
+        COMMAND /usr/bin/codesign --force --sign - "$<TARGET_FILE:ultima_os>"
+        COMMAND /usr/bin/codesign --force --sign - "${PHASE1_LEGACY_ULTIMA_OS}"
+        COMMAND /usr/bin/codesign --force --sign - "${PHASE1_LEGACY_ULTIMA}"
+        COMMENT "Syncing macOS Phase 1 launchers and ad hoc signing executables for taskgated"
+        VERBATIM
+    )
 endif()
