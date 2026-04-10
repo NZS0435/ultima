@@ -22,6 +22,7 @@
 #include <process.h>
 #else
 #include <unistd.h>
+#include <sys/stat.h>
 #endif
 #include "Mem_mgr.h"
 #include "platform_curses.h"
@@ -372,7 +373,7 @@ std::string current_working_directory() {
     return {buffer};
 }
 
-#if !defined(ULTIMA_ENABLE_CURSES)
+#if !defined(ULTIMA_ENABLE_CURSES) || defined(__APPLE__)
 std::string shell_quote_single(const std::string& text) {
     std::string quoted = "'";
     for (char ch : text) {
@@ -385,6 +386,9 @@ std::string shell_quote_single(const std::string& text) {
     quoted.push_back('\'');
     return quoted;
 }
+#endif
+
+#if !defined(ULTIMA_ENABLE_CURSES)
 
 bool read_file_prefix(const std::string& path, unsigned char* buffer, std::size_t size) {
     std::ifstream input(path.c_str(), std::ios::binary);
@@ -472,6 +476,28 @@ std::string resolve_invoked_binary_directory(char* argv[]) {
 }
 #endif
 
+#if defined(__APPLE__)
+std::string resolve_invoked_binary_path(char* argv[]) {
+    if (argv == nullptr || argv[0] == nullptr) {
+        return "";
+    }
+
+    std::string invoked_path = argv[0];
+    if (invoked_path.empty()) {
+        return "";
+    }
+
+    if (invoked_path.find('/') == std::string::npos && invoked_path.find('\\') == std::string::npos) {
+        const std::string cwd = current_working_directory();
+        if (!cwd.empty()) {
+            invoked_path = join_path(cwd, invoked_path);
+        }
+    }
+
+    return invoked_path;
+}
+#endif
+
 #if defined(ULTIMA_ENABLE_CURSES)
 std::string to_lower_copy(std::string text) {
     for (char& character : text) {
@@ -528,13 +554,13 @@ std::string read_command_output(const std::string& command) {
 
 long process_parent_pid(long process_id) {
     std::ostringstream command;
-    command << "/bin/ps -p " << process_id << " -o ppid=";
+    command << "/bin/ps -p " << process_id << " -o ppid= 2>/dev/null";
     return std::strtol(read_command_output(command.str()).c_str(), nullptr, 10);
 }
 
 std::string process_command_line(long process_id) {
     std::ostringstream command;
-    command << "/bin/ps -p " << process_id << " -o command=";
+    command << "/bin/ps -p " << process_id << " -o command= 2>/dev/null";
     return to_lower_copy(read_command_output(command.str()));
 }
 #endif
@@ -644,7 +670,81 @@ void request_preferred_terminal_size_if_needed() {
 }
 
 #if defined(__APPLE__)
-bool try_open_external_terminal_launcher(char* argv[]) {
+std::string create_external_terminal_launcher(int argc, char* argv[]) {
+    const std::string binary_path = resolve_invoked_binary_path(argv);
+    if (binary_path.empty()) {
+        return "";
+    }
+
+    const char* tmpdir_value = std::getenv("TMPDIR");
+    const std::string tmpdir =
+        (tmpdir_value != nullptr && tmpdir_value[0] != '\0') ? std::string(tmpdir_value) : "/tmp";
+    const std::string launcher_template = join_path(tmpdir, "ultima-ui-XXXXXX.command");
+
+    std::vector<char> launcher_path_buffer(launcher_template.begin(), launcher_template.end());
+    launcher_path_buffer.push_back('\0');
+
+    constexpr int kCommandSuffixLength = 8;
+    const int launcher_fd = mkstemps(launcher_path_buffer.data(), kCommandSuffixLength);
+    if (launcher_fd < 0) {
+        return "";
+    }
+
+    FILE* launcher_file = fdopen(launcher_fd, "w");
+    if (launcher_file == nullptr) {
+        close(launcher_fd);
+        return "";
+    }
+
+    std::ostringstream launcher_script;
+    launcher_script << "#!/bin/sh\n";
+    launcher_script << "set -eu\n";
+
+    const std::string launch_directory = current_working_directory();
+    if (!launch_directory.empty()) {
+        launcher_script << "cd " << shell_quote_single(launch_directory) << " || exit 1\n";
+    }
+
+    launcher_script << "export ULTIMA_OPENED_EXTERNAL_TERMINAL=1\n";
+    if (!continuous_demo_requested) {
+        launcher_script << "printf '\\033[8;" << kPreferredPresentationRows << ';'
+                        << kPreferredPresentationCols << "t'\n";
+        launcher_script << "stty rows " << kPreferredPresentationRows
+                        << " cols " << kPreferredPresentationCols
+                        << " 2>/dev/null || true\n";
+    }
+
+    launcher_script << shell_quote_single(binary_path);
+    for (int index = 1; index < argc; ++index) {
+        launcher_script << ' ' << shell_quote_single(argv[index] != nullptr ? argv[index] : "");
+    }
+    launcher_script << "\n";
+    launcher_script << "status=$?\n";
+    launcher_script << "rm -f -- \"$0\"\n";
+    launcher_script << "exit \"$status\"\n";
+
+    const std::string script_text = launcher_script.str();
+    const std::size_t bytes_written = std::fwrite(
+        script_text.data(),
+        1,
+        script_text.size(),
+        launcher_file
+    );
+
+    if (std::fclose(launcher_file) != 0 || bytes_written != script_text.size()) {
+        unlink(launcher_path_buffer.data());
+        return "";
+    }
+
+    if (chmod(launcher_path_buffer.data(), 0700) != 0) {
+        unlink(launcher_path_buffer.data());
+        return "";
+    }
+
+    return {launcher_path_buffer.data()};
+}
+
+bool try_open_external_terminal_launcher(int argc, char* argv[]) {
     if (argv == nullptr || argv[0] == nullptr) {
         return false;
     }
@@ -652,10 +752,8 @@ bool try_open_external_terminal_launcher(char* argv[]) {
         return false;
     }
 
-    const std::string binary_directory = resolve_invoked_binary_directory(argv);
-    const std::string launcher_path = join_path(binary_directory, "run_ultima_ui.command");
-
-    if (!file_exists(launcher_path)) {
+    const std::string launcher_path = create_external_terminal_launcher(argc, argv);
+    if (launcher_path.empty() || !file_exists(launcher_path)) {
         return false;
     }
 
@@ -1945,7 +2043,7 @@ int main(int argc, char* argv[]) {
 
     #if defined(ULTIMA_ENABLE_CURSES) && defined(__APPLE__)
     if (!transcript_only_mode && !terminal_program_is_known_good() && running_inside_jetbrains_debugger()) {
-        if (try_open_external_terminal_launcher(argv)) {
+        if (try_open_external_terminal_launcher(argc, argv)) {
             std::cerr << "Opening Terminal.app because the current JetBrains debug console does not render ncurses windows."
                       << std::endl;
             return 0;
@@ -1955,6 +2053,14 @@ int main(int argc, char* argv[]) {
 
     #if defined(ULTIMA_ENABLE_CURSES)
     if (!transcript_only_mode && !environment_supports_curses_ui()) {
+        #if defined(__APPLE__)
+        if (try_open_external_terminal_launcher(argc, argv)) {
+            std::cerr << "Opening Terminal.app because the current console cannot render ncurses windows."
+                      << std::endl;
+            return 0;
+        }
+        #endif
+
         transcript_only_mode = true;
         std::cerr << "Current console does not provide a usable ncurses terminal surface. "
                   << "Falling back to transcript-only mode. Run Ultima from Terminal/iTerm, "

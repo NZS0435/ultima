@@ -46,7 +46,7 @@ cmake --build --preset macos-debug
 Run:
 
 ```bash
-~/.ultima2/build/macos-debug/ultima_os
+~/.ultima2/run/macos-debug/ultima_os
 ```
 
 Default behavior:
@@ -57,7 +57,13 @@ Default behavior:
 - Use `--no-post-ui-transcript` only if you explicitly want the UI to exit without printing the transcript afterward.
 - Use `--continuous` only if you explicitly want the old repeating demo loop.
 
-If you want the Phase 1 ncurses windows from Finder or a JetBrains external tool on macOS, you can also launch:
+If you want the Phase 1 ncurses windows from Finder or an unsupported macOS debug console, you can launch the runtime-directory launcher copied beside the binary:
+
+```bash
+~/.ultima2/run/macos-debug/run_ultima_ui.command
+```
+
+The repository copy also works:
 
 ```bash
 ./ULTIMA/Phase\ 1\ \(Scheduler\)/run_ultima_ui.command
