@@ -145,6 +145,10 @@ int ipc::Message_Receive(int Task_Id, Message* msg) {
         return -1;
     }
 
+    if (task->mailbox.empty()) {
+        return 0;
+    }
+
     mailbox_down(Task_Id);
 
     if (task->mailbox.empty()) {
@@ -271,23 +275,34 @@ std::string ipc::get_mailbox_table(int Task_id) const {
     std::queue<Message> mailbox_copy = get_mailbox_copy(Task_id);
 
     std::ostringstream out;
-    out << "Task " << Task_id << "  |  Messages: " << mailbox_copy.size() << "\n";
+    out << "Task Number: " << Task_id << "\n";
+    out << "Message Count: " << mailbox_copy.size() << "\n";
+    out << "Mail Box:\n";
 
     if (mailbox_copy.empty()) {
         out << "  (empty)\n";
         return out.str();
     }
 
+    out << std::left
+        << std::setw(10) << "Source"
+        << std::setw(12) << "Destination"
+        << std::setw(36) << "Message Content"
+        << std::setw(8) << "Size"
+        << std::setw(15) << "Type"
+        << "Arrival Time\n";
+    out << std::string(92, '-') << "\n";
+
     while (!mailbox_copy.empty()) {
         const Message& message = mailbox_copy.front();
-        out << "From: T-" << message.Source_Task_Id
-            << "  Type: " << message.Msg_Type.Message_Type_Description << "\n";
-        out << message.Msg_Text << "\n";
-        out << "Size: " << message.Msg_Size
-            << "  Time: " << format_arrival_time(message.Message_Arrival_Time) << "\n";
-        if (mailbox_copy.size() > 1) {
-            out << "----------------------------------------\n";
-        }
+        out << std::left
+            << std::setw(10) << message.Source_Task_Id
+            << std::setw(12) << message.Destination_Task_Id
+            << std::setw(36) << message.Msg_Text
+            << std::setw(8) << message.Msg_Size
+            << std::setw(15) << message.Msg_Type.Message_Type_Description
+            << format_arrival_time(message.Message_Arrival_Time)
+            << '\n';
         mailbox_copy.pop();
     }
 
