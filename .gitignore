@@ -12,6 +12,7 @@ cmake_install.cmake
 CMakeUserPresets.json
 
 # C/C++ artifacts
+*.a
 *.o
 *.obj
 *.exe
@@ -28,3 +29,5 @@ tmp/
 
 # macOS Finder
 .DS_Store
+!/ULTIMA/Phase 2 (IPC)/libultima_os_phase2.a
+!/ULTIMA/Phase 2 (IPC)/libultima_os_phase2.a

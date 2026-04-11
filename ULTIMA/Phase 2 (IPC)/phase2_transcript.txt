@@ -1,0 +1,72 @@
+=== ULTIMA 2.0 Phase 2 -- Event Transcript ===
+
+  IPC Messenger initialized — 16 mailbox slots allocated.
+  Created Task 1 (Sender-A)   id=1
+  Created Task 2 (Sender-B)   id=2
+  Created Task 3 (Receiver)   id=3
+  --- STEP 1: Initial State -- all tasks READY, all mailboxes empty ---
+  --- STEP 2: Dispatch Task 1 -- sends Text message to Task 3 ---
+  [Semaphore] down() on mailbox 3 — critical section ENTER
+  [Semaphore] up()   on mailbox 3 — critical section LEAVE
+  MSG SENT: T-1 -> T-3 [Text] "Hello from Task 1!"
+  --- STEP 3: Observe -- Task 3 mailbox now has 1 message ---
+  --- STEP 4: Dispatch Task 2 -- sends Service request to Task 3 ---
+  [Semaphore] down() on mailbox 3 — critical section ENTER
+  [Semaphore] up()   on mailbox 3 — critical section LEAVE
+  MSG SENT: T-2 -> T-3 [Service] "lpr file1"
+  --- STEP 5: Observe -- Task 3 mailbox now has 2 messages ---
+  --- STEP 6: Dispatch Task 3 -- reads message #1 ---
+  [Semaphore] down() on mailbox 3 — critical section ENTER
+  [Semaphore] up()   on mailbox 3 — critical section LEAVE
+  MSG RECV: T-3 got msg from T-1 [Text] "Hello from Task 1!"
+  Task 3 processed: "Hello from Task 1!" from T-1 [Text]
+  --- STEP 7: Task 3 reads message #2, replies with Notification ---
+  [Semaphore] down() on mailbox 3 — critical section ENTER
+  [Semaphore] up()   on mailbox 3 — critical section LEAVE
+  MSG RECV: T-3 got msg from T-2 [Service] "lpr file1"
+  Task 3 processed: "lpr file1" from T-2 [Service]
+  Task 3 replying with NOTIFICATION to T-2
+  [Semaphore] down() on mailbox 2 — critical section ENTER
+  [Semaphore] up()   on mailbox 2 — critical section LEAVE
+  MSG SENT: T-3 -> T-2 [Notification] "Got your print service request"
+  --- STEP 8: Post-receive -- Task 3 empty, Task 2 has Notification ---
+  --- STEP 9: Task 2 reads its Notification reply ---
+  [Semaphore] down() on mailbox 2 — critical section ENTER
+  [Semaphore] up()   on mailbox 2 — critical section LEAVE
+  MSG RECV: T-2 got msg from T-3 [Notification] "Got your print service request"
+  Task 2 received: "Got your print service request" from T-3 [Notification]
+  --- STEP 10: FINAL STATE -- all mailboxes empty ---
+  --- STEP 11: Message_DeleteAll demonstration ---
+  [Semaphore] down() on mailbox 1 — critical section ENTER
+  [Semaphore] up()   on mailbox 1 — critical section LEAVE
+  MSG SENT: T-0 -> T-1 [Text] "DeleteAll test msg 1"
+  [Semaphore] down() on mailbox 1 — critical section ENTER
+  [Semaphore] up()   on mailbox 1 — critical section LEAVE
+  MSG SENT: T-0 -> T-1 [Service] "DeleteAll test msg 2"
+  [Semaphore] down() on mailbox 1 — critical section ENTER
+  [Semaphore] up()   on mailbox 1 — critical section LEAVE
+  MSG SENT: T-0 -> T-1 [Notification] "DeleteAll test msg 3"
+  Sent 3 test messages (Text/Service/Notification) to Task 1
+  [Semaphore] down() on mailbox 1 — critical section ENTER
+  [Semaphore] up()   on mailbox 1 — critical section LEAVE
+  Message_DeleteAll(Task 1) removed 3 message(s)
+  --- STEP 12: Message_Count demonstration ---
+  [Semaphore] down() on mailbox 2 — critical section ENTER
+  [Semaphore] up()   on mailbox 2 — critical section LEAVE
+  MSG SENT: T-0 -> T-2 [Text] "Count demo A"
+  [Semaphore] down() on mailbox 3 — critical section ENTER
+  [Semaphore] up()   on mailbox 3 — critical section LEAVE
+  MSG SENT: T-0 -> T-3 [Service] "Count demo B"
+  [Semaphore] down() on mailbox 3 — critical section ENTER
+  [Semaphore] up()   on mailbox 3 — critical section LEAVE
+  MSG SENT: T-0 -> T-3 [Notification] "Count demo C"
+  Message_Count: Task2=1  Task3=2  Total=3
+  [Semaphore] down() on mailbox 2 — critical section ENTER
+  [Semaphore] up()   on mailbox 2 — critical section LEAVE
+  [Semaphore] down() on mailbox 3 — critical section ENTER
+  [Semaphore] up()   on mailbox 3 — critical section LEAVE
+  --- STEP 13: Task cleanup -- kill + garbage collect ---
+  All tasks killed and garbage collected.
+  ====== PHASE 2 DEMONSTRATION COMPLETE ======
+
+=== END TRANSCRIPT ===
