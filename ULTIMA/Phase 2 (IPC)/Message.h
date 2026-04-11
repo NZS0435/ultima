@@ -1,14 +1,22 @@
+/* =========================================================================
+ * Message.h — Phase 2 IPC message structures
+ * =========================================================================
+ * Team Thunder #001
+ *
+ * Team Authors   : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Phase Label    : Phase 2 - Message Passing (IPC)
+ * Primary Author : Zander Hayes
+ * Co-Authors     : Stewart Pawley (integration)
+ *                  Nicholas Kobs  (utilities alignment)
+ * =========================================================================
+ */
+
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
 #include <ctime>
 
 /**
- * Team Authors : Stewart Pawley, Zander Hayes, Nicholas Kobs
- * Phase Label  : Phase 2 - Message Passing (IPC)
- * Primary Author: Zander Hayes
- * Co-Authors    : Stewart Pawley (Integration)
- *                 Nicholas Kobs (Utilities alignment)
  * Definitions matching the Phase II rubric requirements.
  */
 struct Message_Type {

@@ -1,3 +1,16 @@
+/* =========================================================================
+ * MCB.h — Phase 2 master control block
+ * =========================================================================
+ * Team Thunder #001
+ *
+ * Team Authors   : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Phase Label    : Phase 2 - Message Passing (IPC)
+ * Primary Author : Stewart Pawley
+ * Co-Authors     : Zander Hayes
+ *                  Nicholas Kobs
+ * =========================================================================
+ */
+
 #ifndef MCB_H
 #define MCB_H
 
@@ -6,12 +19,10 @@
 #include "../Phase 1 (Scheduler)/Sema.h"
 
 /**
- * Team Authors  : Stewart Pawley, Zander Hayes, Nicholas Kobs
- * Phase Label   : Phase 2 - Message Passing (IPC)
- * Primary Author: Stewart Pawley
  * Master Control Block (MCB)
- * Purpose: Centralized struct acting as the primary registry for the OS simulation.
- * It provides the Scheduler, IPC Messenger, and standard Semaphores in one accessible footprint.
+ * Purpose: Centralized struct acting as the primary registry for the OS
+ * simulation. It provides the Scheduler, IPC Messenger, and standard
+ * semaphores in one accessible footprint.
  */
 struct MCB {
     Scheduler Swapper;

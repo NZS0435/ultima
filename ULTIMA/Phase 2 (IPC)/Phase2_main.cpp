@@ -20,6 +20,8 @@
  */
 
 #include <iostream>
+#include <array>
+#include <cmath>
 #include <iomanip>
 #include <string>
 #include <cstring>
@@ -55,6 +57,7 @@ struct MCB {
 
 static MCB       mcb;
 static constexpr int MAX_IPC_TASKS = 16;
+static constexpr int TOTAL_WIDTH = 150;
 static const std::string kProfessorGreeting =
     "Hello Professor Hakimzadeh!!!";
 static const std::string kTeamGreeting =
@@ -111,38 +114,10 @@ struct Panel {
         std::istringstream stream(text);
         std::string line;
         while (std::getline(stream, line) && r < rows - 1) {
-            std::size_t cursor = 0;
-            if (line.empty()) {
-                mvwprintw(win, r, 1, "%-*.*s", usable_w, usable_w, "");
-                ++r;
-                continue;
-            }
-
-            while (cursor < line.size() && r < rows - 1) {
-                std::size_t remaining = line.size() - cursor;
-                std::size_t segment_len = std::min<std::size_t>(usable_w, remaining);
-
-                if (segment_len < remaining) {
-                    std::size_t split = line.rfind(' ', cursor + segment_len);
-                    if (split != std::string::npos && split >= cursor) {
-                        segment_len = split - cursor;
-                        if (segment_len == 0) {
-                            segment_len = std::min<std::size_t>(usable_w, remaining);
-                        }
-                    }
-                }
-
-                std::string segment = line.substr(cursor, segment_len);
-                if (color_pair > 0) wattron(win, COLOR_PAIR(color_pair));
-                mvwprintw(win, r, 1, "%-*.*s", usable_w, usable_w, segment.c_str());
-                if (color_pair > 0) wattroff(win, COLOR_PAIR(color_pair));
-                ++r;
-
-                cursor += segment_len;
-                while (cursor < line.size() && line[cursor] == ' ') {
-                    ++cursor;
-                }
-            }
+            if (color_pair > 0) wattron(win, COLOR_PAIR(color_pair));
+            mvwprintw(win, r, 1, "%-*.*s", usable_w, usable_w, line.c_str());
+            if (color_pair > 0) wattroff(win, COLOR_PAIR(color_pair));
+            ++r;
         }
         return r;
     }
@@ -183,6 +158,57 @@ static Panel system_panel;
 static Panel status_panel;
 static bool compact_layout = false;
 
+static int ceil_div(int numerator, int denominator) {
+    return (numerator + denominator - 1) / denominator;
+}
+
+static std::array<int, 3> compute_square_row_heights(int total_width, int available_rows) {
+    const int third_width_a = total_width / 3;
+    const int third_width_b = total_width / 3;
+    const int third_width_c = total_width - third_width_a - third_width_b;
+    const int half_width_a = total_width / 2;
+    const int half_width_b = total_width - half_width_a;
+
+    std::array<int, 3> targets = {
+        std::max(6, ceil_div(std::max({third_width_a, third_width_b, third_width_c}), 2)),
+        std::max(6, ceil_div(std::max({third_width_a, third_width_b, third_width_c}), 2)),
+        std::max(6, ceil_div(std::max(half_width_a, half_width_b), 2))
+    };
+
+    const int target_total = targets[0] + targets[1] + targets[2];
+    if (target_total <= available_rows) {
+        return targets;
+    }
+
+    std::array<int, 3> heights = {4, 4, 4};
+    double scale = static_cast<double>(available_rows) / static_cast<double>(target_total);
+
+    for (std::size_t index = 0; index < heights.size(); ++index) {
+        heights[index] = std::max(4, static_cast<int>(std::floor(targets[index] * scale)));
+    }
+
+    int used_rows = heights[0] + heights[1] + heights[2];
+    while (used_rows > available_rows) {
+        for (int index = static_cast<int>(heights.size()) - 1;
+             index >= 0 && used_rows > available_rows;
+             --index) {
+            if (heights[index] > 4) {
+                --heights[index];
+                --used_rows;
+            }
+        }
+    }
+
+    while (used_rows < available_rows) {
+        for (std::size_t index = 0; index < heights.size() && used_rows < available_rows; ++index) {
+            ++heights[index];
+            ++used_rows;
+        }
+    }
+
+    return heights;
+}
+
 static std::string format_time_short(std::time_t arrival_time) {
     char time_buffer[32] = {0};
     const std::tm* local_time = std::localtime(&arrival_time);
@@ -208,13 +234,12 @@ static std::string format_scheduler_panel() {
         << " Blk:" << mcb.Swapper.get_blocked_task_count()
         << " Dead:" << mcb.Swapper.get_dead_task_count() << "\n";
 
-    bool first = true;
     for (const auto& task : tasks) {
-        if (!first) {
-            out << " | ";
-        }
         out << "T-" << task.task_id << ":" << mcb.Swapper.get_task_state_name(task.task_id);
-        first = false;
+        if (!task.last_transition.empty()) {
+            out << "  (" << task.last_transition << ')';
+        }
+        out << "\n";
     }
     return out.str();
 }
@@ -224,13 +249,13 @@ static std::string format_ipc_panel() {
     out << "Total queued: " << mcb.Messenger.Message_Count() << "\n";
 
     auto tasks = mcb.Swapper.snapshot_tasks();
-    out << "Mailbox counts:";
+    out << "Mailbox counts:\n";
     for (const auto& task : tasks) {
-        out << "  T-" << task.task_id
-            << '=' << mcb.Messenger.Message_Count(task.task_id);
+        out << "T-" << task.task_id
+            << ": " << mcb.Messenger.Message_Count(task.task_id) << "\n";
     }
 
-    out << "\nMailbox semaphores protect send/receive.\n";
+    out << "Mailbox semaphores protect send/receive.";
     return out.str();
 }
 
@@ -283,6 +308,7 @@ static std::string format_dump_panel() {
             << message.Source_Task_Id << "->" << message.Destination_Task_Id
             << " " << message.Msg_Type.Message_Type_Description
             << " " << format_time_short(message.Message_Arrival_Time) << "\n";
+        out << "Lead msg: " << message.Msg_Text << "\n";
     }
 
     return out.str();
@@ -335,118 +361,43 @@ static void create_layout() {
     clear();
     refresh();
 
-    compact_layout = (term_rows <= 28 || term_cols <= 140);
+    compact_layout = true;
 
-    int hdr_h     = compact_layout ? 3 : 4;
-    int status_h  = 5;
+    const int total_width = std::min(TOTAL_WIDTH, term_cols);
+    const int left_margin = std::max(0, (term_cols - total_width) / 2);
+    const int header_h = 3;
+    const int status_h = 5;
+    const int available_rows = std::max(12, term_rows - header_h - status_h);
+    const auto row_heights = compute_square_row_heights(total_width, available_rows);
+    const int top_h = row_heights[0];
+    const int mail_h = row_heights[1];
+    const int bottom_h = row_heights[2];
 
-    int remaining = std::max(9, term_rows - hdr_h - status_h);
+    const int third_w1 = total_width / 3;
+    const int third_w2 = total_width / 3;
+    const int third_w3 = total_width - third_w1 - third_w2;
+    const int half_w1 = total_width / 2;
+    const int half_w2 = total_width - half_w1;
 
-    /* Row 0: Header */
-    header_panel.create(hdr_h, term_cols, 0, 0,
+    header_panel.create(header_h, total_width, 0, left_margin,
                         "ULTIMA 2.0 -- Phase 2: Message Passing (IPC)", 1);
 
-    if (compact_layout) {
-        int min_top_h = 5;
-        int min_mail_h = 6;
-        int min_log_h = 5;
+    int current_y = header_h;
+    scheduler_panel.create(top_h, third_w1, current_y, left_margin, "SCHEDULER", 7);
+    ipc_panel.create(top_h, third_w2, current_y, left_margin + third_w1, "IPC STATUS", 8);
+    dump_panel.create(top_h, third_w3, current_y, left_margin + third_w1 + third_w2, "IPC DUMP", 12);
+    current_y += top_h;
 
-        if (remaining < min_top_h + min_mail_h + min_log_h) {
-            min_top_h = 4;
-            min_mail_h = 4;
-            min_log_h = 4;
-        }
+    mail1_panel.create(mail_h, third_w1, current_y, left_margin, "TASK 1 MAILBOX", 9);
+    mail2_panel.create(mail_h, third_w2, current_y, left_margin + third_w1, "TASK 2 MAILBOX", 10);
+    mail3_panel.create(mail_h, third_w3, current_y, left_margin + third_w1 + third_w2, "TASK 3 MAILBOX", 11);
+    current_y += mail_h;
 
-        int top_h = min_top_h;
-        int mail_h = min_mail_h;
-        int log_h = min_log_h;
-        int extra_rows = std::max(0, remaining - (top_h + mail_h + log_h));
-        log_h += extra_rows;
+    log_panel.create(bottom_h, half_w1, current_y, left_margin, "EVENT LOG", 12);
+    system_panel.create(bottom_h, half_w2, current_y, left_margin + half_w1, "SYSTEM EVENTS", 14);
+    current_y += bottom_h;
 
-        int scheduler_w = std::max(24, term_cols / 5);
-        int ipc_w = std::max(28, term_cols / 4);
-        if (scheduler_w + ipc_w > term_cols - 28) {
-            ipc_w = std::max(24, term_cols - scheduler_w - 28);
-        }
-        int dump_w = term_cols - scheduler_w - ipc_w;
-        int third_w = term_cols / 3;
-        int third_rem = term_cols - third_w * 2;
-        int current_y = hdr_h;
-
-        scheduler_panel.create(top_h, scheduler_w, current_y, 0, "SCHEDULER", 7);
-        ipc_panel.create(top_h, ipc_w, current_y, scheduler_w, "IPC STATUS", 8);
-        dump_panel.create(top_h, dump_w, current_y, scheduler_w + ipc_w, "IPC DUMP", 12);
-        current_y += top_h;
-
-        mail1_panel.create(mail_h, third_w, current_y, 0, "TASK 1 MAILBOX", 9);
-        mail2_panel.create(mail_h, third_w, current_y, third_w, "TASK 2 MAILBOX", 10);
-        mail3_panel.create(mail_h, third_rem, current_y, third_w * 2, "TASK 3 MAILBOX", 11);
-        current_y += mail_h;
-
-        int log_w = std::max(48, (term_cols * 2) / 3);
-        int system_w = term_cols - log_w;
-        log_panel.create(log_h, log_w, current_y, 0, "EVENT LOG", 12);
-        system_panel.create(log_h, system_w, current_y, log_w, "SYSTEM EVENTS", 14);
-        status_panel.create(status_h, term_cols, current_y + log_h, 0, "", 13);
-    } else {
-        int scheduler_h = 5;
-        int ipc_h       = 4;
-        int dump_h      = 6;
-        int mail1_h     = 4;
-        int mail2_h     = 4;
-        int mail3_h     = 4;
-        int log_h       = 5;
-
-        int total = scheduler_h + ipc_h + dump_h + mail1_h + mail2_h + mail3_h + log_h;
-        while (total > remaining) {
-            bool reduced = false;
-            int* panels[] = {&log_h, &dump_h, &ipc_h, &scheduler_h, &mail3_h, &mail2_h, &mail1_h};
-            for (int* panel_h : panels) {
-                if (*panel_h > 3 && total > remaining) {
-                    --(*panel_h);
-                    --total;
-                    reduced = true;
-                }
-            }
-            if (!reduced) {
-                break;
-            }
-        }
-
-        while (total < remaining) {
-            ++log_h;
-            ++total;
-            if (total < remaining) {
-                ++ipc_h;
-                ++total;
-            }
-        }
-
-        int current_y = hdr_h;
-        scheduler_panel.create(scheduler_h, term_cols, current_y, 0, "SCHEDULER", 7);
-        current_y += scheduler_h;
-
-        ipc_panel.create(ipc_h, term_cols, current_y, 0, "IPC STATUS", 8);
-        current_y += ipc_h;
-
-        dump_panel.create(dump_h, term_cols, current_y, 0, "IPC DUMP", 12);
-        current_y += dump_h;
-
-        mail1_panel.create(mail1_h, term_cols, current_y, 0, "TASK 1 MAILBOX", 9);
-        current_y += mail1_h;
-
-        mail2_panel.create(mail2_h, term_cols, current_y, 0, "TASK 2 MAILBOX", 10);
-        current_y += mail2_h;
-
-        mail3_panel.create(mail3_h, term_cols, current_y, 0, "TASK 3 MAILBOX", 11);
-        current_y += mail3_h;
-
-        int log_w = std::max(56, (term_cols * 2) / 3);
-        int system_w = term_cols - log_w;
-        log_panel.create(log_h, log_w, current_y, 0, "EVENT LOG", 12);
-        system_panel.create(log_h, system_w, current_y, log_w, "SYSTEM EVENTS", 14);
-        status_panel.create(status_h, term_cols, current_y + log_h, 0, "", 13);
-    }
+    status_panel.create(status_h, total_width, current_y, left_margin, "", 13);
 }
 
 static void destroy_layout() {
@@ -531,30 +482,8 @@ static void refresh_event_panel(Panel& panel,
     }
 
     int row = 1;
-    int start = 0;
-
-    auto estimate_wrapped_rows = [&](const std::string& entry) {
-        const int usable_w = std::max(1, panel.cols - 2);
-        int lines = 0;
-        std::istringstream stream(entry);
-        std::string line;
-        while (std::getline(stream, line)) {
-            const int length = std::max<int>(1, static_cast<int>(line.size()));
-            lines += std::max(1, (length + usable_w - 1) / usable_w);
-        }
-        return std::max(1, lines);
-    };
-
-    int used_rows = 0;
-    for (int i = static_cast<int>(entries.size()) - 1; i >= 0; --i) {
-        const int entry_rows = estimate_wrapped_rows(entries[i]);
-        if (used_rows + entry_rows > panel.rows - 2) {
-            start = i + 1;
-            break;
-        }
-        used_rows += entry_rows;
-        start = i;
-    }
+    const int capacity = std::max(0, panel.rows - 2);
+    const int start = std::max(0, static_cast<int>(entries.size()) - capacity);
 
     for (int i = start;
          i < static_cast<int>(entries.size()) && row < panel.rows - 1;
@@ -599,24 +528,8 @@ static void refresh_system_events() {
     }
 
     int row = 1;
-    int start = 0;
-
-    auto estimate_wrapped_rows = [&](const std::string& entry) {
-        const int usable_w = std::max(1, system_panel.cols - 2);
-        const int length = std::max<int>(1, static_cast<int>(entry.size()));
-        return std::max(1, (length + usable_w - 1) / usable_w);
-    };
-
-    int used_rows = 0;
-    for (int i = static_cast<int>(entries.size()) - 1; i >= 0; --i) {
-        const int entry_rows = estimate_wrapped_rows(entries[i]);
-        if (used_rows + entry_rows > system_panel.rows - 2) {
-            start = i + 1;
-            break;
-        }
-        used_rows += entry_rows;
-        start = i;
-    }
+    const int capacity = std::max(0, system_panel.rows - 2);
+    const int start = std::max(0, static_cast<int>(entries.size()) - capacity);
 
     for (int i = start;
          i < static_cast<int>(entries.size()) && row < system_panel.rows - 1;
