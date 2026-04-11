@@ -1,55 +1,50 @@
-SHELL := /bin/sh
+# =========================================================================
+# Makefile — ULTIMA 2.0 Phase 2 (Message Passing / IPC)
+# Team Thunder #001
+# Primary Author: Stewart Pawley
+# =========================================================================
+#
+# USAGE:
+#   Place your Phase 1 source files (Sched.cpp, Sema.cpp, Mem_mgr.cpp,
+#   Mem_mgr.h, Sched.h, Sema.h, U2_Scheduler.h) alongside the new
+#   Phase 2 files (ipc.h, ipc.cpp, Phase2_main.cpp) in the same directory.
+#
+#   Then:
+#     make            — build the phase2_test executable
+#     make run        — build and run
+#     make clean      — remove object files and executable
+#
+# =========================================================================
 
-CXX ?= c++
-AR ?= ar
-ARFLAGS ?= rcs
+CXX      ?= g++
 CXXFLAGS ?= -Wall -Wextra -g2 -std=c++17
-PHASE1_DIR := ../Phase 1 (Scheduler)
-CPPFLAGS ?= -DULTIMA_SEPARATE_COMPILATION=1 -I. -I"$(PHASE1_DIR)"
-LDFLAGS ?=
-LDLIBS ?=
+LDFLAGS  ?=
+TARGET    = phase2_test
+
+SOURCES  = Phase2_main.cpp ipc.cpp Sched.cpp Sema.cpp Mem_mgr.cpp
+OBJS     = $(SOURCES:.cpp=.o)
 
 UNAME_S := $(shell uname -s 2>/dev/null)
-
 ifeq ($(UNAME_S),Darwin)
-HOST_ENV := macOS
-EXEEXT :=
-else ifneq (,$(findstring CYGWIN,$(UNAME_S)))
-HOST_ENV := Cygwin
-EXEEXT := .exe
-else ifeq ($(OS),Windows_NT)
-HOST_ENV := Windows
-EXEEXT := .exe
+  CURSES_LIBS ?= -lcurses
 else
-HOST_ENV := Unix
-EXEEXT :=
+  CURSES_LIBS ?= $(shell pkg-config --libs ncursesw 2>/dev/null || \
+                          pkg-config --libs ncurses  2>/dev/null || \
+                          echo -lncurses)
 endif
 
-TARGET_LIB := libultima_os_phase2.a
-TEST_TARGET := phase2_smoke_test$(EXEEXT)
+.PHONY: all run clean
 
-SOURCES := Sched.cpp ipc.cpp Sema_sync.cpp
-HEADERS := MCB.h Message.h Sched.h U2_Scheduler.h ipc.h
-TEST_SOURCES := phase2_smoke_test.cpp
+all: $(TARGET)
 
-OBJS := $(SOURCES:.cpp=.o)
-TEST_OBJS := $(TEST_SOURCES:.cpp=.o)
+$(TARGET): $(OBJS)
+	$(CXX) $(LDFLAGS) -o $(TARGET) $(OBJS) $(CURSES_LIBS)
 
-.PHONY: all build test clean
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-all build: $(TARGET_LIB) $(TEST_TARGET)
-
-$(TARGET_LIB): $(OBJS)
-	$(AR) $(ARFLAGS) $@ $(OBJS)
-
-$(TEST_TARGET): $(TARGET_LIB) $(TEST_OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $(TEST_OBJS) $(TARGET_LIB) $(LDLIBS)
-
-%.o: %.cpp $(HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
-
-test: $(TEST_TARGET)
-	./$(TEST_TARGET)
+run: $(TARGET)
+	./$(TARGET)
 
 clean:
-	rm -f $(OBJS) $(TEST_OBJS) $(TARGET_LIB) $(TEST_TARGET)
+	rm -f $(OBJS) $(TARGET)

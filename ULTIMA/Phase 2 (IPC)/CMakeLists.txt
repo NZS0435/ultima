@@ -34,12 +34,14 @@ add_library(ultima_os_phase2 STATIC
     "ipc.h"
     "ipc.cpp"
     "Sema_sync.cpp"
-        Makefile
+        ../Introduction/Makefile
+        Phase2_main.cpp
 )
 
 add_executable(ultima_os_phase2_smoke
     "phase2_smoke_test.cpp"
-        Makefile
+        ../Introduction/Makefile
+        Phase2_main.cpp
 )
 
 target_include_directories(ultima_os_phase2 PUBLIC
