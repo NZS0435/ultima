@@ -15,6 +15,20 @@
 #include "../Phase 1 (Scheduler)/Sema.h"
 
 #include <cstring>
+#include <ctime>
+#include <iostream>
+
+ipc::ipc(int max_tasks, Scheduler* sched)
+    : scheduler_ref(sched),
+      max_active_tasks(max_tasks)
+{
+    // Nothing to allocate here: each TCB owns its own
+    // std::queue<Message> mailbox and Semaphore* mailbox_semaphore.
+    // Both are set up (and torn down) by Scheduler::create_task()
+    // and Scheduler::reset() / garbage_collect() respectively.
+    // The ipc object only holds a reference to the scheduler so
+    // it can reach those TCBs at send/receive time.
+}
 
 namespace {
 std::string format_arrival_time(std::time_t arrival_time) {
@@ -217,9 +231,21 @@ int ipc::Message_DeleteAll(int Task_id) {
     }
 
     TCB* task = scheduler_ref->get_tcb(Task_id);
-    if (task == nullptr) {
-        return -1;
+    if (task != nullptr)
+    {
+        int count = task->mailbox.size();
+        while (task->mailbox.size() > 0)
+        {
+            task->mailbox.Dequeue();
+
+        }
+
+        return count;
+
     }
+
+    return -1;
+}
 
     mailbox_down(Task_id);
     const int count = static_cast<int>(task->mailbox.size());
@@ -322,10 +348,9 @@ void ipc::mailbox_up(int task_id) {
         return;
     }
 
-    TCB* task = scheduler_ref->get_tcb(task_id);
-    if (task != nullptr && task->mailbox_semaphore != nullptr) {
-        task->mailbox_semaphore->up();
-    }
+        if (task != nullptr)
+        {
+            printf("Task %d: \n", row, task->mailbox.size(), task->mailbox.status());
 
     std::ostringstream event_stream;
     event_stream << "[Semaphore] up()   on mailbox " << task_id << " — critical section LEAVE";
