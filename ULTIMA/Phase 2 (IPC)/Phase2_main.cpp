@@ -157,22 +157,22 @@ static Panel log_panel;
 static Panel system_panel;
 static Panel status_panel;
 static bool compact_layout = false;
+static constexpr int PANEL_GAP = 1;
 
 static int ceil_div(int numerator, int denominator) {
     return (numerator + denominator - 1) / denominator;
 }
 
-static std::array<int, 3> compute_square_row_heights(int total_width, int available_rows) {
-    const int third_width_a = total_width / 3;
-    const int third_width_b = total_width / 3;
-    const int third_width_c = total_width - third_width_a - third_width_b;
-    const int half_width_a = total_width / 2;
-    const int half_width_b = total_width - half_width_a;
+static std::array<int, 3> compute_square_row_heights(
+    int top_row_max_box_width,
+    int mail_row_max_box_width,
+    int bottom_row_max_box_width,
+    int available_rows) {
 
     std::array<int, 3> targets = {
-        std::max(6, ceil_div(std::max({third_width_a, third_width_b, third_width_c}), 2)),
-        std::max(6, ceil_div(std::max({third_width_a, third_width_b, third_width_c}), 2)),
-        std::max(6, ceil_div(std::max(half_width_a, half_width_b), 2))
+        std::max(6, ceil_div(top_row_max_box_width, 2)),
+        std::max(6, ceil_div(mail_row_max_box_width, 2)),
+        std::max(6, ceil_div(bottom_row_max_box_width, 2))
     };
 
     const int target_total = targets[0] + targets[1] + targets[2];
@@ -368,33 +368,41 @@ static void create_layout() {
     const int header_h = 3;
     const int status_h = 5;
     const int available_rows = std::max(12, term_rows - header_h - status_h);
-    const auto row_heights = compute_square_row_heights(total_width, available_rows);
+
+    const int total_three_width = std::max(9, total_width - (2 * PANEL_GAP));
+    const int third_w1 = total_three_width / 3;
+    const int third_w2 = total_three_width / 3;
+    const int third_w3 = total_three_width - third_w1 - third_w2;
+
+    const int total_two_width = std::max(6, total_width - PANEL_GAP);
+    const int half_w1 = total_two_width / 2;
+    const int half_w2 = total_two_width - half_w1;
+
+    const auto row_heights = compute_square_row_heights(
+        std::max({third_w1, third_w2, third_w3}),
+        std::max({third_w1, third_w2, third_w3}),
+        std::max(half_w1, half_w2),
+        available_rows);
     const int top_h = row_heights[0];
     const int mail_h = row_heights[1];
     const int bottom_h = row_heights[2];
-
-    const int third_w1 = total_width / 3;
-    const int third_w2 = total_width / 3;
-    const int third_w3 = total_width - third_w1 - third_w2;
-    const int half_w1 = total_width / 2;
-    const int half_w2 = total_width - half_w1;
 
     header_panel.create(header_h, total_width, 0, left_margin,
                         "ULTIMA 2.0 -- Phase 2: Message Passing (IPC)", 1);
 
     int current_y = header_h;
     scheduler_panel.create(top_h, third_w1, current_y, left_margin, "SCHEDULER", 7);
-    ipc_panel.create(top_h, third_w2, current_y, left_margin + third_w1, "IPC STATUS", 8);
-    dump_panel.create(top_h, third_w3, current_y, left_margin + third_w1 + third_w2, "IPC DUMP", 12);
+    ipc_panel.create(top_h, third_w2, current_y, left_margin + third_w1 + PANEL_GAP, "IPC STATUS", 8);
+    dump_panel.create(top_h, third_w3, current_y, left_margin + third_w1 + PANEL_GAP + third_w2 + PANEL_GAP, "IPC DUMP", 12);
     current_y += top_h;
 
     mail1_panel.create(mail_h, third_w1, current_y, left_margin, "TASK 1 MAILBOX", 9);
-    mail2_panel.create(mail_h, third_w2, current_y, left_margin + third_w1, "TASK 2 MAILBOX", 10);
-    mail3_panel.create(mail_h, third_w3, current_y, left_margin + third_w1 + third_w2, "TASK 3 MAILBOX", 11);
+    mail2_panel.create(mail_h, third_w2, current_y, left_margin + third_w1 + PANEL_GAP, "TASK 2 MAILBOX", 10);
+    mail3_panel.create(mail_h, third_w3, current_y, left_margin + third_w1 + PANEL_GAP + third_w2 + PANEL_GAP, "TASK 3 MAILBOX", 11);
     current_y += mail_h;
 
     log_panel.create(bottom_h, half_w1, current_y, left_margin, "EVENT LOG", 12);
-    system_panel.create(bottom_h, half_w2, current_y, left_margin + half_w1, "SYSTEM EVENTS", 14);
+    system_panel.create(bottom_h, half_w2, current_y, left_margin + half_w1 + PANEL_GAP, "SYSTEM EVENTS", 14);
     current_y += bottom_h;
 
     status_panel.create(status_h, total_width, current_y, left_margin, "", 13);
@@ -559,7 +567,16 @@ static void refresh_all(int t1, int t2, int t3) {
 
 static void wait_key() {
     doupdate();
-    getch();
+    flushinp();
+    while (true) {
+        int ch = getch();
+        if (ch == KEY_RESIZE) {
+            continue;
+        }
+        if (ch != ERR) {
+            break;
+        }
+    }
 }
 
 static void dispatch_to_task(int task_id) {
