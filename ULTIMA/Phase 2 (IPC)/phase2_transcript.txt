@@ -67,20 +67,9 @@
   [Semaphore] down() on mailbox 3 - critical section ENTER
   [Semaphore] up()   on mailbox 3 - critical section LEAVE
   --- STEP 13: Task cleanup -- kill + garbage collect ---
-
-
-
-
-
-
-
-Process finished with exit code 0
-
   System cleanup: tasks marked DEAD, invoking garbage collector.
   Garbage collector: Garbage collection removed DEAD tasks from the process table.
   All tasks killed and garbage collected.
   ====== PHASE 2 DEMONSTRATION COMPLETE ======
 
 === END TRANSCRIPT ===
-
-
