@@ -61,7 +61,7 @@ static constexpr int TOTAL_WIDTH = 150;
 static const std::string kProfessorGreeting =
     "Hello Professor Hakimzadeh!!!";
 static const std::string kTeamGreeting =
-    "Hello, Team Thunder! It's nice to hear from my favorite group";
+    "Hello Team Thunder!";
 static const std::string kTeamCelebration =
     "Team Thunder GETS AN A+";
 
