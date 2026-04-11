@@ -28,6 +28,7 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <queue>
 
 /* ---- ncurses ---- */
 #ifdef __APPLE__
@@ -54,6 +55,12 @@ struct MCB {
 
 static MCB       mcb;
 static constexpr int MAX_IPC_TASKS = 16;
+static const std::string kProfessorGreeting =
+    "Hello Professor Hakimzadeh!!!";
+static const std::string kTeamGreeting =
+    "Hello, Team Thunder! It's nice to hear from my favorite group";
+static const std::string kTeamCelebration =
+    "Team Thunder GETS AN A+";
 
 /* =========================================================================
  *  ncurses Panel Abstraction  (Stewart Pawley)
@@ -64,31 +71,35 @@ struct Panel {
     int     cols  = 0;
     int     y     = 0;
     int     x     = 0;
+    int     accent_pair = 1;
     std::string title;
 
-    void create(int r, int c, int py, int px, const std::string& t) {
-        rows = r; cols = c; y = py; x = px; title = t;
+    void create(int r, int c, int py, int px, const std::string& t, int accent = 1) {
+        rows = r; cols = c; y = py; x = px; title = t; accent_pair = accent;
         win = newwin(rows, cols, y, x);
-        box(win, 0, 0);
-        draw_title();
+        draw_frame();
         wrefresh(win);
+    }
+
+    void draw_frame() {
+        if (!win) return;
+        if (accent_pair > 0) wattron(win, COLOR_PAIR(accent_pair));
+        box(win, 0, 0);
+        if (accent_pair > 0) wattroff(win, COLOR_PAIR(accent_pair));
+        draw_title();
     }
 
     void draw_title() {
         if (!win || title.empty()) return;
-        wattron(win, A_BOLD | COLOR_PAIR(1));
+        wattron(win, A_BOLD | COLOR_PAIR(accent_pair));
         mvwprintw(win, 0, 2, " %s ", title.c_str());
-        wattroff(win, A_BOLD | COLOR_PAIR(1));
+        wattroff(win, A_BOLD | COLOR_PAIR(accent_pair));
     }
 
     void clear_content() {
         if (!win) return;
-        for (int r = 1; r < rows - 1; ++r) {
-            wmove(win, r, 1);
-            wclrtoeol(win);
-            /* re-draw right border */
-            mvwaddch(win, r, cols - 1, ACS_VLINE);
-        }
+        werase(win);
+        draw_frame();
     }
 
     /* Write multi-line text starting at row offset inside the panel */
@@ -100,10 +111,38 @@ struct Panel {
         std::istringstream stream(text);
         std::string line;
         while (std::getline(stream, line) && r < rows - 1) {
-            if (color_pair > 0) wattron(win, COLOR_PAIR(color_pair));
-            mvwprintw(win, r, 1, "%-*.*s", usable_w, usable_w, line.c_str());
-            if (color_pair > 0) wattroff(win, COLOR_PAIR(color_pair));
-            ++r;
+            std::size_t cursor = 0;
+            if (line.empty()) {
+                mvwprintw(win, r, 1, "%-*.*s", usable_w, usable_w, "");
+                ++r;
+                continue;
+            }
+
+            while (cursor < line.size() && r < rows - 1) {
+                std::size_t remaining = line.size() - cursor;
+                std::size_t segment_len = std::min<std::size_t>(usable_w, remaining);
+
+                if (segment_len < remaining) {
+                    std::size_t split = line.rfind(' ', cursor + segment_len);
+                    if (split != std::string::npos && split >= cursor) {
+                        segment_len = split - cursor;
+                        if (segment_len == 0) {
+                            segment_len = std::min<std::size_t>(usable_w, remaining);
+                        }
+                    }
+                }
+
+                std::string segment = line.substr(cursor, segment_len);
+                if (color_pair > 0) wattron(win, COLOR_PAIR(color_pair));
+                mvwprintw(win, r, 1, "%-*.*s", usable_w, usable_w, segment.c_str());
+                if (color_pair > 0) wattroff(win, COLOR_PAIR(color_pair));
+                ++r;
+
+                cursor += segment_len;
+                while (cursor < line.size() && line[cursor] == ' ') {
+                    ++cursor;
+                }
+            }
         }
     }
 
@@ -119,8 +158,7 @@ struct Panel {
 
     void refresh_panel() {
         if (!win) return;
-        box(win, 0, 0);
-        draw_title();
+        draw_frame();
         wrefresh(win);
     }
 
@@ -140,72 +178,196 @@ static Panel mail2_panel;
 static Panel mail3_panel;
 static Panel log_panel;
 static Panel status_panel;
+static bool compact_layout = false;
+
+static std::string format_time_short(std::time_t arrival_time) {
+    char time_buffer[32] = {0};
+    const std::tm* local_time = std::localtime(&arrival_time);
+    if (local_time != nullptr) {
+        std::strftime(time_buffer, sizeof(time_buffer), "%H:%M:%S", local_time);
+    } else {
+        std::strncpy(time_buffer, "N/A", sizeof(time_buffer) - 1);
+    }
+    return time_buffer;
+}
+
+static std::string format_scheduler_panel() {
+    if (!compact_layout) {
+        return mcb.Swapper.dump_string(1);
+    }
+
+    std::ostringstream out;
+    const auto tasks = mcb.Swapper.snapshot_tasks();
+
+    out << "Tick: " << mcb.Swapper.get_scheduler_tick()
+        << "  Current: T-" << mcb.Swapper.get_current_task_id() << "\n";
+    out << "Ready: " << mcb.Swapper.get_ready_task_count()
+        << "  Blocked: " << mcb.Swapper.get_blocked_task_count()
+        << "  Dead: " << mcb.Swapper.get_dead_task_count() << "\n";
+
+    for (const auto& task : tasks) {
+        out << "T-" << task.task_id << " "
+            << mcb.Swapper.get_task_state_name(task.task_id)
+            << "  run=" << task.dispatch_count
+            << " yld=" << task.yield_count
+            << " blk=" << task.block_count
+            << " wake=" << task.unblock_count << "\n";
+    }
+
+    out << "Last: " << mcb.Swapper.get_last_scheduler_event() << "\n";
+    return out.str();
+}
+
+static std::string format_ipc_panel() {
+    if (!compact_layout) {
+        return mcb.Messenger.ipc_Message_Dump_String();
+    }
+
+    std::ostringstream out;
+    out << "Total messages: " << mcb.Messenger.Message_Count() << "\n";
+
+    auto tasks = mcb.Swapper.snapshot_tasks();
+    for (const auto& task : tasks) {
+        out << "T-" << task.task_id
+            << " mailbox count = " << mcb.Messenger.Message_Count(task.task_id) << "\n";
+    }
+
+    out << "send(): down(dest) -> enqueue -> up(dest)\n";
+    out << "recv(): count check -> down(self) -> dequeue -> up(self)\n";
+    return out.str();
+}
+
+static std::string format_mailbox_panel(int task_id) {
+    if (!compact_layout) {
+        return mcb.Messenger.get_mailbox_table(task_id);
+    }
+
+    std::queue<Message> mailbox_copy = mcb.Messenger.get_mailbox_copy(task_id);
+    std::ostringstream out;
+    out << "Task Number: " << task_id << "\n";
+    out << "Message Count: " << mailbox_copy.size() << "\n";
+
+    if (mailbox_copy.empty()) {
+        out << "(empty)\n";
+        return out.str();
+    }
+
+    while (!mailbox_copy.empty()) {
+        const Message& message = mailbox_copy.front();
+        out << message.Source_Task_Id << " -> " << message.Destination_Task_Id
+            << "  " << message.Msg_Type.Message_Type_Description
+            << "  " << format_time_short(message.Message_Arrival_Time) << "\n";
+        out << message.Msg_Text << "\n";
+        mailbox_copy.pop();
+        if (!mailbox_copy.empty()) {
+            out << "---\n";
+        }
+    }
+
+    return out.str();
+}
 
 static void create_layout() {
     int term_rows, term_cols;
     getmaxyx(stdscr, term_rows, term_cols);
+    clear();
+    refresh();
 
-    int hdr_h     = 4;
-    int status_h  = 3;
+    compact_layout = (term_rows <= 28 || term_cols <= 140);
 
-    /* Stack every content panel full-width so long strings stay readable. */
-    int remaining = std::max(6, term_rows - hdr_h - status_h);
-    int scheduler_h = 5;
-    int ipc_h       = 6;
-    int mail1_h     = 4;
-    int mail2_h     = 4;
-    int mail3_h     = 4;
-    int log_h       = 5;
+    int hdr_h     = compact_layout ? 3 : 4;
+    int status_h  = 6;
 
-    int total = scheduler_h + ipc_h + mail1_h + mail2_h + mail3_h + log_h;
-    while (total > remaining) {
-        bool reduced = false;
-        int* panels[] = {&log_h, &ipc_h, &scheduler_h, &mail3_h, &mail2_h, &mail1_h};
-        for (int* panel_h : panels) {
-            if (*panel_h > 3 && total > remaining) {
-                --(*panel_h);
-                --total;
-                reduced = true;
-            }
-        }
-        if (!reduced) {
-            break;
-        }
-    }
-
-    while (total < remaining) {
-        ++log_h;
-        ++total;
-        if (total < remaining) {
-            ++ipc_h;
-            ++total;
-        }
-    }
+    int remaining = std::max(9, term_rows - hdr_h - status_h);
 
     /* Row 0: Header */
     header_panel.create(hdr_h, term_cols, 0, 0,
-                        "ULTIMA 2.0 -- Phase 2: Message Passing (IPC)");
+                        "ULTIMA 2.0 -- Phase 2: Message Passing (IPC)", 1);
 
-    int current_y = hdr_h;
-    scheduler_panel.create(scheduler_h, term_cols, current_y, 0, "SCHEDULER");
-    current_y += scheduler_h;
+    if (compact_layout) {
+        int min_top_h = 5;
+        int min_mail_h = 5;
+        int min_log_h = 4;
 
-    ipc_panel.create(ipc_h, term_cols, current_y, 0, "IPC MAILBOX STATUS");
-    current_y += ipc_h;
+        if (remaining < min_top_h + min_mail_h + min_log_h) {
+            min_top_h = 4;
+            min_mail_h = 4;
+            min_log_h = 3;
+        }
 
-    mail1_panel.create(mail1_h, term_cols, current_y, 0, "TASK 1 MAILBOX");
-    current_y += mail1_h;
+        int extra_rows = std::max(0, remaining - (min_top_h + min_mail_h + min_log_h));
+        int top_h = min_top_h + (extra_rows / 2);
+        int mail_h = min_mail_h + (extra_rows - (extra_rows / 2));
+        int log_h = min_log_h;
 
-    mail2_panel.create(mail2_h, term_cols, current_y, 0, "TASK 2 MAILBOX");
-    current_y += mail2_h;
+        int half_w = std::max(36, (term_cols * 2) / 5);
+        int third_w = term_cols / 3;
+        int third_rem = term_cols - third_w * 2;
+        int current_y = hdr_h;
 
-    mail3_panel.create(mail3_h, term_cols, current_y, 0, "TASK 3 MAILBOX");
-    current_y += mail3_h;
+        scheduler_panel.create(top_h, half_w, current_y, 0, "SCHEDULER", 7);
+        ipc_panel.create(top_h, term_cols - half_w, current_y, half_w, "IPC MAILBOX STATUS", 8);
+        current_y += top_h;
 
-    log_panel.create(log_h, term_cols, current_y, 0, "EVENT LOG");
+        mail1_panel.create(mail_h, third_w, current_y, 0, "TASK 1 MAILBOX", 9);
+        mail2_panel.create(mail_h, third_w, current_y, third_w, "TASK 2 MAILBOX", 10);
+        mail3_panel.create(mail_h, third_rem, current_y, third_w * 2, "TASK 3 MAILBOX", 11);
+        current_y += mail_h;
 
-    /* Status bar */
-    status_panel.create(status_h, term_cols, current_y + log_h, 0, "");
+        log_panel.create(log_h, term_cols, current_y, 0, "EVENT LOG", 12);
+        status_panel.create(status_h, term_cols, current_y + log_h, 0, "", 13);
+    } else {
+        int scheduler_h = 5;
+        int ipc_h       = 6;
+        int mail1_h     = 4;
+        int mail2_h     = 4;
+        int mail3_h     = 4;
+        int log_h       = 5;
+
+        int total = scheduler_h + ipc_h + mail1_h + mail2_h + mail3_h + log_h;
+        while (total > remaining) {
+            bool reduced = false;
+            int* panels[] = {&log_h, &ipc_h, &scheduler_h, &mail3_h, &mail2_h, &mail1_h};
+            for (int* panel_h : panels) {
+                if (*panel_h > 3 && total > remaining) {
+                    --(*panel_h);
+                    --total;
+                    reduced = true;
+                }
+            }
+            if (!reduced) {
+                break;
+            }
+        }
+
+        while (total < remaining) {
+            ++log_h;
+            ++total;
+            if (total < remaining) {
+                ++ipc_h;
+                ++total;
+            }
+        }
+
+        int current_y = hdr_h;
+        scheduler_panel.create(scheduler_h, term_cols, current_y, 0, "SCHEDULER", 7);
+        current_y += scheduler_h;
+
+        ipc_panel.create(ipc_h, term_cols, current_y, 0, "IPC MAILBOX STATUS", 8);
+        current_y += ipc_h;
+
+        mail1_panel.create(mail1_h, term_cols, current_y, 0, "TASK 1 MAILBOX", 9);
+        current_y += mail1_h;
+
+        mail2_panel.create(mail2_h, term_cols, current_y, 0, "TASK 2 MAILBOX", 10);
+        current_y += mail2_h;
+
+        mail3_panel.create(mail3_h, term_cols, current_y, 0, "TASK 3 MAILBOX", 11);
+        current_y += mail3_h;
+
+        log_panel.create(log_h, term_cols, current_y, 0, "EVENT LOG", 12);
+        status_panel.create(status_h, term_cols, current_y + log_h, 0, "", 13);
+    }
 }
 
 static void destroy_layout() {
@@ -228,28 +390,30 @@ static void refresh_header() {
     header_panel.write_highlight(
         "Team Thunder #001  |  Stewart Pawley  |  Zander Hayes  |  Nicholas Kobs",
         1, 3);
-    header_panel.write_text(
-        "Architecture: IPC Mailboxes  |  Semaphore-protected critical sections", 2);
+    if (!compact_layout) {
+        header_panel.write_text(
+            "Architecture: IPC Mailboxes  |  Semaphore-protected critical sections", 2, 1);
+    }
     header_panel.refresh_panel();
 }
 
 static void refresh_scheduler() {
     scheduler_panel.clear_content();
-    std::string dump = mcb.Swapper.dump_string(1);
+    std::string dump = format_scheduler_panel();
     scheduler_panel.write_text(dump, 1);
     scheduler_panel.refresh_panel();
 }
 
 static void refresh_ipc() {
     ipc_panel.clear_content();
-    std::string dump = mcb.Messenger.ipc_Message_Dump_String();
+    std::string dump = format_ipc_panel();
     ipc_panel.write_text(dump, 1);
     ipc_panel.refresh_panel();
 }
 
 static void refresh_mailbox(Panel& panel, int task_id) {
     panel.clear_content();
-    std::string tbl = mcb.Messenger.get_mailbox_table(task_id);
+    std::string tbl = format_mailbox_panel(task_id);
     panel.write_text(tbl, 1);
     panel.refresh_panel();
 }
@@ -288,7 +452,8 @@ static void refresh_log() {
 
 static void set_status(const std::string& msg) {
     status_panel.clear_content();
-    status_panel.write_highlight(msg + "   [ Press any key ]", 1, 2);
+    status_panel.write_text(msg, 1, 13);
+    status_panel.write_highlight("[ Press any key ]", status_panel.rows - 2, 2);
     status_panel.refresh_panel();
 }
 
@@ -303,6 +468,14 @@ static void refresh_all(int t1, int t2, int t3) {
 static void wait_key() {
     doupdate();
     getch();
+}
+
+static void dispatch_to_task(int task_id) {
+    for (int guard = 0;
+         guard < (MAX_IPC_TASKS * 2) && mcb.Swapper.get_current_task_id() != task_id;
+         ++guard) {
+        mcb.Swapper.yield();
+    }
 }
 
 /* =========================================================================
@@ -320,12 +493,44 @@ int main() {
     if (has_colors()) {
         start_color();
         use_default_colors();
-        init_pair(1, COLOR_CYAN,    -1);   /* titles                */
-        init_pair(2, COLOR_YELLOW,  -1);   /* status / step labels  */
-        init_pair(3, COLOR_GREEN,   -1);   /* header info           */
-        init_pair(4, COLOR_GREEN,   -1);   /* MSG SENT              */
-        init_pair(5, COLOR_CYAN,    -1);   /* MSG RECV              */
-        init_pair(6, COLOR_MAGENTA, -1);   /* Semaphore traces      */
+        if (can_change_color() && COLORS >= 16) {
+            init_color(8,  930, 720, 930);  /* bubblegum pink */
+            init_color(9,  620, 860, 1000); /* sky blue */
+            init_color(10, 820, 760, 1000); /* lavender */
+            init_color(11, 670, 980, 840);  /* mint */
+            init_color(12, 1000, 820, 700); /* peach */
+            init_color(13, 1000, 940, 700); /* butter */
+            init_color(14, 1000, 640, 760); /* coral */
+            init_color(15, 900, 720, 1000); /* orchid */
+
+            init_pair(1,  15, -1);  /* header border/title   */
+            init_pair(2,  13, -1);  /* prompt text           */
+            init_pair(3,  11, -1);  /* author line           */
+            init_pair(4,  12, -1);  /* MSG SENT              */
+            init_pair(5,   9, -1);  /* MSG RECV              */
+            init_pair(6,  14, -1);  /* semaphore traces      */
+            init_pair(7,   9, -1);  /* scheduler panel       */
+            init_pair(8,  10, -1);  /* ipc panel             */
+            init_pair(9,  12, -1);  /* mailbox 1             */
+            init_pair(10, 13, -1);  /* mailbox 2             */
+            init_pair(11, 11, -1);  /* mailbox 3             */
+            init_pair(12, 14, -1);  /* event log panel       */
+            init_pair(13, 15, -1);  /* status message        */
+        } else {
+            init_pair(1, COLOR_MAGENTA, -1); /* header/title         */
+            init_pair(2, COLOR_YELLOW,  -1); /* prompt text          */
+            init_pair(3, COLOR_GREEN,   -1); /* author line          */
+            init_pair(4, COLOR_RED,     -1); /* MSG SENT             */
+            init_pair(5, COLOR_CYAN,    -1); /* MSG RECV             */
+            init_pair(6, COLOR_MAGENTA, -1); /* semaphore traces     */
+            init_pair(7, COLOR_CYAN,    -1); /* scheduler panel      */
+            init_pair(8, COLOR_MAGENTA, -1); /* ipc panel            */
+            init_pair(9, COLOR_RED,     -1); /* mailbox 1            */
+            init_pair(10, COLOR_YELLOW, -1); /* mailbox 2            */
+            init_pair(11, COLOR_GREEN,  -1); /* mailbox 3            */
+            init_pair(12, COLOR_BLUE,   -1); /* event log panel      */
+            init_pair(13, COLOR_WHITE,  -1); /* status message       */
+        }
     }
 
     create_layout();
@@ -355,10 +560,10 @@ int main() {
      *  STEP 2: Task 1 sends Text to Task 3
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 2: Task 1 sends TEXT greeting to Task 2 ---");
-    mcb.Swapper.yield();  /* Task 1 → RUNNING */
-    mcb.Messenger.Message_Send(t1, t2, "Hello, Team Thunder!", 0);
-    set_status("STEP 2/13 :  Task 1 sends \"Hello, Team Thunder!\" to Task 2");
+        "--- STEP 2: Task 3 sends NOTIFICATION greeting to Task 1 ---");
+    dispatch_to_task(t3);
+    mcb.Messenger.Message_Send(t3, t1, kProfessorGreeting.c_str(), 2);
+    set_status("STEP 2/13 :  Task 3 sends \"" + kProfessorGreeting + "\" to Task 1");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -366,8 +571,8 @@ int main() {
      *  STEP 3: State after Task 1 send
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 3: Observe -- Task 2 window now shows Team Thunder greeting ---");
-    set_status("STEP 3/13 :  Window 2 now says \"Hello, Team Thunder!\"");
+        "--- STEP 3: Observe -- Task 1 window now shows Professor greeting ---");
+    set_status("STEP 3/13 :  Window 1 now says \"" + kProfessorGreeting + "\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -375,10 +580,10 @@ int main() {
      *  STEP 4: Task 2 sends Service to Task 3
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 4: Task 2 sends SERVICE greeting to Task 3 ---");
-    mcb.Swapper.yield();  /* Task 2 → RUNNING */
-    mcb.Messenger.Message_Send(t2, t3, "Team Thunder is my favorite Group!!!!", 1);
-    set_status("STEP 4/13 :  Task 2 sends favorite-group SERVICE message to Task 3");
+        "--- STEP 4: Task 1 sends TEXT greeting to Task 2 ---");
+    dispatch_to_task(t1);
+    mcb.Messenger.Message_Send(t1, t2, kTeamGreeting.c_str(), 0);
+    set_status("STEP 4/13 :  Task 1 sends \"" + kTeamGreeting + "\" to Task 2");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -386,9 +591,8 @@ int main() {
      *  STEP 5: State after both sends
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 5: Observe -- Task 3 window now shows the favorite-group message ---");
-    set_status(
-        "STEP 5/13 :  Window 3 now says \"Team Thunder is my favorite Group!!!!\"");
+        "--- STEP 5: Observe -- Task 2 window now shows Team Thunder reply ---");
+    set_status("STEP 5/13 :  Window 2 now says \"" + kTeamGreeting + "\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -396,10 +600,10 @@ int main() {
      *  STEP 6: Task 3 receives message #1 (Text)
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 6: Task 3 sends NOTIFICATION greeting to Task 1 ---");
-    mcb.Swapper.yield();  /* Task 3 → RUNNING */
-    mcb.Messenger.Message_Send(t3, t1, "Hello, Professor Hakimzadeh!", 2);
-    set_status("STEP 6/13 :  Task 3 sends \"Hello, Professor Hakimzadeh!\" to Task 1");
+        "--- STEP 6: Task 2 sends SERVICE celebration to Task 3 ---");
+    dispatch_to_task(t2);
+    mcb.Messenger.Message_Send(t2, t3, kTeamCelebration.c_str(), 1);
+    set_status("STEP 6/13 :  Task 2 sends \"" + kTeamCelebration + "\" to Task 3");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -409,7 +613,9 @@ int main() {
     EventLog::instance().add(
         "--- STEP 7: Observe -- all three windows now display the requested greetings ---");
     set_status(
-        "STEP 7/13 :  Window 1=Professor  Window 2=Team Thunder  Window 3=Favorite Group");
+        "STEP 7/13 :  Window 1=\"" + kProfessorGreeting
+        + "\"  Window 2=\"" + kTeamGreeting
+        + "\"  Window 3=\"" + kTeamCelebration + "\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -428,7 +634,7 @@ int main() {
         EventLog::instance().add(s.str());
     }
     set_status(
-        "STEP 8/13 :  Task 1 reads \"Hello, Professor Hakimzadeh!\"");
+        "STEP 8/13 :  Task 1 reads \"" + kProfessorGreeting + "\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -449,7 +655,7 @@ int main() {
         }
     }
     set_status(
-        "STEP 9/13 :  Task 2 reads \"Hello, Team Thunder!\"");
+        "STEP 9/13 :  Task 2 reads \"" + kTeamGreeting + "\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -469,7 +675,7 @@ int main() {
             EventLog::instance().add(s.str());
         }
     }
-    set_status("STEP 10/13 :  Task 3 reads \"Team Thunder is my favorite Group!!!!\"");
+    set_status("STEP 10/13 :  Task 3 reads \"" + kTeamCelebration + "\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
