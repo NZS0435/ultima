@@ -148,39 +148,64 @@ static void create_layout() {
     int hdr_h     = 4;
     int status_h  = 3;
 
-    /* Divide remaining vertical space */
-    int remaining = term_rows - hdr_h - status_h;
-    int mid_h     = std::max(14, remaining * 35 / 100);
-    int bot_h     = std::max(10, remaining * 30 / 100);
-    int log_h     = remaining - mid_h - bot_h;
-    if (log_h < 6) log_h = 6;
+    /* Stack every content panel full-width so long strings stay readable. */
+    int remaining = std::max(6, term_rows - hdr_h - status_h);
+    int scheduler_h = 5;
+    int ipc_h       = 6;
+    int mail1_h     = 4;
+    int mail2_h     = 4;
+    int mail3_h     = 4;
+    int log_h       = 5;
 
-    int half_w    = term_cols / 2;
-    int third_w   = term_cols / 3;
-    int third_rem = term_cols - third_w * 2;
+    int total = scheduler_h + ipc_h + mail1_h + mail2_h + mail3_h + log_h;
+    while (total > remaining) {
+        bool reduced = false;
+        int* panels[] = {&log_h, &ipc_h, &scheduler_h, &mail3_h, &mail2_h, &mail1_h};
+        for (int* panel_h : panels) {
+            if (*panel_h > 3 && total > remaining) {
+                --(*panel_h);
+                --total;
+                reduced = true;
+            }
+        }
+        if (!reduced) {
+            break;
+        }
+    }
+
+    while (total < remaining) {
+        ++log_h;
+        ++total;
+        if (total < remaining) {
+            ++ipc_h;
+            ++total;
+        }
+    }
 
     /* Row 0: Header */
     header_panel.create(hdr_h, term_cols, 0, 0,
                         "ULTIMA 2.0 -- Phase 2: Message Passing (IPC)");
 
-    /* Mid row: Scheduler (left) | IPC Dump (right) */
-    int mid_y = hdr_h;
-    scheduler_panel.create(mid_h, half_w, mid_y, 0, "SCHEDULER");
-    ipc_panel.create(mid_h, term_cols - half_w, mid_y, half_w,
-                     "IPC MAILBOX STATUS");
+    int current_y = hdr_h;
+    scheduler_panel.create(scheduler_h, term_cols, current_y, 0, "SCHEDULER");
+    current_y += scheduler_h;
 
-    /* Bottom row: 3 mailbox panels */
-    int bot_y = mid_y + mid_h;
-    mail1_panel.create(bot_h, third_w, bot_y, 0, "TASK 1 MAILBOX");
-    mail2_panel.create(bot_h, third_w, bot_y, third_w, "TASK 2 MAILBOX");
-    mail3_panel.create(bot_h, third_rem, bot_y, third_w * 2, "TASK 3 MAILBOX");
+    ipc_panel.create(ipc_h, term_cols, current_y, 0, "IPC MAILBOX STATUS");
+    current_y += ipc_h;
 
-    /* Event log */
-    int log_y = bot_y + bot_h;
-    log_panel.create(log_h, term_cols, log_y, 0, "EVENT LOG");
+    mail1_panel.create(mail1_h, term_cols, current_y, 0, "TASK 1 MAILBOX");
+    current_y += mail1_h;
+
+    mail2_panel.create(mail2_h, term_cols, current_y, 0, "TASK 2 MAILBOX");
+    current_y += mail2_h;
+
+    mail3_panel.create(mail3_h, term_cols, current_y, 0, "TASK 3 MAILBOX");
+    current_y += mail3_h;
+
+    log_panel.create(log_h, term_cols, current_y, 0, "EVENT LOG");
 
     /* Status bar */
-    status_panel.create(status_h, term_cols, log_y + log_h, 0, "");
+    status_panel.create(status_h, term_cols, current_y + log_h, 0, "");
 }
 
 static void destroy_layout() {
@@ -204,8 +229,7 @@ static void refresh_header() {
         "Team Thunder #001  |  Stewart Pawley  |  Zander Hayes  |  Nicholas Kobs",
         1, 3);
     header_panel.write_text(
-        "Architecture: IPC via Message Passing (Mailboxes)  |  "
-        "Semaphore-protected critical sections", 2);
+        "Architecture: IPC Mailboxes  |  Semaphore-protected critical sections", 2);
     header_panel.refresh_panel();
 }
 
