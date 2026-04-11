@@ -36,16 +36,20 @@ set(ULTIMA_PHASE2_CORE_SOURCES
     "ipc.cpp"
     "Sched.cpp"
     "Sema_sync.cpp"
+        phase2_test
 )
 
-add_library(ultima_os_phase2_core STATIC ${ULTIMA_PHASE2_CORE_SOURCES})
+add_library(ultima_os_phase2_core STATIC ${ULTIMA_PHASE2_CORE_SOURCES}
+        phase2_test)
 
 add_executable(ultima_os_phase2
     "Phase2_main.cpp"
+        phase2_test
 )
 
 add_executable(ultima_os_phase2_smoke
     "phase2_smoke_test.cpp"
+        phase2_test
 )
 
 target_include_directories(ultima_os_phase2
