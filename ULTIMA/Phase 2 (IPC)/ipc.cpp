@@ -4,6 +4,8 @@
 #include <ctime>
 #include <iostream>
 
+#include "../Phase 1 (Scheduler)/Sema.h"
+
 ipc::ipc(int max_tasks, Scheduler* sched)
     : scheduler_ref(sched),
       max_active_tasks(max_tasks)
@@ -292,9 +294,22 @@ int ipc::Message_DeleteAll(int Task_id) {
     if (task != nullptr)
     {
         int count = task->mailbox.size();
+
+        if (task -> mailbox_semaphore != nullptr)
+        {
+            task->mailbox_semaphore->down();
+
+        }
+
         while (task->mailbox.size() > 0)
         {
-            task->mailbox.Dequeue();
+            task->mailbox.pop();
+
+        }
+
+        if (task -> mailbox_semaphore != nullptr)
+        {
+            task->mailbox_semaphore->up();
 
         }
 
@@ -319,7 +334,7 @@ void ipc::ipc_Message_Dump() const {
 
         if (task != nullptr)
         {
-            printf("Task %d: \n", row, task->mailbox.size(), task->mailbox.status());
+            printf(" %d         %d       %s \n", row, (int)task->mailbox.size(), scheduler_ref->get_task_state_name(row));
 
         }
 
