@@ -103,11 +103,11 @@ struct Panel {
     }
 
     /* Write multi-line text starting at row offset inside the panel */
-    void write_text(const std::string& text, int start_row = 1, int color_pair = 0) {
-        if (!win) return;
+    int write_text(const std::string& text, int start_row = 1, int color_pair = 0) {
+        if (!win) return start_row;
         int r = start_row;
         int usable_w = cols - 2;
-        if (usable_w < 1) return;
+        if (usable_w < 1) return r;
         std::istringstream stream(text);
         std::string line;
         while (std::getline(stream, line) && r < rows - 1) {
@@ -144,6 +144,7 @@ struct Panel {
                 }
             }
         }
+        return r;
     }
 
     /* Write a single highlighted line */
@@ -199,22 +200,20 @@ static std::string format_scheduler_panel() {
     std::ostringstream out;
     const auto tasks = mcb.Swapper.snapshot_tasks();
 
-    out << "Tick: " << mcb.Swapper.get_scheduler_tick()
-        << "  Current: T-" << mcb.Swapper.get_current_task_id() << "\n";
-    out << "Ready: " << mcb.Swapper.get_ready_task_count()
-        << "  Blocked: " << mcb.Swapper.get_blocked_task_count()
-        << "  Dead: " << mcb.Swapper.get_dead_task_count() << "\n";
+    out << "Tick:" << mcb.Swapper.get_scheduler_tick()
+        << " Cur:T-" << mcb.Swapper.get_current_task_id()
+        << " Rdy:" << mcb.Swapper.get_ready_task_count()
+        << " Blk:" << mcb.Swapper.get_blocked_task_count()
+        << " Dead:" << mcb.Swapper.get_dead_task_count() << "\n";
 
+    bool first = true;
     for (const auto& task : tasks) {
-        out << "T-" << task.task_id << " "
-            << mcb.Swapper.get_task_state_name(task.task_id)
-            << "  run=" << task.dispatch_count
-            << " yld=" << task.yield_count
-            << " blk=" << task.block_count
-            << " wake=" << task.unblock_count << "\n";
+        if (!first) {
+            out << " | ";
+        }
+        out << "T-" << task.task_id << ":" << mcb.Swapper.get_task_state_name(task.task_id);
+        first = false;
     }
-
-    out << "Last: " << mcb.Swapper.get_last_scheduler_event() << "\n";
     return out.str();
 }
 
@@ -224,16 +223,15 @@ static std::string format_ipc_panel() {
     }
 
     std::ostringstream out;
-    out << "Total messages: " << mcb.Messenger.Message_Count() << "\n";
+    out << "Msgs total=" << mcb.Messenger.Message_Count();
 
     auto tasks = mcb.Swapper.snapshot_tasks();
     for (const auto& task : tasks) {
-        out << "T-" << task.task_id
-            << " mailbox count = " << mcb.Messenger.Message_Count(task.task_id) << "\n";
+        out << "  T-" << task.task_id
+            << '=' << mcb.Messenger.Message_Count(task.task_id);
     }
 
-    out << "send(): down(dest) -> enqueue -> up(dest)\n";
-    out << "recv(): count check -> down(self) -> dequeue -> up(self)\n";
+    out << "\nsend d/e/u  recv c/d/p/u\n";
     return out.str();
 }
 
@@ -244,8 +242,7 @@ static std::string format_mailbox_panel(int task_id) {
 
     std::queue<Message> mailbox_copy = mcb.Messenger.get_mailbox_copy(task_id);
     std::ostringstream out;
-    out << "Task Number: " << task_id << "\n";
-    out << "Message Count: " << mailbox_copy.size() << "\n";
+    out << "Task " << task_id << "  Count " << mailbox_copy.size() << "\n";
 
     if (mailbox_copy.empty()) {
         out << "(empty)\n";
@@ -285,20 +282,21 @@ static void create_layout() {
                         "ULTIMA 2.0 -- Phase 2: Message Passing (IPC)", 1);
 
     if (compact_layout) {
-        int min_top_h = 5;
-        int min_mail_h = 5;
-        int min_log_h = 4;
+        int min_top_h = 4;
+        int min_mail_h = 6;
+        int min_log_h = 5;
 
         if (remaining < min_top_h + min_mail_h + min_log_h) {
             min_top_h = 4;
             min_mail_h = 4;
-            min_log_h = 3;
+            min_log_h = 4;
         }
 
-        int extra_rows = std::max(0, remaining - (min_top_h + min_mail_h + min_log_h));
-        int top_h = min_top_h + (extra_rows / 2);
-        int mail_h = min_mail_h + (extra_rows - (extra_rows / 2));
+        int top_h = min_top_h;
+        int mail_h = min_mail_h;
         int log_h = min_log_h;
+        int extra_rows = std::max(0, remaining - (top_h + mail_h + log_h));
+        mail_h += extra_rows;
 
         int half_w = std::max(36, (term_cols * 2) / 5);
         int third_w = term_cols / 3;
@@ -427,16 +425,35 @@ static void refresh_mailboxes(int t1, int t2, int t3) {
 static void refresh_log() {
     log_panel.clear_content();
     auto entries = EventLog::instance().get_all();
-    int usable_rows = log_panel.rows - 2;
-    /* Show the most recent entries that fit */
-    int start = 0;
-    if (static_cast<int>(entries.size()) > usable_rows)
-        start = static_cast<int>(entries.size()) - usable_rows;
-
     int row = 1;
+    int start = 0;
+
+    auto estimate_wrapped_rows = [&](const std::string& entry) {
+        const int usable_w = std::max(1, log_panel.cols - 2);
+        int lines = 0;
+        std::istringstream stream(entry);
+        std::string line;
+        while (std::getline(stream, line)) {
+            const int length = std::max<int>(1, static_cast<int>(line.size()));
+            lines += std::max(1, (length + usable_w - 1) / usable_w);
+        }
+        return std::max(1, lines);
+    };
+
+    int used_rows = 0;
+    for (int i = static_cast<int>(entries.size()) - 1; i >= 0; --i) {
+        const int entry_rows = estimate_wrapped_rows(entries[i]);
+        if (used_rows + entry_rows > log_panel.rows - 2) {
+            start = i + 1;
+            break;
+        }
+        used_rows += entry_rows;
+        start = i;
+    }
+
     for (int i = start;
          i < static_cast<int>(entries.size()) && row < log_panel.rows - 1;
-         ++i, ++row) {
+         ++i) {
         /* Color-code by entry type */
         int color = 0;
         if (entries[i].find("MSG SENT")    != std::string::npos) color = 4;
@@ -444,8 +461,7 @@ static void refresh_log() {
         else if (entries[i].find("Semaphore") != std::string::npos) color = 6;
         else if (entries[i].find("STEP")      != std::string::npos) color = 2;
 
-        if (color) log_panel.write_highlight(entries[i], row, color);
-        else       log_panel.write_text(entries[i], row);
+        row = log_panel.write_text(entries[i], row, color);
     }
     log_panel.refresh_panel();
 }
