@@ -22,7 +22,7 @@ struct Message {
     std::time_t Message_Arrival_Time;
     Message_Type Msg_Type;
     int Msg_Size;
-    char Msg_Text[32];
+    char Msg_Text[32]; // fixed buffer (avoids dynamic alloc complexity)
 };
 
 #endif // MESSAGE_H
