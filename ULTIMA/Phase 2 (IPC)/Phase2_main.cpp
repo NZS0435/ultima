@@ -174,10 +174,12 @@ struct Panel {
 static Panel header_panel;
 static Panel scheduler_panel;
 static Panel ipc_panel;
+static Panel dump_panel;
 static Panel mail1_panel;
 static Panel mail2_panel;
 static Panel mail3_panel;
 static Panel log_panel;
+static Panel system_panel;
 static Panel status_panel;
 static bool compact_layout = false;
 
@@ -218,20 +220,17 @@ static std::string format_scheduler_panel() {
 }
 
 static std::string format_ipc_panel() {
-    if (!compact_layout) {
-        return mcb.Messenger.ipc_Message_Dump_String();
-    }
-
     std::ostringstream out;
-    out << "Msgs total=" << mcb.Messenger.Message_Count();
+    out << "Total queued: " << mcb.Messenger.Message_Count() << "\n";
 
     auto tasks = mcb.Swapper.snapshot_tasks();
+    out << "Mailbox counts:";
     for (const auto& task : tasks) {
         out << "  T-" << task.task_id
             << '=' << mcb.Messenger.Message_Count(task.task_id);
     }
 
-    out << "\nsend d/e/u  recv c/d/p/u\n";
+    out << "\nMailbox semaphores protect send/receive.\n";
     return out.str();
 }
 
@@ -264,6 +263,39 @@ static std::string format_mailbox_panel(int task_id) {
     return out.str();
 }
 
+static std::string format_dump_panel() {
+    if (!compact_layout) {
+        return mcb.Messenger.ipc_Message_Dump_String();
+    }
+
+    std::ostringstream out;
+    auto tasks = mcb.Swapper.snapshot_tasks();
+    for (const auto& task : tasks) {
+        std::queue<Message> mailbox_copy = mcb.Messenger.get_mailbox_copy(task.task_id);
+        out << "T-" << task.task_id << ": ";
+        if (mailbox_copy.empty()) {
+            out << "empty\n";
+            continue;
+        }
+
+        const Message& message = mailbox_copy.front();
+        out << mailbox_copy.size() << " msg  "
+            << message.Source_Task_Id << "->" << message.Destination_Task_Id
+            << " " << message.Msg_Type.Message_Type_Description
+            << " " << format_time_short(message.Message_Arrival_Time) << "\n";
+    }
+
+    return out.str();
+}
+
+static bool is_system_event(const std::string& entry) {
+    return entry.find("Semaphore") != std::string::npos
+        || entry.find("garbage") != std::string::npos
+        || entry.find("Garbage") != std::string::npos
+        || entry.find("cleanup") != std::string::npos
+        || entry.find("Cleanup") != std::string::npos;
+}
+
 static void create_layout() {
     int term_rows, term_cols;
     getmaxyx(stdscr, term_rows, term_cols);
@@ -273,7 +305,7 @@ static void create_layout() {
     compact_layout = (term_rows <= 28 || term_cols <= 140);
 
     int hdr_h     = compact_layout ? 3 : 4;
-    int status_h  = 6;
+    int status_h  = 5;
 
     int remaining = std::max(9, term_rows - hdr_h - status_h);
 
@@ -282,12 +314,12 @@ static void create_layout() {
                         "ULTIMA 2.0 -- Phase 2: Message Passing (IPC)", 1);
 
     if (compact_layout) {
-        int min_top_h = 4;
+        int min_top_h = 6;
         int min_mail_h = 6;
-        int min_log_h = 5;
+        int min_log_h = 4;
 
         if (remaining < min_top_h + min_mail_h + min_log_h) {
-            min_top_h = 4;
+            min_top_h = 5;
             min_mail_h = 4;
             min_log_h = 4;
         }
@@ -296,15 +328,21 @@ static void create_layout() {
         int mail_h = min_mail_h;
         int log_h = min_log_h;
         int extra_rows = std::max(0, remaining - (top_h + mail_h + log_h));
-        mail_h += extra_rows;
+        log_h += extra_rows;
 
-        int half_w = std::max(36, (term_cols * 2) / 5);
+        int scheduler_w = std::max(24, term_cols / 5);
+        int ipc_w = std::max(28, term_cols / 4);
+        if (scheduler_w + ipc_w > term_cols - 28) {
+            ipc_w = std::max(24, term_cols - scheduler_w - 28);
+        }
+        int dump_w = term_cols - scheduler_w - ipc_w;
         int third_w = term_cols / 3;
         int third_rem = term_cols - third_w * 2;
         int current_y = hdr_h;
 
-        scheduler_panel.create(top_h, half_w, current_y, 0, "SCHEDULER", 7);
-        ipc_panel.create(top_h, term_cols - half_w, current_y, half_w, "IPC MAILBOX STATUS", 8);
+        scheduler_panel.create(top_h, scheduler_w, current_y, 0, "SCHEDULER", 7);
+        ipc_panel.create(top_h, ipc_w, current_y, scheduler_w, "IPC STATUS", 8);
+        dump_panel.create(top_h, dump_w, current_y, scheduler_w + ipc_w, "IPC DUMP", 12);
         current_y += top_h;
 
         mail1_panel.create(mail_h, third_w, current_y, 0, "TASK 1 MAILBOX", 9);
@@ -312,20 +350,24 @@ static void create_layout() {
         mail3_panel.create(mail_h, third_rem, current_y, third_w * 2, "TASK 3 MAILBOX", 11);
         current_y += mail_h;
 
-        log_panel.create(log_h, term_cols, current_y, 0, "EVENT LOG", 12);
+        int log_w = std::max(48, (term_cols * 2) / 3);
+        int system_w = term_cols - log_w;
+        log_panel.create(log_h, log_w, current_y, 0, "EVENT LOG", 12);
+        system_panel.create(log_h, system_w, current_y, log_w, "SYSTEM EVENTS", 14);
         status_panel.create(status_h, term_cols, current_y + log_h, 0, "", 13);
     } else {
         int scheduler_h = 5;
-        int ipc_h       = 6;
+        int ipc_h       = 4;
+        int dump_h      = 6;
         int mail1_h     = 4;
         int mail2_h     = 4;
         int mail3_h     = 4;
         int log_h       = 5;
 
-        int total = scheduler_h + ipc_h + mail1_h + mail2_h + mail3_h + log_h;
+        int total = scheduler_h + ipc_h + dump_h + mail1_h + mail2_h + mail3_h + log_h;
         while (total > remaining) {
             bool reduced = false;
-            int* panels[] = {&log_h, &ipc_h, &scheduler_h, &mail3_h, &mail2_h, &mail1_h};
+            int* panels[] = {&log_h, &dump_h, &ipc_h, &scheduler_h, &mail3_h, &mail2_h, &mail1_h};
             for (int* panel_h : panels) {
                 if (*panel_h > 3 && total > remaining) {
                     --(*panel_h);
@@ -351,8 +393,11 @@ static void create_layout() {
         scheduler_panel.create(scheduler_h, term_cols, current_y, 0, "SCHEDULER", 7);
         current_y += scheduler_h;
 
-        ipc_panel.create(ipc_h, term_cols, current_y, 0, "IPC MAILBOX STATUS", 8);
+        ipc_panel.create(ipc_h, term_cols, current_y, 0, "IPC STATUS", 8);
         current_y += ipc_h;
+
+        dump_panel.create(dump_h, term_cols, current_y, 0, "IPC DUMP", 12);
+        current_y += dump_h;
 
         mail1_panel.create(mail1_h, term_cols, current_y, 0, "TASK 1 MAILBOX", 9);
         current_y += mail1_h;
@@ -363,7 +408,10 @@ static void create_layout() {
         mail3_panel.create(mail3_h, term_cols, current_y, 0, "TASK 3 MAILBOX", 11);
         current_y += mail3_h;
 
-        log_panel.create(log_h, term_cols, current_y, 0, "EVENT LOG", 12);
+        int log_w = std::max(56, (term_cols * 2) / 3);
+        int system_w = term_cols - log_w;
+        log_panel.create(log_h, log_w, current_y, 0, "EVENT LOG", 12);
+        system_panel.create(log_h, system_w, current_y, log_w, "SYSTEM EVENTS", 14);
         status_panel.create(status_h, term_cols, current_y + log_h, 0, "", 13);
     }
 }
@@ -372,10 +420,12 @@ static void destroy_layout() {
     header_panel.destroy();
     scheduler_panel.destroy();
     ipc_panel.destroy();
+    dump_panel.destroy();
     mail1_panel.destroy();
     mail2_panel.destroy();
     mail3_panel.destroy();
     log_panel.destroy();
+    system_panel.destroy();
     status_panel.destroy();
 }
 
@@ -409,6 +459,13 @@ static void refresh_ipc() {
     ipc_panel.refresh_panel();
 }
 
+static void refresh_dump() {
+    dump_panel.clear_content();
+    std::string dump = format_dump_panel();
+    dump_panel.write_text(dump, 1);
+    dump_panel.refresh_panel();
+}
+
 static void refresh_mailbox(Panel& panel, int task_id) {
     panel.clear_content();
     std::string tbl = format_mailbox_panel(task_id);
@@ -422,14 +479,29 @@ static void refresh_mailboxes(int t1, int t2, int t3) {
     refresh_mailbox(mail3_panel, t3);
 }
 
-static void refresh_log() {
-    log_panel.clear_content();
-    auto entries = EventLog::instance().get_all();
+static void refresh_event_panel(Panel& panel,
+                                const std::function<bool(const std::string&)>& include_entry,
+                                const std::string& empty_message) {
+    panel.clear_content();
+    auto all_entries = EventLog::instance().get_all();
+    std::vector<std::string> entries;
+    for (const auto& entry : all_entries) {
+        if (include_entry(entry)) {
+            entries.push_back(entry);
+        }
+    }
+
+    if (entries.empty()) {
+        panel.write_text(empty_message, 1, 13);
+        panel.refresh_panel();
+        return;
+    }
+
     int row = 1;
     int start = 0;
 
     auto estimate_wrapped_rows = [&](const std::string& entry) {
-        const int usable_w = std::max(1, log_panel.cols - 2);
+        const int usable_w = std::max(1, panel.cols - 2);
         int lines = 0;
         std::istringstream stream(entry);
         std::string line;
@@ -443,7 +515,7 @@ static void refresh_log() {
     int used_rows = 0;
     for (int i = static_cast<int>(entries.size()) - 1; i >= 0; --i) {
         const int entry_rows = estimate_wrapped_rows(entries[i]);
-        if (used_rows + entry_rows > log_panel.rows - 2) {
+        if (used_rows + entry_rows > panel.rows - 2) {
             start = i + 1;
             break;
         }
@@ -452,7 +524,7 @@ static void refresh_log() {
     }
 
     for (int i = start;
-         i < static_cast<int>(entries.size()) && row < log_panel.rows - 1;
+         i < static_cast<int>(entries.size()) && row < panel.rows - 1;
          ++i) {
         /* Color-code by entry type */
         int color = 0;
@@ -460,10 +532,28 @@ static void refresh_log() {
         else if (entries[i].find("MSG RECV") != std::string::npos) color = 5;
         else if (entries[i].find("Semaphore") != std::string::npos) color = 6;
         else if (entries[i].find("STEP")      != std::string::npos) color = 2;
+        else if (entries[i].find("Garbage") != std::string::npos
+              || entries[i].find("garbage") != std::string::npos
+              || entries[i].find("cleanup") != std::string::npos
+              || entries[i].find("Cleanup") != std::string::npos) color = 14;
 
-        row = log_panel.write_text(entries[i], row, color);
+        row = panel.write_text(entries[i], row, color);
     }
-    log_panel.refresh_panel();
+    panel.refresh_panel();
+}
+
+static void refresh_log() {
+    refresh_event_panel(
+        log_panel,
+        [](const std::string& entry) { return !is_system_event(entry); },
+        "Waiting for message flow events...");
+}
+
+static void refresh_system_events() {
+    refresh_event_panel(
+        system_panel,
+        [](const std::string& entry) { return is_system_event(entry); },
+        "Waiting for semaphore locks\nand garbage collection...");
 }
 
 static void set_status(const std::string& msg) {
@@ -477,8 +567,10 @@ static void refresh_all(int t1, int t2, int t3) {
     refresh_header();
     refresh_scheduler();
     refresh_ipc();
+    refresh_dump();
     refresh_mailboxes(t1, t2, t3);
     refresh_log();
+    refresh_system_events();
 }
 
 static void wait_key() {
@@ -532,6 +624,7 @@ int main() {
             init_pair(11, 11, -1);  /* mailbox 3             */
             init_pair(12, 14, -1);  /* event log panel       */
             init_pair(13, 15, -1);  /* status message        */
+            init_pair(14, 12, -1);  /* system events panel   */
         } else {
             init_pair(1, COLOR_MAGENTA, -1); /* header/title         */
             init_pair(2, COLOR_YELLOW,  -1); /* prompt text          */
@@ -546,6 +639,7 @@ int main() {
             init_pair(11, COLOR_GREEN,  -1); /* mailbox 3            */
             init_pair(12, COLOR_BLUE,   -1); /* event log panel      */
             init_pair(13, COLOR_WHITE,  -1); /* status message       */
+            init_pair(14, COLOR_RED,    -1); /* system events panel  */
         }
     }
 
@@ -753,7 +847,9 @@ int main() {
     mcb.Swapper.kill_task(t1);
     mcb.Swapper.kill_task(t2);
     mcb.Swapper.kill_task(t3);
+    EventLog::instance().add("System cleanup: tasks marked DEAD, invoking garbage collector.");
     mcb.Swapper.garbage_collect();
+    EventLog::instance().add("Garbage collector: " + mcb.Swapper.get_last_scheduler_event());
     EventLog::instance().add("All tasks killed and garbage collected.");
     EventLog::instance().add("====== PHASE 2 DEMONSTRATION COMPLETE ======");
     set_status(
