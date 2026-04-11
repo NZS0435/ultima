@@ -3,6 +3,7 @@
  * =========================================================================
  * Team Thunder #001
  *
+ * Team Authors   : Stewart Pawley, Zander Hayes, Nicholas Kobs
  * Primary Author : Stewart Pawley (MCB, Integration, ncurses UI, simulation)
  * Co-Authors     : Nicholas Kobs  (Test scenarios, utility demonstrations)
  *                  Zander Hayes   (IPC core referenced here)
@@ -310,12 +311,12 @@ int main() {
     EventLog::instance().add("IPC Messenger initialized — 16 mailbox slots allocated.");
 
     /* ---- Create tasks ---- */
-    int t1 = mcb.Swapper.create_task("Task_1_Sender",   nullptr);
-    int t2 = mcb.Swapper.create_task("Task_2_Sender",   nullptr);
-    int t3 = mcb.Swapper.create_task("Task_3_Receiver",  nullptr);
-    EventLog::instance().add("Created Task 1 (Sender-A)   id=" + std::to_string(t1));
-    EventLog::instance().add("Created Task 2 (Sender-B)   id=" + std::to_string(t2));
-    EventLog::instance().add("Created Task 3 (Receiver)   id=" + std::to_string(t3));
+    int t1 = mcb.Swapper.create_task("Task_1_Window", nullptr);
+    int t2 = mcb.Swapper.create_task("Task_2_Window", nullptr);
+    int t3 = mcb.Swapper.create_task("Task_3_Window", nullptr);
+    EventLog::instance().add("Created Task 1 (Professor window) id=" + std::to_string(t1));
+    EventLog::instance().add("Created Task 2 (Team window)      id=" + std::to_string(t2));
+    EventLog::instance().add("Created Task 3 (Favorite window)  id=" + std::to_string(t3));
 
     /* ================================================================
      *  STEP 1: Initial State
@@ -330,10 +331,10 @@ int main() {
      *  STEP 2: Task 1 sends Text to Task 3
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 2: Dispatch Task 1 -- sends Text message to Task 3 ---");
+        "--- STEP 2: Task 1 sends TEXT greeting to Task 2 ---");
     mcb.Swapper.yield();  /* Task 1 → RUNNING */
-    mcb.Messenger.Message_Send(t1, t3, "Hello from Task 1!", 0);
-    set_status("STEP 2/13 :  Task 1 sends TEXT message to Task 3");
+    mcb.Messenger.Message_Send(t1, t2, "Hello, Team Thunder!", 0);
+    set_status("STEP 2/13 :  Task 1 sends \"Hello, Team Thunder!\" to Task 2");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -341,8 +342,8 @@ int main() {
      *  STEP 3: State after Task 1 send
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 3: Observe -- Task 3 mailbox now has 1 message ---");
-    set_status("STEP 3/13 :  Task 3 mailbox now has 1 message (Text from T-1)");
+        "--- STEP 3: Observe -- Task 2 window now shows Team Thunder greeting ---");
+    set_status("STEP 3/13 :  Window 2 now says \"Hello, Team Thunder!\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -350,10 +351,10 @@ int main() {
      *  STEP 4: Task 2 sends Service to Task 3
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 4: Dispatch Task 2 -- sends Service request to Task 3 ---");
+        "--- STEP 4: Task 2 sends SERVICE greeting to Task 3 ---");
     mcb.Swapper.yield();  /* Task 2 → RUNNING */
-    mcb.Messenger.Message_Send(t2, t3, "lpr file1", 1);
-    set_status("STEP 4/13 :  Task 2 sends SERVICE request to Task 3");
+    mcb.Messenger.Message_Send(t2, t3, "Team Thunder is my favorite Group!!!!", 1);
+    set_status("STEP 4/13 :  Task 2 sends favorite-group SERVICE message to Task 3");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -361,10 +362,9 @@ int main() {
      *  STEP 5: State after both sends
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 5: Observe -- Task 3 mailbox now has 2 messages ---");
+        "--- STEP 5: Observe -- Task 3 window now shows the favorite-group message ---");
     set_status(
-        "STEP 5/13 :  Task 3 has 2 messages (Text + Service)  --  "
-        "Scheduler dump shows dispatch counts");
+        "STEP 5/13 :  Window 3 now says \"Team Thunder is my favorite Group!!!!\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -372,18 +372,10 @@ int main() {
      *  STEP 6: Task 3 receives message #1 (Text)
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 6: Dispatch Task 3 -- reads message #1 ---");
+        "--- STEP 6: Task 3 sends NOTIFICATION greeting to Task 1 ---");
     mcb.Swapper.yield();  /* Task 3 → RUNNING */
-    {
-        Message incoming;
-        mcb.Messenger.Message_Receive(t3, &incoming);
-        std::ostringstream s;
-        s << "Task 3 processed: \"" << incoming.Msg_Text
-          << "\" from T-" << incoming.Source_Task_Id
-          << " [" << incoming.Msg_Type.Message_Type_Description << "]";
-        EventLog::instance().add(s.str());
-    }
-    set_status("STEP 6/13 :  Task 3 receives message #1 (Text from Task 1)");
+    mcb.Messenger.Message_Send(t3, t1, "Hello, Professor Hakimzadeh!", 2);
+    set_status("STEP 6/13 :  Task 3 sends \"Hello, Professor Hakimzadeh!\" to Task 1");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -391,28 +383,9 @@ int main() {
      *  STEP 7: Task 3 receives message #2 (Service) + replies
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 7: Task 3 reads message #2, replies with Notification ---");
-    {
-        Message incoming;
-        mcb.Messenger.Message_Receive(t3, &incoming);
-        std::ostringstream s;
-        s << "Task 3 processed: \"" << incoming.Msg_Text
-          << "\" from T-" << incoming.Source_Task_Id
-          << " [" << incoming.Msg_Type.Message_Type_Description << "]";
-        EventLog::instance().add(s.str());
-
-        /* Service → reply with Notification */
-        if (incoming.Msg_Type.Message_Type_Id == 1) {
-            EventLog::instance().add(
-                "Task 3 replying with NOTIFICATION to T-"
-                + std::to_string(incoming.Source_Task_Id));
-            mcb.Messenger.Message_Send(
-                t3, incoming.Source_Task_Id,
-                "Got your print service request", 2);
-        }
-    }
+        "--- STEP 7: Observe -- all three windows now display the requested greetings ---");
     set_status(
-        "STEP 7/13 :  Task 3 reads Service, sends Notification reply to Task 2");
+        "STEP 7/13 :  Window 1=Professor  Window 2=Team Thunder  Window 3=Favorite Group");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -420,9 +393,18 @@ int main() {
      *  STEP 8: Post-receive state
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 8: Post-receive -- Task 3 empty, Task 2 has Notification ---");
+        "--- STEP 8: Task 1 reads its mailbox greeting from Task 3 ---");
+    {
+        Message incoming;
+        mcb.Messenger.Message_Receive(t1, &incoming);
+        std::ostringstream s;
+        s << "Task 1 received: \"" << incoming.Msg_Text
+          << "\" from T-" << incoming.Source_Task_Id
+          << " [" << incoming.Msg_Type.Message_Type_Description << "]";
+        EventLog::instance().add(s.str());
+    }
     set_status(
-        "STEP 8/13 :  Task 3 mailbox empty -- Task 2 now has Notification reply");
+        "STEP 8/13 :  Task 1 reads \"Hello, Professor Hakimzadeh!\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -430,7 +412,7 @@ int main() {
      *  STEP 9: Task 2 reads its Notification
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 9: Task 2 reads its Notification reply ---");
+        "--- STEP 9: Task 2 reads its mailbox greeting from Task 1 ---");
     {
         Message reply;
         int rc = mcb.Messenger.Message_Receive(t2, &reply);
@@ -443,7 +425,7 @@ int main() {
         }
     }
     set_status(
-        "STEP 9/13 :  Task 2 reads Notification -- all messages delivered & processed");
+        "STEP 9/13 :  Task 2 reads \"Hello, Team Thunder!\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
@@ -451,8 +433,19 @@ int main() {
      *  STEP 10: Final state — all mailboxes empty
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 10: FINAL STATE -- all mailboxes empty ---");
-    set_status("STEP 10/13 :  Final state -- every message sent, received, processed");
+        "--- STEP 10: Task 3 reads the SERVICE greeting from Task 2 ---");
+    {
+        Message reply;
+        int rc = mcb.Messenger.Message_Receive(t3, &reply);
+        if (rc == 1) {
+            std::ostringstream s;
+            s << "Task 3 received: \"" << reply.Msg_Text
+              << "\" from T-" << reply.Source_Task_Id
+              << " [" << reply.Msg_Type.Message_Type_Description << "]";
+            EventLog::instance().add(s.str());
+        }
+    }
+    set_status("STEP 10/13 :  Task 3 reads \"Team Thunder is my favorite Group!!!!\"");
     refresh_all(t1, t2, t3);
     wait_key();
 

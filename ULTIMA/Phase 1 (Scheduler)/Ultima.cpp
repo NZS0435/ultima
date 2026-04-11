@@ -15,8 +15,6 @@
 #include <thread>
 #include <chrono>
 #include <vector>
-//Nick
-#include "U2_Messenger.h"
 
 #if defined(_WIN32)
 #include <direct.h>
@@ -41,8 +39,6 @@
  */
 
 Scheduler sys_scheduler;
-//Nick
-ipc global_Messenger_Object(10);
 Semaphore printer_semaphore("Printer_Output", 1, &sys_scheduler);
 Mem_mgr proof_memory_manager(1024);
 U2_ui ui_manager;
@@ -82,54 +78,6 @@ constexpr std::size_t kMaxStateTraceLines = 12;
 constexpr std::size_t kTaskABufferBytes = 160;
 constexpr std::size_t kTaskBBufferBytes = 112;
 constexpr std::size_t kTaskCBufferBytes = 96;
-
-    //Nick
-void send_Task ()
-{
-    int target_Task_ID = task_a_id;
-    int desination_Task_ID = task_b_id;
-
-    for (int row = 0; row < 5; row++)
-    {
-        char message_String[100];
-        //std::string message_String = "Task %d: ", row);
-        //Message Setup
-        sprintf(message_String, "send_Task Test with index element of %d from Task %d", row, target_Task_ID);
-
-        //Send Message
-        global_Messenger_Object.Message_Send(target_Task_ID, desination_Task_ID, message_String, 1);
-
-        printf("The result of send_Task is: %d\n", row);
-
-        sys_scheduler.yield();
-
-
-    }
-
-}
-
-
-void receive_Task()
-{
-    int destination_Task_ID_Address = task_b_id;
-    char received_Message[100];
-    int priority_Order_Number;
-
-    while (true)
-    {
-
-        if (global_Messenger_Object.Message_Receive(destination_Task_ID_Address, received_Message, &priority_Order_Number) > 0)
-        {
-            printf("The content of the receive_Task message is: %s\n", received_Message);
-
-        }
-
-        //yields for another Task to be worked on
-        sys_scheduler.yield();
-
-    }
-
-}
 
 
 
@@ -2147,12 +2095,6 @@ int main(int argc, char* argv[]) {
     }
 
     do {
-
-		//Nick
-		task_a_id = sys_scheduler.create_task(send_Task, 1, 1024);
-		task_b_id = sys_scheduler.create_task(receive_Task, 1, 1024);
-
-
         run_demo_cycle();
         if (transcript_only_mode || stop_after_cycle) {
             break;

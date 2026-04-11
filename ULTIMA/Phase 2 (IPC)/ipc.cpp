@@ -4,6 +4,7 @@
  * Team Thunder #001
  *
  * Team Authors   : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Phase Label    : Phase 2 - Message Passing (IPC)
  * Primary Author : Zander Hayes
  * Co-Authors     : Stewart Pawley (semaphore integration and UI strings)
  *                  Nicholas Kobs  (utility workflow alignment)
@@ -15,20 +16,6 @@
 #include "../Phase 1 (Scheduler)/Sema.h"
 
 #include <cstring>
-#include <ctime>
-#include <iostream>
-
-ipc::ipc(int max_tasks, Scheduler* sched)
-    : scheduler_ref(sched),
-      max_active_tasks(max_tasks)
-{
-    // Nothing to allocate here: each TCB owns its own
-    // std::queue<Message> mailbox and Semaphore* mailbox_semaphore.
-    // Both are set up (and torn down) by Scheduler::create_task()
-    // and Scheduler::reset() / garbage_collect() respectively.
-    // The ipc object only holds a reference to the scheduler so
-    // it can reach those TCBs at send/receive time.
-}
 
 namespace {
 std::string format_arrival_time(std::time_t arrival_time) {
@@ -231,21 +218,9 @@ int ipc::Message_DeleteAll(int Task_id) {
     }
 
     TCB* task = scheduler_ref->get_tcb(Task_id);
-    if (task != nullptr)
-    {
-        int count = task->mailbox.size();
-        while (task->mailbox.size() > 0)
-        {
-            task->mailbox.Dequeue();
-
-        }
-
-        return count;
-
+    if (task == nullptr) {
+        return -1;
     }
-
-    return -1;
-}
 
     mailbox_down(Task_id);
     const int count = static_cast<int>(task->mailbox.size());
@@ -303,25 +278,16 @@ std::string ipc::get_mailbox_table(int Task_id) const {
         return out.str();
     }
 
-    out << std::left
-        << std::setw(6) << "Src"
-        << std::setw(6) << "Dst"
-        << std::setw(32) << "Content"
-        << std::setw(5) << "Size"
-        << std::setw(14) << "Type"
-        << "Time\n";
-    out << std::string(70, '-') << "\n";
-
     while (!mailbox_copy.empty()) {
         const Message& message = mailbox_copy.front();
-        out << std::left
-            << std::setw(6) << message.Source_Task_Id
-            << std::setw(6) << message.Destination_Task_Id
-            << std::setw(32) << message.Msg_Text
-            << std::setw(5) << message.Msg_Size
-            << std::setw(14) << message.Msg_Type.Message_Type_Description
-            << format_arrival_time(message.Message_Arrival_Time)
-            << '\n';
+        out << "From: T-" << message.Source_Task_Id
+            << "  Type: " << message.Msg_Type.Message_Type_Description << "\n";
+        out << message.Msg_Text << "\n";
+        out << "Size: " << message.Msg_Size
+            << "  Time: " << format_arrival_time(message.Message_Arrival_Time) << "\n";
+        if (mailbox_copy.size() > 1) {
+            out << "----------------------------------------\n";
+        }
         mailbox_copy.pop();
     }
 
@@ -339,7 +305,7 @@ void ipc::mailbox_down(int task_id) {
     }
 
     std::ostringstream event_stream;
-    event_stream << "[Semaphore] down() on mailbox " << task_id << " — critical section ENTER";
+    event_stream << "[Semaphore] down() on mailbox " << task_id << " - critical section ENTER";
     EventLog::instance().add(event_stream.str());
 }
 
@@ -348,12 +314,13 @@ void ipc::mailbox_up(int task_id) {
         return;
     }
 
-        if (task != nullptr)
-        {
-            printf("Task %d: \n", row, task->mailbox.size(), task->mailbox.status());
+    TCB* task = scheduler_ref->get_tcb(task_id);
+    if (task != nullptr && task->mailbox_semaphore != nullptr) {
+        task->mailbox_semaphore->up();
+    }
 
     std::ostringstream event_stream;
-    event_stream << "[Semaphore] up()   on mailbox " << task_id << " — critical section LEAVE";
+    event_stream << "[Semaphore] up()   on mailbox " << task_id << " - critical section LEAVE";
     EventLog::instance().add(event_stream.str());
 }
 

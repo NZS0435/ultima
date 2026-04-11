@@ -7,6 +7,7 @@
 
 /**
  * Team Authors  : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Phase Label   : Phase 2 - Message Passing (IPC)
  * Primary Author: Stewart Pawley
  * Master Control Block (MCB)
  * Purpose: Centralized struct acting as the primary registry for the OS simulation.

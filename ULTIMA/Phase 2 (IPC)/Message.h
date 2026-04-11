@@ -5,6 +5,7 @@
 
 /**
  * Team Authors : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Phase Label  : Phase 2 - Message Passing (IPC)
  * Primary Author: Zander Hayes
  * Co-Authors    : Stewart Pawley (Integration)
  *                 Nicholas Kobs (Utilities alignment)
@@ -24,7 +25,7 @@ struct Message {
     std::time_t Message_Arrival_Time;
     Message_Type Msg_Type;
     int Msg_Size;
-    char Msg_Text[33]; // 32 usable chars + null terminator
+    char Msg_Text[65]; // 64 usable chars + null terminator
 };
 
 #endif // MESSAGE_H

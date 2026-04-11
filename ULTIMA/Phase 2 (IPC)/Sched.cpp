@@ -4,6 +4,7 @@
  * Team Thunder #001
  *
  * Team Authors   : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Phase Label    : Phase 2 - Message Passing (IPC)
  * Primary Author : Stewart Pawley
  * Co-Authors     : Zander Hayes   (IPC-facing scheduler hooks)
  *                  Nicholas Kobs  (Phase 2 demo alignment)

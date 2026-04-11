@@ -2,6 +2,7 @@
 # CMakeLists.txt - ULTIMA 2.0 Phase 2 CMake build
 # Team Thunder #001
 #
+# Phase Label    : Phase 2 - Message Passing (IPC)
 # Primary Author : Stewart Pawley
 # Co-Authors     : Zander Hayes
 #                  Nicholas Kobs
