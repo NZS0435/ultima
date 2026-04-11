@@ -296,6 +296,39 @@ static bool is_system_event(const std::string& entry) {
         || entry.find("Cleanup") != std::string::npos;
 }
 
+static std::string format_system_event_entry(const std::string& entry) {
+    if (entry.find("[Semaphore]") != std::string::npos) {
+        std::string mailbox_id = "?";
+        const std::size_t mailbox_pos = entry.find("mailbox ");
+        if (mailbox_pos != std::string::npos) {
+            std::size_t id_start = mailbox_pos + 8;
+            std::size_t id_end = entry.find(' ', id_start);
+            mailbox_id = entry.substr(id_start, id_end - id_start);
+        }
+
+        const bool entering = entry.find("ENTER") != std::string::npos;
+        return "Mailbox " + mailbox_id + " semaphore " + (entering ? "DOWN" : "UP");
+    }
+
+    if (entry.find("System cleanup:") != std::string::npos) {
+        return "Cleanup: tasks marked DEAD";
+    }
+
+    if (entry.find("Garbage collector:") != std::string::npos) {
+        return "GC: removed DEAD tasks";
+    }
+
+    if (entry.find("All tasks killed and garbage collected.") != std::string::npos) {
+        return "GC complete";
+    }
+
+    if (entry.find("STEP 13") != std::string::npos) {
+        return "STEP 13: cleanup / garbage collection";
+    }
+
+    return entry;
+}
+
 static void create_layout() {
     int term_rows, term_cols;
     getmaxyx(stdscr, term_rows, term_cols);
@@ -314,12 +347,12 @@ static void create_layout() {
                         "ULTIMA 2.0 -- Phase 2: Message Passing (IPC)", 1);
 
     if (compact_layout) {
-        int min_top_h = 6;
+        int min_top_h = 5;
         int min_mail_h = 6;
-        int min_log_h = 4;
+        int min_log_h = 5;
 
         if (remaining < min_top_h + min_mail_h + min_log_h) {
-            min_top_h = 5;
+            min_top_h = 4;
             min_mail_h = 4;
             min_log_h = 4;
         }
@@ -550,10 +583,48 @@ static void refresh_log() {
 }
 
 static void refresh_system_events() {
-    refresh_event_panel(
-        system_panel,
-        [](const std::string& entry) { return is_system_event(entry); },
-        "Waiting for semaphore locks\nand garbage collection...");
+    system_panel.clear_content();
+    auto all_entries = EventLog::instance().get_all();
+    std::vector<std::string> entries;
+    for (const auto& entry : all_entries) {
+        if (is_system_event(entry)) {
+            entries.push_back(format_system_event_entry(entry));
+        }
+    }
+
+    if (entries.empty()) {
+        system_panel.write_text("Waiting for semaphore locks\nand garbage collection...", 1, 13);
+        system_panel.refresh_panel();
+        return;
+    }
+
+    int row = 1;
+    int start = 0;
+
+    auto estimate_wrapped_rows = [&](const std::string& entry) {
+        const int usable_w = std::max(1, system_panel.cols - 2);
+        const int length = std::max<int>(1, static_cast<int>(entry.size()));
+        return std::max(1, (length + usable_w - 1) / usable_w);
+    };
+
+    int used_rows = 0;
+    for (int i = static_cast<int>(entries.size()) - 1; i >= 0; --i) {
+        const int entry_rows = estimate_wrapped_rows(entries[i]);
+        if (used_rows + entry_rows > system_panel.rows - 2) {
+            start = i + 1;
+            break;
+        }
+        used_rows += entry_rows;
+        start = i;
+    }
+
+    for (int i = start;
+         i < static_cast<int>(entries.size()) && row < system_panel.rows - 1;
+         ++i) {
+        int color = (entries[i].find("Mailbox") != std::string::npos) ? 6 : 14;
+        row = system_panel.write_text(entries[i], row, color);
+    }
+    system_panel.refresh_panel();
 }
 
 static void set_status(const std::string& msg) {
