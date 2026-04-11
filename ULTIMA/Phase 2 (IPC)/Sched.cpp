@@ -1,5 +1,17 @@
+/* =========================================================================
+ * Sched.cpp — ULTIMA 2.0 Phase 2 scheduler integration
+ * =========================================================================
+ * Team Thunder #001
+ *
+ * Team Authors   : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Primary Author : Stewart Pawley
+ * Co-Authors     : Zander Hayes   (IPC-facing scheduler hooks)
+ *                  Nicholas Kobs  (Phase 2 demo alignment)
+ * =========================================================================
+ */
+
 #include "Sched.h"
-#include "Sema.h"
+#include "../Phase 1 (Scheduler)/Sema.h"
 
 #include <cstddef>
 #include <iomanip>
@@ -298,6 +310,52 @@ void Scheduler::dump(int level) const {
     }
 
     std::cout << '\n';
+}
+
+std::string Scheduler::dump_string(int level) const {
+    std::ostringstream out;
+
+    out << "Scheduler Dump\n";
+    out << "==============\n";
+    out << "Tick: " << scheduler_tick << '\n';
+    out << "Current Task: " << get_current_task_id() << '\n';
+    out << "Last Event: " << last_scheduler_event << '\n';
+    out << "Run Queue: " << describe_run_queue() << "\n\n";
+
+    out << std::left
+        << std::setw(8) << "Task ID"
+        << std::setw(16) << "Name"
+        << std::setw(10) << "State"
+        << std::setw(8) << "Run"
+        << std::setw(8) << "Yield"
+        << std::setw(8) << "Block"
+        << std::setw(8) << "Wake"
+        << "Details\n";
+    out << "--------------------------------------------------------------------------\n";
+
+    for (const TCB* task : process_table) {
+        if (task == nullptr) {
+            continue;
+        }
+
+        out << std::left
+            << std::setw(8) << task->task_id
+            << std::setw(16) << task->task_name
+            << std::setw(10) << state_to_string(task->task_state)
+            << std::setw(8) << task->dispatch_count
+            << std::setw(8) << task->yield_count
+            << std::setw(8) << task->block_count
+            << std::setw(8) << task->unblock_count
+            << task->detail_note
+            << '\n';
+
+        if (level > 0) {
+            out << "         Last transition: " << task->last_transition << '\n';
+        }
+    }
+
+    out << '\n';
+    return out.str();
 }
 
 int Scheduler::get_current_task_id() const {

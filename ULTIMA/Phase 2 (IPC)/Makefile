@@ -2,6 +2,8 @@
 # Makefile — ULTIMA 2.0 Phase 2 (Message Passing / IPC)
 # Team Thunder #001
 # Primary Author: Stewart Pawley
+# Co-Authors    : Zander Hayes
+#                 Nicholas Kobs
 # =========================================================================
 #
 # USAGE:

@@ -1,3 +1,13 @@
+/* =========================================================================
+ * Sched.h — Phase 2 scheduler interface shim
+ * =========================================================================
+ * Team Thunder #001
+ *
+ * Team Authors   : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Primary Author : Stewart Pawley
+ * =========================================================================
+ */
+
 #ifndef SCHED_H
 #define SCHED_H
 

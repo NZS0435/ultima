@@ -3,10 +3,11 @@
 
 #include "Sched.h"
 #include "ipc.h"
-#include "Sema.h"
+#include "../Phase 1 (Scheduler)/Sema.h"
 
 /**
- * Author: Stewart Pawley
+ * Team Authors  : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Primary Author: Stewart Pawley
  * Master Control Block (MCB)
  * Purpose: Centralized struct acting as the primary registry for the OS simulation.
  * It provides the Scheduler, IPC Messenger, and standard Semaphores in one accessible footprint.

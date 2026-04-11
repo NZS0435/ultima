@@ -37,7 +37,7 @@
 
 #include "ipc.h"
 #include "Sched.h"
-#include "Sema.h"
+#include "../Phase 1 (Scheduler)/Sema.h"
 
 /* =========================================================================
  *  MCB — Master Control Block  (Stewart Pawley)

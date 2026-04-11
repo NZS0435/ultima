@@ -4,8 +4,10 @@
 #include <ctime>
 
 /**
- * Author: Zander Hayes
- * Co-Author: Stewart Pawley (Integration)
+ * Team Authors : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Primary Author: Zander Hayes
+ * Co-Authors    : Stewart Pawley (Integration)
+ *                 Nicholas Kobs (Utilities alignment)
  * Definitions matching the Phase II rubric requirements.
  */
 struct Message_Type {
@@ -22,7 +24,7 @@ struct Message {
     std::time_t Message_Arrival_Time;
     Message_Type Msg_Type;
     int Msg_Size;
-    char Msg_Text[32]; // fixed buffer (avoids dynamic alloc complexity)
+    char Msg_Text[33]; // 32 usable chars + null terminator
 };
 
 #endif // MESSAGE_H

@@ -1,3 +1,15 @@
+/* =========================================================================
+ * Sema_sync.cpp — Phase 1 semaphore bridge for Phase 2
+ * =========================================================================
+ * Team Thunder #001
+ *
+ * Team Authors   : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Primary Author : Stewart Pawley
+ * Co-Authors     : Zander Hayes
+ *                  Nicholas Kobs
+ * =========================================================================
+ */
+
 #include "U2_Scheduler.h"
 
 // Compile the Phase 1 semaphore implementation against the Phase 2 scheduler

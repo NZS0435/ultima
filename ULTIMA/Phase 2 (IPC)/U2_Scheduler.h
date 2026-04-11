@@ -1,3 +1,15 @@
+/* =========================================================================
+ * U2_Scheduler.h — Phase 2 scheduler and TCB declarations
+ * =========================================================================
+ * Team Thunder #001
+ *
+ * Team Authors   : Stewart Pawley, Zander Hayes, Nicholas Kobs
+ * Primary Author : Stewart Pawley
+ * Co-Authors     : Zander Hayes   (IPC mailbox shape)
+ *                  Nicholas Kobs  (demo/report alignment)
+ * =========================================================================
+ */
+
 #ifndef U2_SCHEDULER_H
 #define U2_SCHEDULER_H
 
@@ -95,6 +107,7 @@ public:
     void block_task(int task_id);
     void unblock_task(int task_id);
     void dump(int level = 0) const;
+    std::string dump_string(int level = 0) const;
 
     int get_current_task_id() const;
     int get_active_task_count() const;
