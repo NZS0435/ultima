@@ -198,13 +198,57 @@ int ipc::Message_Count(int Task_id) const {
 
     // --- NICK'S PART INSERT HERE ---
     // [Nick] Implement Message_Count here.
-    return -1;
+
+    //int count = 0;
+
+    //Examines whether scheduler_ref is properly implemented
+    if (scheduler_ref == nullptr)
+    {
+        return -1;
+
+    }
+
+    //Finds the task that's linked to the desired Task ID
+    TCB* task = scheduler_ref->get_tcb(Task_id);
+    if (task != nullptr)
+    {
+        return task->mailbox.size();
+
+    }
+
+    return 0;
+
 }
+
 
 int ipc::Message_Count() const {
     // --- NICK'S PART INSERT HERE ---
     // [Nick] Implement global Message_Count here.
-    return -1;
+
+    //Examines whether scheduler_ref is properly implemented
+    int total_Count = 0;
+    if (scheduler_ref == nullptr)
+    {
+        return -1;
+
+    }
+
+
+    for (int i = 0; i < max_active_tasks; i++)
+    {
+        TCB* task = scheduler_ref->get_tcb(i);
+
+        if (task != nullptr)
+        {
+            total_Count += task->mailbox.size();
+
+        }
+
+    }
+
+
+    return total_Count;
+
 }
 
 void ipc::Message_Print(int Task_id) const {
@@ -212,6 +256,23 @@ void ipc::Message_Print(int Task_id) const {
 
     // --- NICK'S PART INSERT HERE ---
     // [Nick] Implement Message_Print here.
+
+    if (scheduler_ref == nullptr)
+    {
+        return;
+
+    }
+
+    TCB* target_Task = scheduler_ref->get_tcb(Task_id);
+    if (target_Task != nullptr)
+    {
+        printf("Task Mailbox %d: \n", Task_id);
+
+        //Lab6
+        target_Task->mailbox.print();
+
+    }
+
 }
 
 int ipc::Message_DeleteAll(int Task_id) {
@@ -219,10 +280,51 @@ int ipc::Message_DeleteAll(int Task_id) {
 
     // --- NICK'S PART INSERT HERE ---
     // [Nick] Implement Message_DeleteAll here.
+
+    if (scheduler_ref == nullptr)
+    {
+        return -1;
+
+    }
+
+
+    TCB* task = scheduler_ref->get_tcb(Task_id);
+    if (task != nullptr)
+    {
+        int count = task->mailbox.size();
+        while (task->mailbox.size() > 0)
+        {
+            task->mailbox.Dequeue();
+
+        }
+
+        return count;
+
+    }
+
     return -1;
 }
 
 void ipc::ipc_Message_Dump() const {
     // --- NICK'S PART INSERT HERE ---
     // [Nick] Implement ipc_Message_Dump here.
+    printf("==================================================\n");
+    printf(" Task ID          Message Count           Status  \n");
+    printf("==================================================\n");
+
+
+    for (int row = 0; row < max_active_tasks; row++)
+    {
+        TCB* task = scheduler_ref->get_tcb(row);
+
+        if (task != nullptr)
+        {
+            printf("Task %d: \n", row, task->mailbox.size(), task->mailbox.status());
+
+        }
+
+    }
+
+    printf("=================================================\n");
+
 }
