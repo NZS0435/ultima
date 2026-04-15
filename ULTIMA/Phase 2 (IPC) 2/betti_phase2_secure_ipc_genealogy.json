@@ -1,0 +1,9 @@
+{
+  "record_kind": "ultima_phase2_secure_ipc_genealogy_v1",
+  "root": "phase2/ipc/base_mailbox_surface",
+  "edges": [
+    {"parent": "ipc.cpp::Message_Send", "child": "ipc.cpp::Secure_Message_Send", "reason": "secure ACL + encryption extension"},
+    {"parent": "ipc.cpp::Message_Receive", "child": "ipc.cpp::Secure_Message_Receive", "reason": "authorized decrypt extension"},
+    {"parent": "phase2_smoke_test secure scenario", "child": "BETTI sidecar witness bundle", "reason": "class submission evidence"}
+  ]
+}

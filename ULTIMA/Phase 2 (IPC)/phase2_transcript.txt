@@ -1,0 +1,90 @@
+
+=== ULTIMA 2.0 Phase 2 -- Secure IPC Event Transcript ===
+
+  IPC Messenger initialized — 16 mailbox slots allocated.
+  SECURITY STORY: baseline plaintext IPC is visible from the first frame.
+  PRIVACY STORY: Task 3 is the secure mailbox target for the full demo.
+  ENCRYPTION STORY: AES-256-GCM ciphertext-at-rest and authorized decrypt arrive later in the run.
+  Created Task 1 (Professor window) id=1
+  Created Task 2 (Team window)      id=2
+  Created Task 3 (Favorite window)  id=3
+  --- STEP 1: Security baseline -- configure Task 3 secure mailbox before any Task 3 delivery ---
+  SECURITY CONFIG: mailbox T-3 restricted=yes encrypted=yes
+  SECURITY ACL: mailbox T-3 allows sender T-2
+  --- STEP 2: Task 1 attempts unauthorized secure send to Task 3 ---
+  ACCESS DENIED: T-1 cannot send to secure mailbox T-3
+  Task 1 secure send denied as expected.
+  --- STEP 3: Task 3 sends NOTIFICATION greeting to Task 1 ---
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG SENT: T-3 -> T-1 [Notification] "Hello Professor Hakimzadeh!!!"
+  --- STEP 4: Observe -- Task 1 window now shows Professor greeting ---
+  --- STEP 5: Task 1 sends TEXT greeting to Task 2 ---
+  [Semaphore] down() on mailbox 2 - critical section ENTER
+  [Semaphore] up()   on mailbox 2 - critical section LEAVE
+  MSG SENT: T-1 -> T-2 [Text] "Hello Team Thunder!"
+  --- STEP 6: Observe -- Task 2 window now shows Team Thunder reply ---
+  --- STEP 7: Task 2 sends BETTI-BITS-512(AES-256-GCM) SERVICE greeting to Task 3 ---
+  [Semaphore] down() on mailbox 3 - critical section ENTER
+  [Semaphore] up()   on mailbox 3 - critical section LEAVE
+  MSG SENT SECURE: T-2 -> T-3 [Service] BETTI-BITS-512:A0968CA31EDCF1A201C0FBCC80484D65B3B06466EA3F0F9987EF20B85EFA5F74CA1BD3FA7302040685E09D26892F3F763EBDA87B99502637D37DFEF599B4A6F7
+  Task 3 secure mailbox now holds ciphertext-at-rest only.
+  --- STEP 8: Task 1 reads its mailbox greeting from Task 3 ---
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG RECV: T-1 got msg from T-3 [Notification] "Hello Professor Hakimzadeh!!!"
+  Task 1 received: "Hello Professor Hakimzadeh!!!" from T-3 [Notification]
+  --- STEP 9: Task 2 reads its mailbox greeting from Task 1 ---
+  [Semaphore] down() on mailbox 2 - critical section ENTER
+  [Semaphore] up()   on mailbox 2 - critical section LEAVE
+  MSG RECV: T-2 got msg from T-1 [Text] "Hello Team Thunder!"
+  Task 2 received: "Hello Team Thunder!" from T-1 [Text]
+  --- STEP 10: Task 1 read denied while Task 3 mailbox still holds ciphertext-at-rest ---
+  ACCESS DENIED: T-1 cannot read secure mailbox T-3
+  Task 1 secure read denied as expected.
+  Task 3 secure mailbox still holds ciphertext-at-rest only.
+  --- STEP 11: Task 3 decrypts the BETTI-BITS-512(AES-256-GCM) SERVICE greeting from Task 2 ---
+  [Semaphore] down() on mailbox 3 - critical section ENTER
+  [Semaphore] up()   on mailbox 3 - critical section LEAVE
+  MSG RECV SECURE: T-3 got decrypted msg from T-2 [Service] "Team Thunder GETS AN A+"
+  Task 3 decrypted secure payload: "Team Thunder GETS AN A+" from T-2 [Service]
+  --- STEP 12: Message_DeleteAll demonstration ---
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG SENT: T-0 -> T-1 [Text] "DeleteAll test msg 1"
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG SENT: T-0 -> T-1 [Service] "DeleteAll test msg 2"
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG SENT: T-0 -> T-1 [Notification] "DeleteAll test msg 3"
+  Sent 3 test messages (Text/Service/Notification) to Task 1
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  --- STEP 13: DeleteAll completed -- Task 1 mailbox emptied ---
+  Message_DeleteAll(Task 1) removed 3 message(s)
+  --- STEP 14: Message_Count demonstration ---
+  [Semaphore] down() on mailbox 2 - critical section ENTER
+  [Semaphore] up()   on mailbox 2 - critical section LEAVE
+  MSG SENT: T-0 -> T-2 [Text] "Count demo A"
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG SENT: T-0 -> T-1 [Service] "Count demo B"
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG SENT: T-0 -> T-1 [Notification] "Count demo C"
+  Message_Count: Task1=2  Task2=1  Total=3
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  [Semaphore] down() on mailbox 2 - critical section ENTER
+  [Semaphore] up()   on mailbox 2 - critical section LEAVE
+  --- STEP 15: Security summary -- secure ACL, AES-256-GCM ciphertext-at-rest, denial, and decrypt all demonstrated ---
+  SECURITY SUMMARY: Task 3 stayed restricted from the start, unauthorized access failed closed, and authorized decrypt succeeded.
+  --- STEP 16: Task cleanup -- kill + garbage collect ---
+  System cleanup: tasks marked DEAD, invoking garbage collector.
+  Garbage collector: Garbage collection removed DEAD tasks from the process table.
+  All tasks killed and garbage collected.
+  --- STEP 17: Final secure closeout ---
+  ====== SECURE PHASE 2 DEMONSTRATION COMPLETE ======
+
+=== END TRANSCRIPT ===

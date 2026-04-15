@@ -1,0 +1,36 @@
+{
+  "profile_kind": "ultima_phase2_secure_ipc_live_profile_v1",
+  "theme": "Security/Privacy/Encryption",
+  "source_binary": "phase2_smoke_test",
+  "task_ids": {"sender": 1, "receiver": 2, "rogue": 3},
+  "secure_mailbox": {
+    "task_id": 2,
+    "ciphertext_queue_depth": 1,
+    "ciphertext_preview": "424201020000000000000001C0B0A443",
+    "security_overview": "Security profiles:\nT-1: Open mailbox\nT-2: BETTI-BITS-512(AES-256-GCM) / Restricted / senders=1 / readers=2\nT-3: Open mailbox\n"
+  },
+  "betti_snapshot": {
+    "domain": "sched",
+    "seed_tick": 201,
+    "load": 433,
+    "fragmentation": 82,
+    "queue_depth": 1,
+    "locale": 2
+  },
+  "betti_risk": {
+    "structural": 0.618652,
+    "fragmentation": 0.422852,
+    "latency": 0.0247396,
+    "instability": 0.314453
+  },
+  "betti_ph": {
+    "b0": 2,
+    "b1": 9,
+    "b2": 19,
+    "deltas": [-351, -19, 73]
+  },
+  "budgeted_task": {"task_id": 1, "cancel_rc": 0},
+  "focus_hash_hex": "1a8be5a97856fd68d05693f48e2ef4dacd57278e7964d4e69a48be270e64816c",
+  "commit_move_kind": "P23",
+  "commit_rc": 0
+}

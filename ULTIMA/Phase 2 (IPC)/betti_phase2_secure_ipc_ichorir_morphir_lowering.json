@@ -1,0 +1,17 @@
+{
+  "artifact_kind": "ultima_phase2_secure_ipc_ichorir_morphir_lowering_v1",
+  "honesty_boundary": "Manual Phase 2 lowering into BETTI-style IchorIR/MorphIR terms; not ingested into betti_os as a native compiler artifact.",
+  "theorem_status": {"specified": true, "implemented": true, "verified": true, "ratified": false},
+  "ichor_objects": [
+    {"id": "principal/t-1", "kind": "Sender"},
+    {"id": "principal/t-2", "kind": "RestrictedReceiver"},
+    {"id": "mailbox/t-2", "kind": "SecureMailbox", "ciphertext_queue_depth": 1},
+    {"id": "message/secure-phase2", "kind": "EncryptedPayload", "ciphertext_preview": "424201020000000000000001C0B0A443"}
+  ],
+  "morph_transitions": [
+    {"step": 13, "law": "configure_mailbox_security", "from": "mailbox/plain", "to": "mailbox/restricted_encrypted"},
+    {"step": 14, "law": "deny_unauthorized_sender", "from": "principal/untrusted", "to": "gate/rejected"},
+    {"step": 15, "law": "encrypt_and_enqueue", "from": "payload/plaintext", "to": "mailbox/ciphertext_at_rest"},
+    {"step": 16, "law": "authorized_decrypt", "from": "mailbox/ciphertext_at_rest", "to": "receiver/plaintext"}
+  ]
+}
