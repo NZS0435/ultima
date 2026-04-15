@@ -15,6 +15,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(ULTIMA_ENABLE_BETTI_SIDECAR "Enable optional BETTI sidecar witness build" OFF)
+set(BETTI_ROOT "/Users/stewartpawley/Desktop/betti_os" CACHE PATH "Path to the betti_os workspace")
+
 find_package(Threads REQUIRED)
 find_package(Curses REQUIRED)
 
@@ -36,20 +39,16 @@ set(ULTIMA_PHASE2_CORE_SOURCES
     "ipc.cpp"
     "Sched.cpp"
     "Sema_sync.cpp"
-        phase2_test
 )
 
-add_library(ultima_os_phase2_core STATIC ${ULTIMA_PHASE2_CORE_SOURCES}
-        phase2_test)
+add_library(ultima_os_phase2_core STATIC ${ULTIMA_PHASE2_CORE_SOURCES})
 
 add_executable(ultima_os_phase2
     "Phase2_main.cpp"
-        phase2_test
 )
 
 add_executable(ultima_os_phase2_smoke
     "phase2_smoke_test.cpp"
-        phase2_test
 )
 
 target_include_directories(ultima_os_phase2
@@ -90,5 +89,45 @@ set_target_properties(ultima_os_phase2 PROPERTIES
 )
 
 set_target_properties(ultima_os_phase2_smoke PROPERTIES
+    OUTPUT_NAME "phase2_smoke_test"
     RUNTIME_OUTPUT_DIRECTORY "${ULTIMA_PHASE2_OUTPUT_DIR}"
 )
+
+if(ULTIMA_ENABLE_BETTI_SIDECAR)
+    if(APPLE)
+        set(BETTI_FFI_LIB "${BETTI_ROOT}/target/debug/libbetti_ffi.dylib")
+    else()
+        set(BETTI_FFI_LIB "${BETTI_ROOT}/target/debug/libbetti_ffi.so")
+    endif()
+
+    if(EXISTS "${BETTI_ROOT}/crates/Betti-ffi/include/Betti.h" AND EXISTS "${BETTI_FFI_LIB}")
+        add_executable(ultima_os_phase2_betti
+            "phase2_smoke_test.cpp"
+        )
+
+        target_compile_definitions(ultima_os_phase2_betti
+            PRIVATE
+                ULTIMA_BETTI_FFI_ENABLED=1
+        )
+
+        target_include_directories(ultima_os_phase2_betti
+            PRIVATE
+                "${BETTI_ROOT}/crates/Betti-ffi/include"
+        )
+
+        target_link_libraries(ultima_os_phase2_betti
+            PRIVATE
+                ultima_os_phase2_core
+                Threads::Threads
+                "${BETTI_FFI_LIB}"
+        )
+
+        set_target_properties(ultima_os_phase2_betti PROPERTIES
+            OUTPUT_NAME "phase2_smoke_betti"
+            RUNTIME_OUTPUT_DIRECTORY "${ULTIMA_PHASE2_OUTPUT_DIR}"
+            BUILD_RPATH "${BETTI_ROOT}/target/debug"
+        )
+    else()
+        message(WARNING "ULTIMA_ENABLE_BETTI_SIDECAR requested, but Betti-FFI header or library was not found under BETTI_ROOT=${BETTI_ROOT}")
+    endif()
+endif()

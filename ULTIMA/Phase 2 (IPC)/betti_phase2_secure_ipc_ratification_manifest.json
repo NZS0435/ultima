@@ -1,0 +1,13 @@
+{
+  "manifest_kind": "ultima_phase2_secure_ipc_ratification_v1",
+  "profile": "class_submission_sidecar",
+  "status": "pending_live_ratification",
+  "generated_by": "phase2_smoke_test --emit-betti-artifacts",
+  "theorem_status": {"specified": true, "implemented": true, "verified": true, "ratified": false},
+  "blockers": [
+    "No external live-operational evidence bundle from a classroom or lab environment.",
+    "IchorIR/MorphIR lowering is a sidecar artifact, not a native BETTI-ingested production path.",
+    "Constitutional promotion / trusted-path gating has not been run against an external ratification corpus.",
+    "The classroom secure IPC path uses deterministic simulation encryption, not production cryptography."
+  ]
+}

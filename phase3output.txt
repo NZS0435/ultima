@@ -1,0 +1,687 @@
+=== ULTIMA 2.0 Phase 3 - Memory Management Transcript ===
+
+=== Snapshot 1: Initial READY state ===
+
+Scheduler Dump
+==============
+Tick: 0
+Current Task: -1
+Last Event: Created Task_D_Waiter (T-4).
+Run Queue: Task_A_Writer(T-1, READY) -> Task_B_Writer(T-2, READY) -> Task_C_Reader(T-3, READY) -> Task_D_Waiter(T-4, READY)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   READY     0       0       0       0       Will allocate first-fit memory, publish readiness, and validate protection.
+         Last transition: Entered READY state.
+2       Task_B_Writer   READY     0       0       0       0       Will allocate the middle partition, then free it to create a hole.
+         Last transition: Entered READY state.
+3       Task_C_Reader   READY     0       0       0       0       Will allocate the trailing partition, perform single-byte writes, then free it.
+         Last transition: Entered READY state.
+4       Task_D_Waiter   READY     0       0       0       0       Will request a large block, block, wake, retry, and then free.
+         Last transition: Entered READY state.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 0
+
+  All mailboxes empty.
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 1024 | Largest: 1024 | Smallest: 1024 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Free      MMU         0         1023      1024      NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : ................................................................
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : ................................................................
+
+
+=== Snapshot 2: Task_A allocation + IPC ready ===
+
+Scheduler Dump
+==============
+Tick: 1
+Current Task: 1
+Last Event: Dispatching Task_A_Writer (T-1) at tick 1.
+Run Queue: Task_A_Writer(T-1, RUNNING) -> Task_B_Writer(T-2, READY) -> Task_C_Reader(T-3, READY) -> Task_D_Waiter(T-4, READY)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   RUNNING   1       0       0       0       Allocated 130 bytes (192 reserved) and published readiness.
+         Last transition: Entered RUNNING at scheduler tick 1.
+2       Task_B_Writer   READY     0       0       0       0       Will allocate the middle partition, then free it to create a hole.
+         Last transition: Entered READY state.
+3       Task_C_Reader   READY     0       0       0       0       Will allocate the trailing partition, perform single-byte writes, then free it.
+         Last transition: Entered READY state.
+4       Task_D_Waiter   READY     0       0       0       0       Will request a large block, block, wake, retry, and then free.
+         Last transition: Entered READY state.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 1
+
+Task Number: 3
+Message Count: 1
+Mail Box:
+Source    Destination Message Content                     Size    Type           Arrival Time
+--------------------------------------------------------------------------------------------
+1         3           Task_A buffer ready                 19      Text           01:53:55
+
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 832 | Largest: 832 | Smallest: 832 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Used      0x101       0         191       192       130         0           1
+Free      MMU         192       1023      832       NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : Task_A owns the first partition and announces readiness.........
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : ................................................................
+
+
+=== Snapshot 3: Task_B allocation + service message ===
+
+Scheduler Dump
+==============
+Tick: 2
+Current Task: 2
+Last Event: Dispatching Task_B_Writer (T-2) at tick 2.
+Run Queue: Task_A_Writer(T-1, READY) -> Task_B_Writer(T-2, RUNNING) -> Task_C_Reader(T-3, READY) -> Task_D_Waiter(T-4, READY)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   READY     1       1       0       0       Allocated 130 bytes (192 reserved) and published readiness.
+         Last transition: Yielded CPU and returned to READY.
+2       Task_B_Writer   RUNNING   1       0       0       0       Allocated 200 bytes (256 reserved) in the middle of core memory.
+         Last transition: Entered RUNNING at scheduler tick 2.
+3       Task_C_Reader   READY     0       0       0       0       Will allocate the trailing partition, perform single-byte writes, then free it.
+         Last transition: Entered READY state.
+4       Task_D_Waiter   READY     0       0       0       0       Will request a large block, block, wake, retry, and then free.
+         Last transition: Entered READY state.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 2
+
+Task Number: 1
+Message Count: 1
+Mail Box:
+Source    Destination Message Content                     Size    Type           Arrival Time
+--------------------------------------------------------------------------------------------
+2         1           Task_B middle block allocated       29      Service        01:53:55
+
+Task Number: 3
+Message Count: 1
+Mail Box:
+Source    Destination Message Content                     Size    Type           Arrival Time
+--------------------------------------------------------------------------------------------
+1         3           Task_A buffer ready                 19      Text           01:53:55
+
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 576 | Largest: 576 | Smallest: 576 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Used      0x101       0         191       192       130         0           1
+Used      0x202       192       447       256       200         0           2
+Free      MMU         448       1023      576       NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : Task_A owns the first partition and announces readiness.........
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : Task_B occupies the middle partition to create a later hole.....
+
+
+=== Snapshot 4: Task_C single-byte write + mailbox receive ===
+
+Scheduler Dump
+==============
+Tick: 3
+Current Task: 3
+Last Event: Dispatching Task_C_Reader (T-3) at tick 3.
+Run Queue: Task_A_Writer(T-1, READY) -> Task_B_Writer(T-2, READY) -> Task_C_Reader(T-3, RUNNING) -> Task_D_Waiter(T-4, READY)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   READY     1       1       0       0       Allocated 130 bytes (192 reserved) and published readiness.
+         Last transition: Yielded CPU and returned to READY.
+2       Task_B_Writer   READY     1       1       0       0       Allocated 200 bytes (256 reserved) in the middle of core memory.
+         Last transition: Yielded CPU and returned to READY.
+3       Task_C_Reader   RUNNING   1       0       0       0       Allocated 100 bytes (128 reserved), streamed writes, and consumed IPC text.
+         Last transition: Entered RUNNING at scheduler tick 3.
+4       Task_D_Waiter   READY     0       0       0       0       Will request a large block, block, wake, retry, and then free.
+         Last transition: Entered READY state.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 1
+
+Task Number: 1
+Message Count: 1
+Mail Box:
+Source    Destination Message Content                     Size    Type           Arrival Time
+--------------------------------------------------------------------------------------------
+2         1           Task_B middle block allocated       29      Service        01:53:55
+
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 448 | Largest: 448 | Smallest: 448 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Used      0x101       0         191       192       130         0           1
+Used      0x202       192       447       256       200         0           2
+Used      0x303       448       575       128       100         53          3
+Free      MMU         576       1023      448       NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : Task_A owns the first partition and announces readiness.........
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : Task_B occupies the middle partition to create a later hole.....
+
+
+=== Snapshot 5: Task_D blocked on insufficient contiguous memory ===
+
+Scheduler Dump
+==============
+Tick: 4
+Current Task: 4
+Last Event: Blocked Task_D_Waiter (T-4).
+Run Queue: Task_A_Writer(T-1, READY) -> Task_B_Writer(T-2, READY) -> Task_C_Reader(T-3, READY) -> Task_D_Waiter(T-4, BLOCKED)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   READY     1       1       0       0       Allocated 130 bytes (192 reserved) and published readiness.
+         Last transition: Yielded CPU and returned to READY.
+2       Task_B_Writer   READY     1       1       0       0       Allocated 200 bytes (256 reserved) in the middle of core memory.
+         Last transition: Yielded CPU and returned to READY.
+3       Task_C_Reader   READY     1       1       0       0       Allocated 100 bytes (128 reserved), streamed writes, and consumed IPC text.
+         Last transition: Yielded CPU and returned to READY.
+4       Task_D_Waiter   BLOCKED   1       0       1       0       Blocked in Mem_Alloc because the largest free segment is too small.
+         Last transition: Entered BLOCKED state.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 1
+
+Task Number: 1
+Message Count: 1
+Mail Box:
+Source    Destination Message Content                     Size    Type           Arrival Time
+--------------------------------------------------------------------------------------------
+2         1           Task_B middle block allocated       29      Service        01:53:55
+
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 448 | Largest: 448 | Smallest: 448 | Waiting: 1
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Used      0x101       0         191       192       130         0           1
+Used      0x202       192       447       256       200         0           2
+Used      0x303       448       575       128       100         53          3
+Free      MMU         576       1023      448       NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : Task_A owns the first partition and announces readiness.........
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : Task_B occupies the middle partition to create a later hole.....
+
+
+=== Snapshot 6: Task_A read-back + mailbox receive ===
+
+Scheduler Dump
+==============
+Tick: 5
+Current Task: 1
+Last Event: Dispatching Task_A_Writer (T-1) at tick 5.
+Run Queue: Task_A_Writer(T-1, RUNNING) -> Task_B_Writer(T-2, READY) -> Task_C_Reader(T-3, READY) -> Task_D_Waiter(T-4, BLOCKED)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   RUNNING   2       1       0       0       Validated read-back from its own partition and inspected mailbox.
+         Last transition: Entered RUNNING at scheduler tick 5.
+2       Task_B_Writer   READY     1       1       0       0       Allocated 200 bytes (256 reserved) in the middle of core memory.
+         Last transition: Yielded CPU and returned to READY.
+3       Task_C_Reader   READY     1       1       0       0       Allocated 100 bytes (128 reserved), streamed writes, and consumed IPC text.
+         Last transition: Yielded CPU and returned to READY.
+4       Task_D_Waiter   BLOCKED   1       0       1       0       Blocked in Mem_Alloc because the largest free segment is too small.
+         Last transition: Entered BLOCKED state.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 0
+
+  All mailboxes empty.
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 448 | Largest: 448 | Smallest: 448 | Waiting: 1
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Used      0x101       0         191       192       130         0           1
+Used      0x202       192       447       256       200         0           2
+Used      0x303       448       575       128       100         53          3
+Free      MMU         576       1023      448       NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : Task_A owns the first partition and announces readiness.........
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : Task_B occupies the middle partition to create a later hole.....
+
+
+=== Snapshot 7: Task_B free ===
+
+Scheduler Dump
+==============
+Tick: 6
+Current Task: 2
+Last Event: Marked Task_B_Writer (T-2) DEAD.
+Run Queue: Task_A_Writer(T-1, READY) -> Task_C_Reader(T-3, READY) -> Task_D_Waiter(T-4, READY)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   READY     2       2       0       0       Validated read-back from its own partition and inspected mailbox.
+         Last transition: Yielded CPU and returned to READY.
+2       Task_B_Writer   DEAD      2       1       0       0       Allocated 200 bytes (256 reserved) in the middle of core memory.
+         Last transition: Entered DEAD state.
+3       Task_C_Reader   READY     1       1       0       0       Allocated 100 bytes (128 reserved), streamed writes, and consumed IPC text.
+         Last transition: Yielded CPU and returned to READY.
+4       Task_D_Waiter   READY     1       0       1       1       Blocked in Mem_Alloc because the largest free segment is too small.
+         Last transition: Woken from BLOCKED and returned to READY.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 0
+
+  All mailboxes empty.
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 704 | Largest: 448 | Smallest: 256 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Used      0x101       0         191       192       130         0           1
+Free      MMU         192       447       256       NA          NA          MMU
+Used      0x303       448       575       128       100         53          3
+Free      MMU         576       1023      448       NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : Task_A owns the first partition and announces readiness.........
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : ................................................................
+
+
+=== Snapshot 8: Task_C free + shark pond wake-up ===
+
+Scheduler Dump
+==============
+Tick: 7
+Current Task: 3
+Last Event: Marked Task_C_Reader (T-3) DEAD.
+Run Queue: Task_A_Writer(T-1, READY) -> Task_D_Waiter(T-4, READY)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   READY     2       2       0       0       Validated read-back from its own partition and inspected mailbox.
+         Last transition: Yielded CPU and returned to READY.
+2       Task_B_Writer   DEAD      2       1       0       0       Allocated 200 bytes (256 reserved) in the middle of core memory.
+         Last transition: Entered DEAD state.
+3       Task_C_Reader   DEAD      2       1       0       0       Allocated 100 bytes (128 reserved), streamed writes, and consumed IPC text.
+         Last transition: Entered DEAD state.
+4       Task_D_Waiter   READY     1       0       1       1       Blocked in Mem_Alloc because the largest free segment is too small.
+         Last transition: Woken from BLOCKED and returned to READY.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 0
+
+  All mailboxes empty.
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 832 | Largest: 832 | Smallest: 832 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Used      0x101       0         191       192       130         0           1
+Free      MMU         192       1023      832       NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : Task_A owns the first partition and announces readiness.........
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : ................................................................
+
+
+=== Snapshot 9: Task_D acquired coalesced partition ===
+
+Scheduler Dump
+==============
+Tick: 8
+Current Task: 4
+Last Event: Dispatching Task_D_Waiter (T-4) at tick 8.
+Run Queue: Task_A_Writer(T-1, READY) -> Task_D_Waiter(T-4, RUNNING)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   READY     2       2       0       0       Validated read-back from its own partition and inspected mailbox.
+         Last transition: Yielded CPU and returned to READY.
+2       Task_B_Writer   DEAD      2       1       0       0       Allocated 200 bytes (256 reserved) in the middle of core memory.
+         Last transition: Entered DEAD state.
+3       Task_C_Reader   DEAD      2       1       0       0       Allocated 100 bytes (128 reserved), streamed writes, and consumed IPC text.
+         Last transition: Entered DEAD state.
+4       Task_D_Waiter   RUNNING   2       0       1       1       Acquired 500 bytes (512 reserved) after the shark-pond wake-up.
+         Last transition: Entered RUNNING at scheduler tick 8.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 1
+
+Task Number: 1
+Message Count: 1
+Mail Box:
+Source    Destination Message Content                     Size    Type           Arrival Time
+--------------------------------------------------------------------------------------------
+4         1           Task_D acquired coalesced memory    32      Notification   01:53:55
+
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 320 | Largest: 320 | Smallest: 320 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Used      0x101       0         191       192       130         0           1
+Used      0x404       192       703       512       500         0           4
+Free      MMU         704       1023      320       NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : Task_A owns the first partition and announces readiness.........
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : Task_D now owns the coalesced partition after waiting...........
+
+
+=== Snapshot 10: Task_A protection test + free ===
+
+Scheduler Dump
+==============
+Tick: 9
+Current Task: 1
+Last Event: Marked Task_A_Writer (T-1) DEAD.
+Run Queue: Task_D_Waiter(T-4, READY)
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   DEAD      3       2       0       0       Validated read-back from its own partition and inspected mailbox.
+         Last transition: Entered DEAD state.
+2       Task_B_Writer   DEAD      2       1       0       0       Allocated 200 bytes (256 reserved) in the middle of core memory.
+         Last transition: Entered DEAD state.
+3       Task_C_Reader   DEAD      2       1       0       0       Allocated 100 bytes (128 reserved), streamed writes, and consumed IPC text.
+         Last transition: Entered DEAD state.
+4       Task_D_Waiter   READY     2       1       1       1       Acquired 500 bytes (512 reserved) after the shark-pond wake-up.
+         Last transition: Yielded CPU and returned to READY.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 1
+
+Task Number: 1
+Message Count: 1
+Mail Box:
+Source    Destination Message Content                     Size    Type           Arrival Time
+--------------------------------------------------------------------------------------------
+4         1           Task_D acquired coalesced memory    32      Notification   01:53:55
+
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 512 | Largest: 320 | Smallest: 192 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Free      MMU         0         191       192       NA          NA          MMU
+Used      0x404       192       703       512       500         0           4
+Free      MMU         704       1023      320       NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : ................................................................
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : Task_D now owns the coalesced partition after waiting...........
+
+
+=== Snapshot 11: Task_D final free ===
+
+Scheduler Dump
+==============
+Tick: 10
+Current Task: 4
+Last Event: Marked Task_D_Waiter (T-4) DEAD.
+Run Queue: [empty]
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+1       Task_A_Writer   DEAD      3       2       0       0       Validated read-back from its own partition and inspected mailbox.
+         Last transition: Entered DEAD state.
+2       Task_B_Writer   DEAD      2       1       0       0       Allocated 200 bytes (256 reserved) in the middle of core memory.
+         Last transition: Entered DEAD state.
+3       Task_C_Reader   DEAD      2       1       0       0       Allocated 100 bytes (128 reserved), streamed writes, and consumed IPC text.
+         Last transition: Entered DEAD state.
+4       Task_D_Waiter   DEAD      3       1       1       1       Acquired 500 bytes (512 reserved) after the shark-pond wake-up.
+         Last transition: Entered DEAD state.
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 1
+
+Task Number: 1
+Message Count: 1
+Mail Box:
+Source    Destination Message Content                     Size    Type           Arrival Time
+--------------------------------------------------------------------------------------------
+4         1           Task_D acquired coalesced memory    32      Notification   01:53:55
+
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 1024 | Largest: 1024 | Smallest: 1024 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Free      MMU         0         1023      1024      NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : ................................................................
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : ................................................................
+
+
+=== Snapshot 12: Final state after garbage collection ===
+
+Scheduler Dump
+==============
+Tick: 10
+Current Task: -1
+Last Event: Garbage collection removed DEAD tasks from the process table.
+Run Queue: [empty]
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+
+
+Semaphore Summary
+=================
+Core: value=1 owner=-1 wait=[empty]
+Printer: value=1 owner=-1 wait=[empty]
+
+=== IPC MESSAGE DUMP (All Mailboxes) ===
+Total messages: 0
+
+  All mailboxes empty.
+
+Memory Usage Ledger
+===================
+Core Bytes: 1024 | Block Size: 64 | Free: 1024 | Largest: 1024 | Smallest: 1024 | Waiting: 0
+
+Status    Handle      Start     End       Bytes     Requested   Current     Task-ID
+------------------------------------------------------------------------------
+Free      MMU         0         1023      1024      NA          NA          MMU
+
+Memory Core Dump (Character View)
+=================================
+   0 : ................................................................
+  64 : ................................................................
+ 128 : ................................................................
+ 192 : ................................................................
+
+
+=== Event Log ===
+  Phase 3 initialization: scheduler, semaphores, IPC, and MMU reset.
+  Testing strategy: capture cumulative dumps after each visible state transition.
+  Created Task_A_Writer id=1
+  Created Task_B_Writer id=2
+  Created Task_C_Reader id=3
+  Created Task_D_Waiter id=4
+  --- STEP 1/12: Initial READY state ---
+  [MMU] Mem_Alloc granted 130 requested bytes (192 reserved) to T-1 at base 0 with handle 0x101.
+  [MMU] Mem_Write copied 56 byte(s) into handle 0x101 starting at offset 0.
+  [Semaphore] down() on mailbox 3 - critical section ENTER
+  [Semaphore] up()   on mailbox 3 - critical section LEAVE
+  MSG SENT: T-1 -> T-3 [Text] "Task_A buffer ready"
+  Task_A sent IPC text to Task_C after its first-fit allocation.
+  --- STEP 2/12: Task_A allocation + IPC ready ---
+  [MMU] Mem_Alloc granted 200 requested bytes (256 reserved) to T-2 at base 192 with handle 0x202.
+  [MMU] Mem_Write copied 60 byte(s) into handle 0x202 starting at offset 0.
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG SENT: T-2 -> T-1 [Service] "Task_B middle block allocated"
+  Task_B sent a service-style IPC note to Task_A.
+  --- STEP 3/12: Task_B allocation + service message ---
+  [MMU] Mem_Alloc granted 100 requested bytes (128 reserved) to T-3 at base 448 with handle 0x303.
+  Task_C completed single-byte Mem_Write calls across its partition.
+  [Semaphore] down() on mailbox 3 - critical section ENTER
+  [Semaphore] up()   on mailbox 3 - critical section LEAVE
+  MSG RECV: T-3 got msg from T-1 [Text] "Task_A buffer ready"
+  Task_C received mailbox text from T-1: "Task_A buffer ready"
+  --- STEP 4/12: Task_C single-byte write + mailbox receive ---
+  [MMU] Mem_Alloc could not satisfy 500 requested bytes (512 reserved) for T-4; largest free segment is 448 bytes.
+  --- STEP 5/12: Task_D blocked on insufficient contiguous memory ---
+  [MMU] Mem_Read copied 32 byte(s) from handle 0x101 starting at offset 0.
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG RECV: T-1 got msg from T-2 [Service] "Task_B middle block allocated"
+  Task_A received mailbox text from T-2: "Task_B middle block allocated"
+  --- STEP 6/12: Task_A read-back + mailbox receive ---
+  [MMU] Mem_Free released handle 0x202 from T-2; Mem_Coalesce performed 0 merge(s).
+  --- STEP 7/12: Task_B free / first coalesce view ---
+  [MMU] Mem_Free released handle 0x303 from T-3; Mem_Coalesce performed 2 merge(s).
+  Shark-pond wake-up: Task_D returned to READY after Task_C freed memory.
+  --- STEP 8/12: Task_C free + shark pond wake-up ---
+  [MMU] Mem_Alloc granted 500 requested bytes (512 reserved) to T-4 at base 192 with handle 0x404.
+  Task_D woke after the shark-pond retry path and won the coalesced segment.
+  [MMU] Mem_Write copied 54 byte(s) into handle 0x404 starting at offset 0.
+  [Semaphore] down() on mailbox 1 - critical section ENTER
+  [Semaphore] up()   on mailbox 1 - critical section LEAVE
+  MSG SENT: T-4 -> T-1 [Notification] "Task_D acquired coalesced memory"
+  Task_D sent a notification to Task_A after acquiring coalesced memory.
+  --- STEP 9/12: Task_D acquired coalesced partition ---
+  [MMU] Segmentation fault prevented single-byte write on handle 0x404.
+  Task_A attempted a foreign write into Task_D memory and the MMU rejected it.
+  [MMU] Mem_Free released handle 0x101 from T-1; Mem_Coalesce performed 0 merge(s).
+  --- STEP 10/12: Task_A protection test + free ---
+  [MMU] Mem_Free released handle 0x404 from T-4; Mem_Coalesce performed 2 merge(s).
+  --- STEP 11/12: Task_D final free ---
+  Phase 3 cleanup: invoking garbage collector on DEAD tasks.
+  --- STEP 12/12: Final state after garbage collection ---
+
+=== End Transcript ===

@@ -15,19 +15,24 @@ endif
 
 PHASE1_DIR := ULTIMA/Phase 1 (Scheduler)
 PHASE2_DIR := ULTIMA/Phase 2 (IPC)
+PHASE3_DIR := ULTIMA/Phase 3 (Memory Management)
 PHASE1_OUTPUT := $(CURDIR)/phase1output.txt
+PHASE3_OUTPUT := $(CURDIR)/phase3output.txt
 
-.PHONY: all build run test clean phase1 phase2 transcript phase1-test phase2-test
+.PHONY: all build run test clean phase1 phase2 phase3 transcript phase1-test phase2-test phase3-test
 
 all: test
 
-build: phase1 phase2
+build: phase1 phase2 phase3
 
 phase1:
 	$(MAKE) -C "$(PHASE1_DIR)" build
 
 phase2:
 	$(MAKE) -C "$(PHASE2_DIR)" build
+
+phase3:
+	$(MAKE) -C "$(PHASE3_DIR)" build
 
 run:
 	$(MAKE) -C "$(PHASE1_DIR)" run
@@ -41,9 +46,14 @@ phase1-test:
 phase2-test:
 	$(MAKE) -C "$(PHASE2_DIR)" test
 
-test: phase1-test phase2-test
+phase3-test:
+	$(MAKE) -C "$(PHASE3_DIR)" test OUTPUT_FILE="$(PHASE3_OUTPUT)"
+
+test: phase1-test phase2-test phase3-test
 
 clean:
 	$(MAKE) -C "$(PHASE1_DIR)" clean
 	$(MAKE) -C "$(PHASE2_DIR)" clean
+	$(MAKE) -C "$(PHASE3_DIR)" clean OUTPUT_FILE="$(PHASE3_OUTPUT)"
 	rm -f "$(PHASE1_OUTPUT)"
+	rm -f "$(PHASE3_OUTPUT)"

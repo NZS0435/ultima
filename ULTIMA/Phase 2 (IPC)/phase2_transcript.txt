@@ -1,7 +1,10 @@
 
-=== ULTIMA 2.0 Phase 2 -- Event Transcript ===
+=== ULTIMA 2.0 Phase 2 -- Secure IPC Event Transcript ===
 
   IPC Messenger initialized — 16 mailbox slots allocated.
+  SECURITY STORY: baseline plaintext IPC is visible from the first frame.
+  PRIVACY STORY: Task 3 is the secure mailbox target for the full demo.
+  ENCRYPTION STORY: ciphertext-at-rest and authorized decrypt arrive later in the run.
   Created Task 1 (Professor window) id=1
   Created Task 2 (Team window)      id=2
   Created Task 3 (Favorite window)  id=3
@@ -65,7 +68,25 @@
   [Semaphore] up()   on mailbox 2 - critical section LEAVE
   [Semaphore] down() on mailbox 3 - critical section ENTER
   [Semaphore] up()   on mailbox 3 - critical section LEAVE
-  --- STEP 13: Task cleanup -- kill + garbage collect ---
+  --- STEP 13: Configure Task 3 secure mailbox (restricted access + encryption) ---
+  SECURITY CONFIG: mailbox T-3 restricted=yes encrypted=yes
+  SECURITY ACL: mailbox T-3 allows sender T-2
+  --- STEP 14: Task 1 attempts unauthorized secure send to Task 3 ---
+  ACCESS DENIED: T-1 cannot send to secure mailbox T-3
+  Task 1 secure send denied as expected.
+  --- STEP 15: Task 2 sends encrypted payload to Task 3 ---
+  [Semaphore] down() on mailbox 3 - critical section ENTER
+  [Semaphore] up()   on mailbox 3 - critical section LEAVE
+  MSG SENT SECURE: T-2 -> T-3 [Service] ENC:839ED224537B534323DD8E85A6B6...
+  Task 3 secure mailbox now holds ciphertext-at-rest only.
+  --- STEP 16: Task 1 read denied; Task 3 decrypts secure payload ---
+  ACCESS DENIED: T-1 cannot read secure mailbox T-3
+  Task 1 secure read denied as expected.
+  [Semaphore] down() on mailbox 3 - critical section ENTER
+  [Semaphore] up()   on mailbox 3 - critical section LEAVE
+  MSG RECV SECURE: T-3 got decrypted msg from T-2 [Service] "Extra credit secure payload"
+  Task 3 decrypted secure payload: "Extra credit secure payload" from T-2 [Service]
+  --- STEP 17: Task cleanup -- kill + garbage collect ---
   System cleanup: tasks marked DEAD, invoking garbage collector.
   Garbage collector: Garbage collection removed DEAD tasks from the process table.
   All tasks killed and garbage collected.

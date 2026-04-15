@@ -15,6 +15,10 @@
 #define MESSAGE_H
 
 #include <ctime>
+#include <cstddef>
+
+constexpr std::size_t ULTIMA_MESSAGE_TEXT_CAPACITY = 65;
+constexpr std::size_t ULTIMA_MESSAGE_CIPHER_CAPACITY = (ULTIMA_MESSAGE_TEXT_CAPACITY - 1) * 2 + 1;
 
 /**
  * Definitions matching the Phase II rubric requirements.
@@ -33,7 +37,11 @@ struct Message {
     std::time_t Message_Arrival_Time;
     Message_Type Msg_Type;
     int Msg_Size;
-    char Msg_Text[65]; // 64 usable chars + null terminator
+    char Msg_Text[ULTIMA_MESSAGE_TEXT_CAPACITY]; // Plaintext delivered to authorized receiver only
+    char Msg_Cipher_Text[ULTIMA_MESSAGE_CIPHER_CAPACITY]; // Hex-encoded ciphertext for encrypted-at-rest storage
+    bool Is_Encrypted;
+    bool Access_Restricted;
+    int Security_Tag;
 };
 
 #endif // MESSAGE_H

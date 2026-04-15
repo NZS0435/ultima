@@ -1,0 +1,36 @@
+{
+  "profile_kind": "ultima_phase2_secure_ipc_live_profile_v1",
+  "theme": "Security/Privacy/Encryption",
+  "source_binary": "phase2_smoke_test",
+  "task_ids": {"sender": 1, "receiver": 2, "rogue": 3},
+  "secure_mailbox": {
+    "task_id": 2,
+    "ciphertext_queue_depth": 1,
+    "ciphertext_preview": "3D29CF60485D04B49A43893015",
+    "security_overview": "Security profiles:\nT-1: Open mailbox\nT-2: Encrypted / Restricted / senders=1 / readers=2\nT-3: Open mailbox\n"
+  },
+  "betti_snapshot": {
+    "domain": "sched",
+    "seed_tick": 201,
+    "load": 433,
+    "fragmentation": 26,
+    "queue_depth": 1,
+    "locale": 2
+  },
+  "betti_risk": {
+    "structural": 0.513184,
+    "fragmentation": 0.422852,
+    "latency": 0.0143229,
+    "instability": 0.334961
+  },
+  "betti_ph": {
+    "b0": 2,
+    "b1": 5,
+    "b2": 16,
+    "deltas": [-407, -5, 73]
+  },
+  "budgeted_task": {"task_id": 1, "cancel_rc": 0},
+  "focus_hash_hex": "a3c90c6de41bf90a280b7713201080b259fadb632b14d14b35be8c165b3ee657",
+  "commit_move_kind": "P23",
+  "commit_rc": 0
+}

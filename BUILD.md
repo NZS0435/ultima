@@ -227,3 +227,9 @@ Preferred presentation layout at `140 x 62`:
 - `Sema.h` / `Sema.cpp`: FIFO binary semaphore for `Printer_Output`.
 - `Mem_mgr.h` / `Mem_mgr.cpp`: deterministic first-fit memory manager used by the demo to allocate, track, and free one buffer per task.
 - `Ultima.cpp`: ties the scheduler, semaphore, and memory manager together in the live proof-board and transcript flow.
+
+## Phase 3 Module Summary
+
+- `ULTIMA/Phase 3 (Memory Management)/mmu.h` / `mmu.cpp`: 1024-byte first-fit MMU with fixed 64-byte blocks, linked-list segment tracking, base/limit-style protection, coalescing, and char/hex dumps.
+- `ULTIMA/Phase 3 (Memory Management)/Phase3_main.cpp`: ncurses demonstration showing scheduler, semaphores, IPC, MMU ledger, core dump, cumulative testing checkpoints, and event log in one stepped UI.
+- `ULTIMA/Phase 3 (Memory Management)/phase3_smoke_test.cpp`: headless cumulative validation covering IPC, successful allocation, blocked allocation, shark-pond wake-up, coalescing, and protection faults.
