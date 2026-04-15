@@ -17,6 +17,8 @@ CXX ?= c++
 CXXFLAGS ?= -Wall -Wextra -g2 -std=c++17
 CPPFLAGS ?=
 LDFLAGS ?=
+OPENSSL_CFLAGS ?= $(shell pkg-config --cflags openssl 2>/dev/null)
+OPENSSL_LIBS ?= $(shell pkg-config --libs openssl 2>/dev/null || echo -lcrypto)
 
 TARGET := phase3_test
 SMOKE_TARGET := phase3_smoke_test
@@ -42,6 +44,7 @@ endif
 
 THREAD_LIBS ?= -pthread
 LDLIBS += $(THREAD_LIBS)
+LDLIBS += $(OPENSSL_LIBS)
 
 .PHONY: all build run transcript test clean
 
@@ -56,22 +59,22 @@ $(SMOKE_TARGET): $(SMOKE_OBJS)
 	$(CXX) $(LDFLAGS) -o "$@" $(SMOKE_OBJS) $(LDLIBS)
 
 $(MMU_OBJ): mmu.cpp mmu.h
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c "$<" -o "$@"
+	$(CXX) $(CPPFLAGS) $(OPENSSL_CFLAGS) $(CXXFLAGS) -c "$<" -o "$@"
 
 $(PHASE3_MAIN_OBJ): Phase3_main.cpp MCB.h mmu.h
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c "$<" -o "$@"
+	$(CXX) $(CPPFLAGS) $(OPENSSL_CFLAGS) $(CXXFLAGS) -c "$<" -o "$@"
 
 $(PHASE3_SMOKE_OBJ): phase3_smoke_test.cpp MCB.h mmu.h
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c "$<" -o "$@"
+	$(CXX) $(CPPFLAGS) $(OPENSSL_CFLAGS) $(CXXFLAGS) -c "$<" -o "$@"
 
 $(PHASE2_IPC_OBJ):
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c "../Phase 2 (IPC)/ipc.cpp" -o "$@"
+	$(CXX) $(CPPFLAGS) $(OPENSSL_CFLAGS) $(CXXFLAGS) -c "../Phase 4 (IPC EC)/ipc.cpp" -o "$@"
 
 $(PHASE2_SCHED_OBJ):
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c "../Phase 2 (IPC)/Sched.cpp" -o "$@"
+	$(CXX) $(CPPFLAGS) $(OPENSSL_CFLAGS) $(CXXFLAGS) -c "../Phase 4 (IPC EC)/Sched.cpp" -o "$@"
 
 $(PHASE2_SEMA_SYNC_OBJ):
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c "../Phase 2 (IPC)/Sema_sync.cpp" -o "$@"
+	$(CXX) $(CPPFLAGS) $(OPENSSL_CFLAGS) $(CXXFLAGS) -c "../Phase 4 (IPC EC)/Sema_sync.cpp" -o "$@"
 
 run: $(TARGET)
 	./$(TARGET)

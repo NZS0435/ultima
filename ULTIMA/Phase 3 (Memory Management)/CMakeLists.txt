@@ -37,9 +37,6 @@ endif()
 
 set(ULTIMA_PHASE3_CORE_SOURCES
     "mmu.cpp"
-    "../Phase 4 (IPC EC)/ipc.cpp"
-    "../Phase 4 (IPC EC)/Sched.cpp"
-    "../Phase 4 (IPC EC)/Sema_sync.cpp"
 )
 
 add_library(ultima_os_phase3_core STATIC ${ULTIMA_PHASE3_CORE_SOURCES})
@@ -54,12 +51,33 @@ target_link_libraries(ultima_os_phase3_core
         Threads::Threads
 )
 
+set(ULTIMA_PHASE3_IPC_LINK_TARGETS "")
+
+if(TARGET ultima_os_phase2_core)
+    list(APPEND ULTIMA_PHASE3_IPC_LINK_TARGETS ultima_os_phase2_core)
+else()
+    find_package(OpenSSL REQUIRED)
+
+    target_sources(ultima_os_phase3_core
+        PRIVATE
+            "../Phase 4 (IPC EC)/ipc.cpp"
+            "../Phase 4 (IPC EC)/Sched.cpp"
+            "../Phase 4 (IPC EC)/Sema_sync.cpp"
+    )
+
+    target_link_libraries(ultima_os_phase3_core
+        PRIVATE
+            OpenSSL::Crypto
+    )
+endif()
+
 add_executable(ultima_os_phase3 "Phase3_main.cpp")
 add_executable(ultima_os_phase3_smoke "phase3_smoke_test.cpp")
 
 target_link_libraries(ultima_os_phase3
     PRIVATE
         ultima_os_phase3_core
+        ${ULTIMA_PHASE3_IPC_LINK_TARGETS}
         Threads::Threads
         ${CURSES_LIBRARIES}
 )
@@ -72,6 +90,7 @@ target_include_directories(ultima_os_phase3
 target_link_libraries(ultima_os_phase3_smoke
     PRIVATE
         ultima_os_phase3_core
+        ${ULTIMA_PHASE3_IPC_LINK_TARGETS}
         Threads::Threads
 )
 
