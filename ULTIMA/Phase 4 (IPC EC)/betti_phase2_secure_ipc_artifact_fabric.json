@@ -1,0 +1,17 @@
+{
+  "artifact_kind": "ultima_phase2_secure_ipc_artifact_fabric_v1",
+  "artifact_root_prefix": "betti_phase2_secure_ipc",
+  "artifacts": [
+    {"artifact_id": "artifact/snapshot_witness", "path": "betti_phase2_secure_ipc_snapshot_witness.jcs"},
+    {"artifact_id": "artifact/commit_witness", "path": "betti_phase2_secure_ipc_commit_witness.jcs"},
+    {"artifact_id": "artifact/live_profile", "path": "betti_phase2_secure_ipc_live_profile.json"},
+    {"artifact_id": "artifact/shadow_cells", "path": "betti_phase2_secure_ipc_shadow_cells.json"},
+    {"artifact_id": "artifact/lowering", "path": "betti_phase2_secure_ipc_ichorir_morphir_lowering.json"}
+  ],
+  "lineage_edges": [
+    {"parent": "phase2_smoke_test", "child": "artifact/snapshot_witness", "law": "secure_mailbox_snapshot"},
+    {"parent": "artifact/snapshot_witness", "child": "artifact/live_profile", "law": "witness_enriches_profile"},
+    {"parent": "artifact/live_profile", "child": "artifact/shadow_cells", "law": "live_profile_projects_shadow_cell"},
+    {"parent": "artifact/live_profile", "child": "artifact/lowering", "law": "profile_lowers_into_ichorir_morphir_sidecar"}
+  ]
+}
