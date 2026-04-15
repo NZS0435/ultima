@@ -17,6 +17,7 @@
 #include "Message.h"
 #include "Sched.h"
 
+#include <array>
 #include <ctime>
 #include <cstdint>
 #include <iomanip>
@@ -34,6 +35,7 @@ struct MailboxSecurityProfile {
     bool restricted_access_enabled = false;
     bool encryption_enabled = false;
     std::string shared_secret;
+    std::uint64_t nonce_counter = 0;
     std::unordered_set<int> authorized_senders;
     std::unordered_set<int> authorized_receivers;
 };
@@ -47,22 +49,24 @@ private:
     bool valid_task(int task_id) const;
     static const char* type_id_to_string(int type_id);
     static std::string make_payload_preview(const Message& message);
-    static std::uint64_t compute_stream_seed(const MailboxSecurityProfile& profile,
-                                             const Message& message);
-    static std::uint64_t next_stream_value(std::uint64_t& state);
-    static std::string encrypt_to_hex(const MailboxSecurityProfile& profile, const Message& message);
+    static std::array<unsigned char, 64> derive_betti_bits_master_key(const MailboxSecurityProfile& profile,
+                                                                      const Message& message);
+    static std::string betti_bits_digest_hex(const std::string& value);
+    static std::string encrypt_to_hex(MailboxSecurityProfile* profile, const Message& message);
     static bool decrypt_from_hex(const MailboxSecurityProfile& profile, Message* message);
-    static int compute_security_tag(const MailboxSecurityProfile& profile, const Message& message);
+    static int compute_security_tag(const Message& message);
     MailboxSecurityProfile* get_security_profile_mut(int task_id);
     const MailboxSecurityProfile* get_security_profile(int task_id) const;
     bool sender_authorized(int sender_id, int destination_task_id) const;
     bool receiver_authorized(int requester_id, int mailbox_task_id) const;
-    void apply_mailbox_security(Message* message);
+    bool apply_mailbox_security(Message* message);
     bool deliver_mailbox_message(int requester_id, int mailbox_task_id, Message* message);
 
 public:
     ipc();
     explicit ipc(int max_tasks, Scheduler* sched = nullptr);
+
+    static std::string secure_payload_digest_label(const Message& message);
 
     int init(int max_tasks, Scheduler* sched);
 

@@ -77,8 +77,6 @@ static const std::string kSecurityTheme =
     "Security | Privacy | Encryption";
 static const std::string kSecureSecret =
     "THUNDER-SECURE-IPC";
-static const std::string kSecurePayload =
-    "Extra credit secure payload";
 static constexpr int TOTAL_DEMO_STEPS = 17;
 static bool g_headless_transcript_mode = false;
 static std::string g_transcript_output_path;
@@ -136,10 +134,23 @@ struct Panel {
         std::istringstream stream(text);
         std::string line;
         while (std::getline(stream, line) && r < rows - 1) {
-            if (color_pair > 0) wattron(win, COLOR_PAIR(color_pair));
-            mvwprintw(win, r, 1, "%-*.*s", usable_w, usable_w, line.c_str());
-            if (color_pair > 0) wattroff(win, COLOR_PAIR(color_pair));
-            ++r;
+            if (line.empty()) {
+                if (color_pair > 0) wattron(win, COLOR_PAIR(color_pair));
+                mvwprintw(win, r, 1, "%-*.*s", usable_w, usable_w, "");
+                if (color_pair > 0) wattroff(win, COLOR_PAIR(color_pair));
+                ++r;
+                continue;
+            }
+
+            for (std::size_t offset = 0;
+                 offset < line.size() && r < rows - 1;
+                 offset += static_cast<std::size_t>(usable_w)) {
+                const std::string chunk = line.substr(offset, static_cast<std::size_t>(usable_w));
+                if (color_pair > 0) wattron(win, COLOR_PAIR(color_pair));
+                mvwprintw(win, r, 1, "%-*.*s", usable_w, usable_w, chunk.c_str());
+                if (color_pair > 0) wattroff(win, COLOR_PAIR(color_pair));
+                ++r;
+            }
         }
         return r;
     }
@@ -247,11 +258,7 @@ static std::string format_time_short(std::time_t arrival_time) {
 
 static std::string format_message_preview(const Message& message) {
     if (message.Is_Encrypted) {
-        std::string preview = message.Msg_Cipher_Text;
-        if (preview.size() > 24) {
-            preview = preview.substr(0, 24) + "...";
-        }
-        return "ENC:" + preview;
+        return ipc::secure_payload_digest_label(message);
     }
 
     return message.Msg_Text;
@@ -270,22 +277,28 @@ static std::string format_demo_step_banner() {
 
 static std::string format_security_posture() {
     if (g_current_demo_step <= 0) {
-        return "Open IPC baseline visible now; Task 3 secure mailbox hardening is staged for later.";
+        return "Task 3 secure mailbox is about to be armed before any message reaches it.";
     }
-    if (g_current_demo_step < 13) {
-        return "Plaintext IPC is visible by design so the later privacy + encryption upgrade is easy to compare.";
+    if (g_current_demo_step == 1) {
+        return "Task 3 mailbox is restricted and AES-256-GCM-ready from the first live frame.";
     }
-    if (g_current_demo_step == 13) {
-        return "Task 3 mailbox is now restricted and encryption-ready.";
+    if (g_current_demo_step == 2) {
+        return "Unauthorized senders are being denied against the active secure mailbox policy.";
     }
-    if (g_current_demo_step == 14) {
-        return "Unauthorized senders fail closed before ciphertext enters Task 3.";
+    if (g_current_demo_step >= 3 && g_current_demo_step <= 9) {
+        return "Security stays active while plaintext greetings and encrypted Task 3 delivery run in parallel.";
     }
-    if (g_current_demo_step == 15) {
-        return "Task 3 now stores ciphertext-at-rest pending an authorized decrypt.";
+    if (g_current_demo_step == 10) {
+        return "Unauthorized reads fail closed while Task 3 still holds ciphertext-at-rest.";
+    }
+    if (g_current_demo_step == 11) {
+        return "Only the authorized AES-256-GCM decrypt path can release Task 3's authenticated payload.";
+    }
+    if (g_current_demo_step >= 12 && g_current_demo_step <= 15) {
+        return "The secure IPC path is already proven and remains visible during the remaining Phase 2 utility demos.";
     }
     if (g_current_demo_step == 16) {
-        return "Unauthorized reads are denied; only the authorized decrypt path succeeds.";
+        return "Secure runtime surfaces are entering cleanup and garbage collection.";
     }
     return "Secure mailbox lifecycle is complete and the system has been cleaned up.";
 }
@@ -895,37 +908,41 @@ static std::string format_system_event_entry(const std::string& entry) {
     }
 
     if (entry.find("SECURITY CONFIG:") != std::string::npos) {
-        return "STEP 13: ACL + encryption enabled";
+        return "STEP 1: ACL + encryption enabled";
     }
 
     if (entry.find("SECURITY ACL:") != std::string::npos) {
-        return "STEP 13: authorized sender recorded";
+        return "STEP 1: authorized sender recorded";
     }
 
     if (entry.find("ACCESS DENIED:") != std::string::npos
         && entry.find("send to secure mailbox") != std::string::npos) {
-        return "STEP 14: unauthorized secure send denied";
+        return "STEP 2: unauthorized secure send denied";
     }
 
     if (entry.find("ACCESS DENIED:") != std::string::npos
         && entry.find("read secure mailbox") != std::string::npos) {
-        return "STEP 16: unauthorized secure read denied";
+        return "STEP 10: unauthorized secure read denied";
     }
 
     if (entry.find("MSG SENT SECURE:") != std::string::npos) {
-        return "STEP 15: encrypted payload queued";
+        return "STEP 7: AES-256-GCM payload queued";
     }
 
     if (entry.find("ciphertext-at-rest only") != std::string::npos) {
-        return "STEP 15: ciphertext visible in mailbox";
+        return "STEP 10: ciphertext visible in mailbox";
     }
 
     if (entry.find("MSG RECV SECURE:") != std::string::npos) {
-        return "STEP 16: authorized decrypt completed";
+        return "STEP 11: authorized decrypt completed";
     }
 
     if (entry.find("decrypted secure payload") != std::string::npos) {
-        return "STEP 16: plaintext delivered to T-3";
+        return "STEP 11: plaintext delivered to T-3";
+    }
+
+    if (entry.find("SECURITY SUMMARY:") != std::string::npos) {
+        return "STEP 15: secure trusted-path summary";
     }
 
     if (entry.find("STEP 17") != std::string::npos) {
@@ -1445,7 +1462,7 @@ int main(int argc, char* argv[]) {
     EventLog::instance().add("IPC Messenger initialized — 16 mailbox slots allocated.");
     EventLog::instance().add("SECURITY STORY: baseline plaintext IPC is visible from the first frame.");
     EventLog::instance().add("PRIVACY STORY: Task 3 is the secure mailbox target for the full demo.");
-    EventLog::instance().add("ENCRYPTION STORY: ciphertext-at-rest and authorized decrypt arrive later in the run.");
+    EventLog::instance().add("ENCRYPTION STORY: AES-256-GCM ciphertext-at-rest and authorized decrypt arrive later in the run.");
 
     /* ---- Create tasks ---- */
     int t1 = mcb.Swapper.create_task("Task_1_Window", nullptr);
@@ -1456,86 +1473,90 @@ int main(int argc, char* argv[]) {
     EventLog::instance().add("Created Task 3 (Favorite window)  id=" + std::to_string(t3));
 
     /* ================================================================
-     *  STEP 1: Initial State
+     *  STEP 1: Secure mailbox policy first
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 1: Initial State -- all tasks READY, all mailboxes empty ---");
-    mark_demo_step(1, "Initial state");
-    set_status("STEP 1/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Initial state -- all tasks READY, mailboxes empty");
+        "--- STEP 1: Security baseline -- configure Task 3 secure mailbox before any Task 3 delivery ---");
+    mcb.Messenger.Configure_Mailbox_Security(t3, kSecureSecret.c_str());
+    mcb.Messenger.Allow_Mailbox_Sender(t3, t2);
+    mark_demo_step(1, "Enable secure mailbox before message flow");
+    set_status("STEP 1/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 3 starts secure: restricted + encrypted");
     refresh_all(t1, t2, t3);
     wait_key();
 
     /* ================================================================
-     *  STEP 2: Task 1 sends Text to Task 3
+     *  STEP 2: Unauthorized secure send blocked immediately
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 2: Task 3 sends NOTIFICATION greeting to Task 1 ---");
+        "--- STEP 2: Task 1 attempts unauthorized secure send to Task 3 ---");
+    if (mcb.Messenger.Secure_Message_Send(t1, t3, "Unauthorized secure attempt", 1) != 1) {
+        EventLog::instance().add("Task 1 secure send denied as expected.");
+    }
+    mark_demo_step(2, "Unauthorized secure send denied");
+    set_status("STEP 2/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Unauthorized secure send to Task 3 is denied");
+    refresh_all(t1, t2, t3);
+    wait_key();
+
+    /* ================================================================
+     *  STEP 3: Task 3 sends greeting to Task 1
+     * ================================================================ */
+    EventLog::instance().add(
+        "--- STEP 3: Task 3 sends NOTIFICATION greeting to Task 1 ---");
     dispatch_to_task(t3);
     mcb.Messenger.Message_Send(t3, t1, kProfessorGreeting.c_str(), 2);
-    mark_demo_step(2, "Task 3 sends notification to Task 1");
-    set_status("STEP 2/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 3 sends \"" + kProfessorGreeting + "\" to Task 1");
+    mark_demo_step(3, "Task 3 sends notification to Task 1");
+    set_status("STEP 3/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 3 sends \"" + kProfessorGreeting + "\" to Task 1");
     refresh_all(t1, t2, t3);
     wait_key();
 
     /* ================================================================
-     *  STEP 3: State after Task 1 send
+     *  STEP 4: Observe Task 1 greeting
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 3: Observe -- Task 1 window now shows Professor greeting ---");
-    mark_demo_step(3, "Observe Task 1 greeting");
-    set_status("STEP 3/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Window 1 now says \"" + kProfessorGreeting + "\"");
+        "--- STEP 4: Observe -- Task 1 window now shows Professor greeting ---");
+    mark_demo_step(4, "Observe Task 1 greeting");
+    set_status("STEP 4/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Window 1 now says \"" + kProfessorGreeting + "\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
     /* ================================================================
-     *  STEP 4: Task 2 sends Service to Task 3
+     *  STEP 5: Task 1 sends text to Task 2
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 4: Task 1 sends TEXT greeting to Task 2 ---");
+        "--- STEP 5: Task 1 sends TEXT greeting to Task 2 ---");
     dispatch_to_task(t1);
     mcb.Messenger.Message_Send(t1, t2, kTeamGreeting.c_str(), 0);
-    mark_demo_step(4, "Task 1 sends text to Task 2");
-    set_status("STEP 4/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 1 sends \"" + kTeamGreeting + "\" to Task 2");
+    mark_demo_step(5, "Task 1 sends text to Task 2");
+    set_status("STEP 5/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 1 sends \"" + kTeamGreeting + "\" to Task 2");
     refresh_all(t1, t2, t3);
     wait_key();
 
     /* ================================================================
-     *  STEP 5: State after both sends
+     *  STEP 6: Observe Task 2 greeting
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 5: Observe -- Task 2 window now shows Team Thunder reply ---");
-    mark_demo_step(5, "Observe Task 2 greeting");
-    set_status("STEP 5/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Window 2 now says \"" + kTeamGreeting + "\"");
+        "--- STEP 6: Observe -- Task 2 window now shows Team Thunder reply ---");
+    mark_demo_step(6, "Observe Task 2 greeting");
+    set_status("STEP 6/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Window 2 now says \"" + kTeamGreeting + "\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
     /* ================================================================
-     *  STEP 6: Task 3 receives message #1 (Text)
+     *  STEP 7: Authorized secure send to Task 3
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 6: Task 2 sends SERVICE celebration to Task 3 ---");
+        "--- STEP 7: Task 2 sends BETTI-BITS-512(AES-256-GCM) SERVICE greeting to Task 3 ---");
     dispatch_to_task(t2);
-    mcb.Messenger.Message_Send(t2, t3, kTeamCelebration.c_str(), 1);
-    mark_demo_step(6, "Task 2 sends service to Task 3");
-    set_status("STEP 6/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 2 sends \"" + kTeamCelebration + "\" to Task 3");
+    if (mcb.Messenger.Secure_Message_Send(t2, t3, kTeamCelebration.c_str(), 1) == 1) {
+        EventLog::instance().add("Task 3 secure mailbox now holds ciphertext-at-rest only.");
+    }
+    mark_demo_step(7, "BETTI-BITS-512(AES-256-GCM) service greeting queued for Task 3");
+    set_status("STEP 7/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 2 sends AEAD-protected \"" + kTeamCelebration + "\" to Task 3");
     refresh_all(t1, t2, t3);
     wait_key();
 
     /* ================================================================
-     *  STEP 7: Task 3 receives message #2 (Service) + replies
-     * ================================================================ */
-    EventLog::instance().add(
-        "--- STEP 7: Observe -- all three windows now display the requested greetings ---");
-    mark_demo_step(7, "Observe all greetings");
-    set_status(
-        "STEP 7/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Window 1=\"" + kProfessorGreeting
-        + "\"  Window 2=\"" + kTeamGreeting
-        + "\"  Window 3=\"" + kTeamCelebration + "\"");
-    refresh_all(t1, t2, t3);
-    wait_key();
-
-    /* ================================================================
-     *  STEP 8: Post-receive state
+     *  STEP 8: Task 1 reads its mailbox greeting
      * ================================================================ */
     EventLog::instance().add(
         "--- STEP 8: Task 1 reads its mailbox greeting from Task 3 ---");
@@ -1555,7 +1576,7 @@ int main(int argc, char* argv[]) {
     wait_key();
 
     /* ================================================================
-     *  STEP 9: Task 2 reads its Notification
+     *  STEP 9: Task 2 reads its mailbox greeting
      * ================================================================ */
     EventLog::instance().add(
         "--- STEP 9: Task 2 reads its mailbox greeting from Task 1 ---");
@@ -1577,129 +1598,28 @@ int main(int argc, char* argv[]) {
     wait_key();
 
     /* ================================================================
-     *  STEP 10: Final state — all mailboxes empty
+     *  STEP 10: Unauthorized secure read blocked while ciphertext stays queued
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 10: Task 3 reads the SERVICE greeting from Task 2 ---");
-    {
-        Message reply;
-        int rc = mcb.Messenger.Message_Receive(t3, &reply);
-        if (rc == 1) {
-            std::ostringstream s;
-            s << "Task 3 received: \"" << reply.Msg_Text
-              << "\" from T-" << reply.Source_Task_Id
-              << " [" << reply.Msg_Type.Message_Type_Description << "]";
-            EventLog::instance().add(s.str());
-        }
-    }
-    mark_demo_step(10, "Task 3 reads service greeting");
-    set_status("STEP 10/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 3 reads \"" + kTeamCelebration + "\"");
-    refresh_all(t1, t2, t3);
-    wait_key();
-
-    /* ================================================================
-     *  STEP 11: Message_DeleteAll demonstration
-     * ================================================================ */
-    EventLog::instance().add(
-        "--- STEP 11: Message_DeleteAll demonstration ---");
-    mcb.Messenger.Message_Send(0, t1, "DeleteAll test msg 1", 0);
-    mcb.Messenger.Message_Send(0, t1, "DeleteAll test msg 2", 1);
-    mcb.Messenger.Message_Send(0, t1, "DeleteAll test msg 3", 2);
-    EventLog::instance().add(
-        "Sent 3 test messages (Text/Service/Notification) to Task 1");
-    mark_demo_step(11, "DeleteAll demonstration");
-    set_status("STEP 11/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Sent 3 messages to Task 1 for DeleteAll demo");
-    refresh_all(t1, t2, t3);
-    wait_key();
-
-    /* Now delete them all */
-    int deleted = mcb.Messenger.Message_DeleteAll(t1);
-    EventLog::instance().add(
-        "Message_DeleteAll(Task 1) removed "
-        + std::to_string(deleted) + " message(s)");
-    mark_demo_step(11, "DeleteAll completed");
-    set_status(
-        "STEP 11b :  Message_DeleteAll called -- Task 1 mailbox now empty ("
-        + std::to_string(deleted) + " removed)");
-    refresh_all(t1, t2, t3);
-    wait_key();
-
-    /* ================================================================
-     *  STEP 12: Message_Count demonstration
-     * ================================================================ */
-    EventLog::instance().add(
-        "--- STEP 12: Message_Count demonstration ---");
-    mcb.Messenger.Message_Send(0, t2, "Count demo A", 0);
-    mcb.Messenger.Message_Send(0, t3, "Count demo B", 1);
-    mcb.Messenger.Message_Send(0, t3, "Count demo C", 2);
-    {
-        int c2 = mcb.Messenger.Message_Count(t2);
-        int c3 = mcb.Messenger.Message_Count(t3);
-        int ct = mcb.Messenger.Message_Count();
-        std::ostringstream s;
-        s << "Message_Count: Task2=" << c2 << "  Task3=" << c3
-          << "  Total=" << ct;
-        EventLog::instance().add(s.str());
-    }
-    mark_demo_step(12, "Message_Count demonstration");
-    set_status("STEP 12/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Message_Count -- Task2=1, Task3=2, Total=3");
-    refresh_all(t1, t2, t3);
-    wait_key();
-
-    /* Clean up those messages */
-    mcb.Messenger.Message_DeleteAll(t2);
-    mcb.Messenger.Message_DeleteAll(t3);
-
-    /* ================================================================
-     *  STEP 13: Configure secure mailbox policy
-     * ================================================================ */
-    EventLog::instance().add(
-        "--- STEP 13: Configure Task 3 secure mailbox (restricted access + encryption) ---");
-    mcb.Messenger.Configure_Mailbox_Security(t3, kSecureSecret.c_str());
-    mcb.Messenger.Allow_Mailbox_Sender(t3, t2);
-    mark_demo_step(13, "Enable secure mailbox policy");
-    set_status("STEP 13/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 3 mailbox now requires ACL + encryption");
-    refresh_all(t1, t2, t3);
-    wait_key();
-
-    /* ================================================================
-     *  STEP 14: Unauthorized secure send blocked
-     * ================================================================ */
-    EventLog::instance().add(
-        "--- STEP 14: Task 1 attempts unauthorized secure send to Task 3 ---");
-    if (mcb.Messenger.Secure_Message_Send(t1, t3, "Unauthorized secure attempt", 1) != 1) {
-        EventLog::instance().add("Task 1 secure send denied as expected.");
-    }
-    mark_demo_step(14, "Unauthorized secure send denied");
-    set_status("STEP 14/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Unauthorized secure send to Task 3 is denied");
-    refresh_all(t1, t2, t3);
-    wait_key();
-
-    /* ================================================================
-     *  STEP 15: Authorized secure send stores ciphertext at rest
-     * ================================================================ */
-    EventLog::instance().add(
-        "--- STEP 15: Task 2 sends encrypted payload to Task 3 ---");
-    dispatch_to_task(t2);
-    if (mcb.Messenger.Secure_Message_Send(t2, t3, kSecurePayload.c_str(), 1) == 1) {
-        EventLog::instance().add("Task 3 secure mailbox now holds ciphertext-at-rest only.");
-    }
-    mark_demo_step(15, "Encrypted payload stored at rest");
-    set_status("STEP 15/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 2 sends encrypted payload to Task 3");
-    refresh_all(t1, t2, t3);
-    wait_key();
-
-    /* ================================================================
-     *  STEP 16: Unauthorized read blocked, owner decrypts payload
-     * ================================================================ */
-    EventLog::instance().add(
-        "--- STEP 16: Task 1 read denied; Task 3 decrypts secure payload ---");
+        "--- STEP 10: Task 1 read denied while Task 3 mailbox still holds ciphertext-at-rest ---");
     {
         Message blocked_probe {};
         if (mcb.Messenger.Secure_Message_Receive(t1, t3, &blocked_probe) != 1) {
             EventLog::instance().add("Task 1 secure read denied as expected.");
         }
+        EventLog::instance().add("Task 3 secure mailbox still holds ciphertext-at-rest only.");
+    }
+    mark_demo_step(10, "Unauthorized secure read denied");
+    set_status("STEP 10/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 1 cannot read Task 3 secure mailbox");
+    refresh_all(t1, t2, t3);
+    wait_key();
 
+    /* ================================================================
+     *  STEP 11: Task 3 performs authorized decrypt
+     * ================================================================ */
+    EventLog::instance().add(
+        "--- STEP 11: Task 3 decrypts the BETTI-BITS-512(AES-256-GCM) SERVICE greeting from Task 2 ---");
+    {
         Message secure_reply {};
         int secure_rc = mcb.Messenger.Secure_Message_Receive(t3, t3, &secure_reply);
         if (secure_rc == 1) {
@@ -1710,16 +1630,83 @@ int main(int argc, char* argv[]) {
             EventLog::instance().add(s.str());
         }
     }
-    mark_demo_step(16, "Authorized decrypt after denied read");
-    set_status("STEP 16/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 3 decrypts authorized payload");
+    mark_demo_step(11, "Authorized decrypt for Task 3");
+    set_status("STEP 11/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Task 3 verifies and decrypts \"" + kTeamCelebration + "\"");
     refresh_all(t1, t2, t3);
     wait_key();
 
     /* ================================================================
-     *  STEP 17: Cleanup & exit
+     *  STEP 12: Message_DeleteAll demonstration
      * ================================================================ */
     EventLog::instance().add(
-        "--- STEP 17: Task cleanup -- kill + garbage collect ---");
+        "--- STEP 12: Message_DeleteAll demonstration ---");
+    mcb.Messenger.Message_Send(0, t1, "DeleteAll test msg 1", 0);
+    mcb.Messenger.Message_Send(0, t1, "DeleteAll test msg 2", 1);
+    mcb.Messenger.Message_Send(0, t1, "DeleteAll test msg 3", 2);
+    EventLog::instance().add(
+        "Sent 3 test messages (Text/Service/Notification) to Task 1");
+    mark_demo_step(12, "DeleteAll demonstration");
+    set_status("STEP 12/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Sent 3 messages to Task 1 for DeleteAll demo");
+    refresh_all(t1, t2, t3);
+    wait_key();
+
+    /* Now delete them all */
+    int deleted = mcb.Messenger.Message_DeleteAll(t1);
+    EventLog::instance().add(
+        "--- STEP 13: DeleteAll completed -- Task 1 mailbox emptied ---");
+    EventLog::instance().add(
+        "Message_DeleteAll(Task 1) removed "
+        + std::to_string(deleted) + " message(s)");
+    mark_demo_step(13, "DeleteAll completed");
+    set_status(
+        "STEP 13/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Message_DeleteAll called -- Task 1 mailbox now empty ("
+        + std::to_string(deleted) + " removed)");
+    refresh_all(t1, t2, t3);
+    wait_key();
+
+    /* ================================================================
+     *  STEP 14: Message_Count demonstration
+     * ================================================================ */
+    EventLog::instance().add(
+        "--- STEP 14: Message_Count demonstration ---");
+    mcb.Messenger.Message_Send(0, t2, "Count demo A", 0);
+    mcb.Messenger.Message_Send(0, t1, "Count demo B", 1);
+    mcb.Messenger.Message_Send(0, t1, "Count demo C", 2);
+    {
+        int c1 = mcb.Messenger.Message_Count(t1);
+        int c2 = mcb.Messenger.Message_Count(t2);
+        int ct = mcb.Messenger.Message_Count();
+        std::ostringstream s;
+        s << "Message_Count: Task1=" << c1 << "  Task2=" << c2
+          << "  Total=" << ct;
+        EventLog::instance().add(s.str());
+    }
+    mark_demo_step(14, "Message_Count demonstration");
+    set_status("STEP 14/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Message_Count -- Task1=2, Task2=1, Total=3");
+    refresh_all(t1, t2, t3);
+    wait_key();
+
+    /* Clean up those messages */
+    mcb.Messenger.Message_DeleteAll(t1);
+    mcb.Messenger.Message_DeleteAll(t2);
+
+    /* ================================================================
+     *  STEP 15: Security summary
+     * ================================================================ */
+    EventLog::instance().add(
+        "--- STEP 15: Security summary -- secure ACL, AES-256-GCM ciphertext-at-rest, denial, and decrypt all demonstrated ---");
+    EventLog::instance().add(
+        "SECURITY SUMMARY: Task 3 stayed restricted from the start, unauthorized access failed closed, and authorized decrypt succeeded.");
+    mark_demo_step(15, "Security summary");
+    set_status("STEP 15/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Secure ACL, privacy, and AES-256-GCM path verified");
+    refresh_all(t1, t2, t3);
+    wait_key();
+
+    /* ================================================================
+     *  STEP 16: Cleanup
+     * ================================================================ */
+    EventLog::instance().add(
+        "--- STEP 16: Task cleanup -- kill + garbage collect ---");
     mcb.Swapper.kill_task(t1);
     mcb.Swapper.kill_task(t2);
     mcb.Swapper.kill_task(t3);
@@ -1727,10 +1714,20 @@ int main(int argc, char* argv[]) {
     mcb.Swapper.garbage_collect();
     EventLog::instance().add("Garbage collector: " + mcb.Swapper.get_last_scheduler_event());
     EventLog::instance().add("All tasks killed and garbage collected.");
-    EventLog::instance().add("====== PHASE 2 DEMONSTRATION COMPLETE ======");
-    mark_demo_step(17, "Cleanup and garbage collection");
+    mark_demo_step(16, "Cleanup and garbage collection");
+    set_status("STEP 16/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Cleanup complete -- secure runtime closed cleanly");
+    refresh_all(t1, t2, t3);
+    wait_key();
+
+    /* ================================================================
+     *  STEP 17: Final secure closeout
+     * ================================================================ */
+    EventLog::instance().add(
+        "--- STEP 17: Final secure closeout ---");
+    EventLog::instance().add("====== SECURE PHASE 2 DEMONSTRATION COMPLETE ======");
+    mark_demo_step(17, "Secure Phase 2 complete");
     set_status(
-        "STEP 17/" + std::to_string(TOTAL_DEMO_STEPS) + " :  All tasks cleaned up -- DEMO COMPLETE  "
+        "STEP 17/" + std::to_string(TOTAL_DEMO_STEPS) + " :  Security / Privacy / Encryption shown from start to finish  "
         "[ Press any key to exit ]");
     refresh_all(t1, t2, t3);
     wait_key();

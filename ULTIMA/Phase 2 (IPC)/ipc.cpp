@@ -15,10 +15,17 @@
 
 #include "../Phase 1 (Scheduler)/Sema.h"
 
+#include <openssl/evp.h>
+#include <openssl/sha.h>
+
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 namespace {
+constexpr std::size_t kBettiBitsAeadKeyBytes = 32;
+constexpr int kBettiBitsProfileTag = 0x2512A501;
+
 std::string format_arrival_time(std::time_t arrival_time) {
     char time_buffer[32] = {0};
     const std::tm* local_time = std::localtime(&arrival_time);
@@ -29,14 +36,6 @@ std::string format_arrival_time(std::time_t arrival_time) {
     }
 
     return time_buffer;
-}
-
-std::uint64_t fnv1a_mix(std::uint64_t seed, const std::string& value) {
-    for (unsigned char ch : value) {
-        seed ^= static_cast<std::uint64_t>(ch);
-        seed *= 1099511628211ULL;
-    }
-    return seed;
 }
 
 char hex_nibble(unsigned int value) {
@@ -54,6 +53,67 @@ unsigned int parse_hex_nibble(char value) {
         return static_cast<unsigned int>(value - 'a' + 10);
     }
     return 0U;
+}
+
+std::string bytes_to_hex(const unsigned char* data, std::size_t size) {
+    std::string hex;
+    hex.reserve(size * 2U);
+    for (std::size_t index = 0; index < size; ++index) {
+        const unsigned char value = data[index];
+        hex.push_back(hex_nibble((value >> 4U) & 0x0FU));
+        hex.push_back(hex_nibble(value & 0x0FU));
+    }
+    return hex;
+}
+
+bool hex_to_bytes(const char* hex_text, std::size_t hex_length, std::vector<unsigned char>* out) {
+    if (hex_text == nullptr || out == nullptr || (hex_length % 2U) != 0U) {
+        return false;
+    }
+
+    out->clear();
+    out->reserve(hex_length / 2U);
+    for (std::size_t index = 0; index < hex_length; index += 2U) {
+        const unsigned int high = parse_hex_nibble(hex_text[index]);
+        const unsigned int low = parse_hex_nibble(hex_text[index + 1U]);
+        out->push_back(static_cast<unsigned char>((high << 4U) | low));
+    }
+
+    return true;
+}
+
+void encode_u64_be(unsigned char* out, std::uint64_t value) {
+    for (int shift = 7; shift >= 0; --shift) {
+        out[7 - shift] = static_cast<unsigned char>((value >> (shift * 8)) & 0xFFU);
+    }
+}
+
+std::string build_betti_bits_aad(const Message& message) {
+    std::ostringstream aad;
+    aad << "BETTI-BITS-512|AES-256-GCM"
+        << "|src=" << message.Source_Task_Id
+        << "|dst=" << message.Destination_Task_Id
+        << "|type=" << message.Msg_Type.Message_Type_Id
+        << "|size=" << message.Msg_Size;
+    return aad.str();
+}
+
+std::array<unsigned char, ULTIMA_BETTI_BITS_NONCE_BYTES> next_betti_bits_nonce(
+    MailboxSecurityProfile* profile,
+    const Message& message) {
+
+    std::array<unsigned char, ULTIMA_BETTI_BITS_NONCE_BYTES> nonce {};
+    if (profile == nullptr) {
+        return nonce;
+    }
+
+    ++profile->nonce_counter;
+    nonce[0] = static_cast<unsigned char>('B');
+    nonce[1] = static_cast<unsigned char>('B');
+    nonce[2] = static_cast<unsigned char>(message.Source_Task_Id & 0xFF);
+    nonce[3] = static_cast<unsigned char>(message.Destination_Task_Id & 0xFF);
+    encode_u64_be(&nonce[4], profile->nonce_counter);
+    return nonce;
 }
 } // namespace
 
@@ -80,57 +140,91 @@ bool ipc::valid_task(int task_id) const {
 
 std::string ipc::make_payload_preview(const Message& message) {
     if (message.Is_Encrypted) {
-        std::string preview(message.Msg_Cipher_Text);
-        if (preview.size() > 28) {
-            preview = preview.substr(0, 28) + "...";
-        }
-        return "ENC:" + preview;
+        return secure_payload_digest_label(message);
     }
 
     return std::string(message.Msg_Text);
 }
 
-std::uint64_t ipc::compute_stream_seed(const MailboxSecurityProfile& profile,
-                                       const Message& message) {
-    std::uint64_t seed = 1469598103934665603ULL;
-    seed = fnv1a_mix(seed, profile.shared_secret);
-    seed = fnv1a_mix(seed, std::to_string(message.Source_Task_Id));
-    seed = fnv1a_mix(seed, std::to_string(message.Destination_Task_Id));
-    seed = fnv1a_mix(seed, std::to_string(message.Msg_Type.Message_Type_Id));
-    seed = fnv1a_mix(seed, std::to_string(message.Msg_Size));
-    return seed;
+std::string ipc::secure_payload_digest_label(const Message& message) {
+    const std::string source =
+        (message.Msg_Cipher_Text[0] != '\0')
+            ? std::string(message.Msg_Cipher_Text)
+            : std::string(message.Msg_Text);
+    return "BETTI-BITS-512:" + betti_bits_digest_hex(source);
 }
 
-std::uint64_t ipc::next_stream_value(std::uint64_t& state) {
-    state ^= state >> 12;
-    state ^= state << 25;
-    state ^= state >> 27;
-    state *= 2685821657736338717ULL;
-    return state;
+std::array<unsigned char, 64> ipc::derive_betti_bits_master_key(const MailboxSecurityProfile& profile,
+                                                                const Message& message) {
+    std::array<unsigned char, 64> digest {};
+    const std::string material =
+        "BETTI-BITS-512|AES-256-GCM|dst="
+        + std::to_string(message.Destination_Task_Id)
+        + "|secret=" + profile.shared_secret;
+    SHA512(reinterpret_cast<const unsigned char*>(material.data()), material.size(), digest.data());
+    return digest;
 }
 
-std::string ipc::encrypt_to_hex(const MailboxSecurityProfile& profile, const Message& message) {
-    std::string cipher_hex;
-    cipher_hex.reserve(static_cast<std::size_t>(message.Msg_Size) * 2);
+std::string ipc::betti_bits_digest_hex(const std::string& value) {
+    std::array<unsigned char, 64> digest {};
+    SHA512(reinterpret_cast<const unsigned char*>(value.data()), value.size(), digest.data());
+    return bytes_to_hex(digest.data(), digest.size());
+}
 
-    std::uint64_t stream_state = compute_stream_seed(profile, message);
-    std::uint64_t stream_value = 0;
-
-    for (int index = 0; index < message.Msg_Size; ++index) {
-        if (index % 8 == 0) {
-            stream_value = next_stream_value(stream_state);
-        }
-
-        const unsigned char plain = static_cast<unsigned char>(message.Msg_Text[index]);
-        const unsigned char key_byte =
-            static_cast<unsigned char>((stream_value >> ((index % 8) * 8)) & 0xFFU);
-        const unsigned char cipher = static_cast<unsigned char>(plain ^ key_byte);
-
-        cipher_hex.push_back(hex_nibble((cipher >> 4) & 0x0FU));
-        cipher_hex.push_back(hex_nibble(cipher & 0x0FU));
+std::string ipc::encrypt_to_hex(MailboxSecurityProfile* profile, const Message& message) {
+    if (profile == nullptr) {
+        return {};
     }
 
-    return cipher_hex;
+    const std::array<unsigned char, 64> master_key = derive_betti_bits_master_key(*profile, message);
+    std::array<unsigned char, kBettiBitsAeadKeyBytes> aead_key {};
+    std::copy_n(master_key.begin(), aead_key.size(), aead_key.begin());
+
+    const std::array<unsigned char, ULTIMA_BETTI_BITS_NONCE_BYTES> nonce =
+        next_betti_bits_nonce(profile, message);
+    const std::string aad = build_betti_bits_aad(message);
+
+    std::vector<unsigned char> ciphertext(static_cast<std::size_t>(message.Msg_Size) + ULTIMA_BETTI_BITS_TAG_BYTES);
+    std::array<unsigned char, ULTIMA_BETTI_BITS_TAG_BYTES> tag {};
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    if (ctx == nullptr) {
+        return {};
+    }
+
+    int ciphertext_length = 0;
+    int chunk_length = 0;
+    bool ok =
+        EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) == 1
+        && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(nonce.size()), nullptr) == 1
+        && EVP_EncryptInit_ex(ctx, nullptr, nullptr, aead_key.data(), nonce.data()) == 1
+        && EVP_EncryptUpdate(
+               ctx,
+               nullptr,
+               &chunk_length,
+               reinterpret_cast<const unsigned char*>(aad.data()),
+               static_cast<int>(aad.size())) == 1
+        && EVP_EncryptUpdate(
+               ctx,
+               ciphertext.data(),
+               &ciphertext_length,
+               reinterpret_cast<const unsigned char*>(message.Msg_Text),
+               message.Msg_Size) == 1
+        && EVP_EncryptFinal_ex(ctx, ciphertext.data() + ciphertext_length, &chunk_length) == 1
+        && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, static_cast<int>(tag.size()), tag.data()) == 1;
+
+    EVP_CIPHER_CTX_free(ctx);
+    if (!ok) {
+        return {};
+    }
+
+    ciphertext.resize(static_cast<std::size_t>(ciphertext_length + chunk_length));
+
+    std::vector<unsigned char> packet;
+    packet.reserve(nonce.size() + ciphertext.size() + tag.size());
+    packet.insert(packet.end(), nonce.begin(), nonce.end());
+    packet.insert(packet.end(), ciphertext.begin(), ciphertext.end());
+    packet.insert(packet.end(), tag.begin(), tag.end());
+    return bytes_to_hex(packet.data(), packet.size());
 }
 
 bool ipc::decrypt_from_hex(const MailboxSecurityProfile& profile, Message* message) {
@@ -138,53 +232,85 @@ bool ipc::decrypt_from_hex(const MailboxSecurityProfile& profile, Message* messa
         return true;
     }
 
+    if (message->Msg_Size < 0 || static_cast<std::size_t>(message->Msg_Size) >= ULTIMA_MESSAGE_TEXT_CAPACITY) {
+        return false;
+    }
+
     const std::size_t cipher_length = std::strlen(message->Msg_Cipher_Text);
-    if ((cipher_length % 2U) != 0U) {
+    const std::size_t expected_packet_bytes =
+        ULTIMA_BETTI_BITS_NONCE_BYTES
+        + static_cast<std::size_t>(message->Msg_Size)
+        + ULTIMA_BETTI_BITS_TAG_BYTES;
+    const std::size_t expected_cipher_length = expected_packet_bytes * 2U;
+    if (cipher_length != expected_cipher_length) {
         return false;
     }
 
-    const std::size_t expected_cipher_length = static_cast<std::size_t>(message->Msg_Size) * 2U;
-    if (cipher_length != expected_cipher_length || static_cast<std::size_t>(message->Msg_Size) >= ULTIMA_MESSAGE_TEXT_CAPACITY) {
+    if (compute_security_tag(*message) != message->Security_Tag) {
         return false;
     }
 
-    const int expected_tag = compute_security_tag(profile, *message);
-    if (expected_tag != message->Security_Tag) {
+    std::vector<unsigned char> packet;
+    if (!hex_to_bytes(message->Msg_Cipher_Text, cipher_length, &packet)) {
+        return false;
+    }
+    if (packet.size() != expected_packet_bytes) {
         return false;
     }
 
-    std::uint64_t stream_state = compute_stream_seed(profile, *message);
-    std::uint64_t stream_value = 0;
+    const std::array<unsigned char, 64> master_key = derive_betti_bits_master_key(profile, *message);
+    std::array<unsigned char, kBettiBitsAeadKeyBytes> aead_key {};
+    std::copy_n(master_key.begin(), aead_key.size(), aead_key.begin());
 
-    for (int index = 0; index < message->Msg_Size; ++index) {
-        if (index % 8 == 0) {
-            stream_value = next_stream_value(stream_state);
-        }
+    const unsigned char* nonce = packet.data();
+    const unsigned char* ciphertext = packet.data() + ULTIMA_BETTI_BITS_NONCE_BYTES;
+    const unsigned char* tag = packet.data() + packet.size() - ULTIMA_BETTI_BITS_TAG_BYTES;
+    const std::string aad = build_betti_bits_aad(*message);
 
-        const unsigned int high =
-            parse_hex_nibble(message->Msg_Cipher_Text[static_cast<std::size_t>(index) * 2U]);
-        const unsigned int low =
-            parse_hex_nibble(message->Msg_Cipher_Text[static_cast<std::size_t>(index) * 2U + 1U]);
-        const unsigned char cipher = static_cast<unsigned char>((high << 4U) | low);
-        const unsigned char key_byte =
-            static_cast<unsigned char>((stream_value >> ((index % 8) * 8)) & 0xFFU);
-
-        message->Msg_Text[index] = static_cast<char>(cipher ^ key_byte);
+    std::vector<unsigned char> plaintext(static_cast<std::size_t>(message->Msg_Size) + 1U, 0U);
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    if (ctx == nullptr) {
+        return false;
     }
 
-    message->Msg_Text[message->Msg_Size] = '\0';
+    int plaintext_length = 0;
+    int chunk_length = 0;
+    bool ok =
+        EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) == 1
+        && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, ULTIMA_BETTI_BITS_NONCE_BYTES, nullptr) == 1
+        && EVP_DecryptInit_ex(ctx, nullptr, nullptr, aead_key.data(), nonce) == 1
+        && EVP_DecryptUpdate(
+               ctx,
+               nullptr,
+               &chunk_length,
+               reinterpret_cast<const unsigned char*>(aad.data()),
+               static_cast<int>(aad.size())) == 1
+        && EVP_DecryptUpdate(
+               ctx,
+               plaintext.data(),
+               &plaintext_length,
+               ciphertext,
+               message->Msg_Size) == 1
+        && EVP_CIPHER_CTX_ctrl(
+               ctx,
+               EVP_CTRL_GCM_SET_TAG,
+               ULTIMA_BETTI_BITS_TAG_BYTES,
+               const_cast<unsigned char*>(tag)) == 1
+        && EVP_DecryptFinal_ex(ctx, plaintext.data() + plaintext_length, &chunk_length) == 1;
+
+    EVP_CIPHER_CTX_free(ctx);
+    if (!ok) {
+        return false;
+    }
+
+    plaintext.resize(static_cast<std::size_t>(plaintext_length + chunk_length));
+    std::memcpy(message->Msg_Text, plaintext.data(), plaintext.size());
+    message->Msg_Text[plaintext.size()] = '\0';
     return true;
 }
 
-int ipc::compute_security_tag(const MailboxSecurityProfile& profile, const Message& message) {
-    std::uint64_t tag_seed = 1469598103934665603ULL;
-    tag_seed = fnv1a_mix(tag_seed, profile.shared_secret);
-    tag_seed = fnv1a_mix(tag_seed, message.Msg_Cipher_Text);
-    tag_seed = fnv1a_mix(tag_seed, std::to_string(message.Source_Task_Id));
-    tag_seed = fnv1a_mix(tag_seed, std::to_string(message.Destination_Task_Id));
-    tag_seed = fnv1a_mix(tag_seed, std::to_string(message.Msg_Type.Message_Type_Id));
-    tag_seed = fnv1a_mix(tag_seed, std::to_string(message.Msg_Size));
-    return static_cast<int>(tag_seed & 0x7FFFFFFF);
+int ipc::compute_security_tag(const Message& message) {
+    return kBettiBitsProfileTag + (message.Msg_Type.Message_Type_Id & 0xFF);
 }
 
 MailboxSecurityProfile* ipc::get_security_profile_mut(int task_id) {
@@ -218,9 +344,9 @@ bool ipc::receiver_authorized(int requester_id, int mailbox_task_id) const {
     return profile->authorized_receivers.find(requester_id) != profile->authorized_receivers.end();
 }
 
-void ipc::apply_mailbox_security(Message* message) {
+bool ipc::apply_mailbox_security(Message* message) {
     if (message == nullptr) {
-        return;
+        return false;
     }
 
     message->Is_Encrypted = false;
@@ -230,20 +356,28 @@ void ipc::apply_mailbox_security(Message* message) {
 
     MailboxSecurityProfile* profile = get_security_profile_mut(message->Destination_Task_Id);
     if (profile == nullptr || !profile->security_enabled) {
-        return;
+        return true;
     }
 
     message->Access_Restricted = profile->restricted_access_enabled;
     if (!profile->encryption_enabled) {
-        return;
+        return true;
     }
 
-    const std::string cipher_hex = encrypt_to_hex(*profile, *message);
+    const std::string cipher_hex = encrypt_to_hex(profile, *message);
+    if (cipher_hex.empty() || cipher_hex.size() >= sizeof(message->Msg_Cipher_Text)) {
+        message->Msg_Cipher_Text[0] = '\0';
+        message->Security_Tag = 0;
+        message->Is_Encrypted = false;
+        return false;
+    }
+
     std::strncpy(message->Msg_Cipher_Text, cipher_hex.c_str(), sizeof(message->Msg_Cipher_Text) - 1);
     message->Msg_Cipher_Text[sizeof(message->Msg_Cipher_Text) - 1] = '\0';
-    message->Security_Tag = compute_security_tag(*profile, *message);
+    message->Security_Tag = compute_security_tag(*message);
     message->Is_Encrypted = true;
     message->Msg_Text[0] = '\0';
+    return true;
 }
 
 bool ipc::deliver_mailbox_message(int requester_id, int mailbox_task_id, Message* message) {
@@ -315,7 +449,12 @@ int ipc::Message_Send(Message* msg) {
         return -1;
     }
 
-    apply_mailbox_security(msg);
+    if (!apply_mailbox_security(msg)) {
+        EventLog::instance().add(
+            "SECURITY ERROR: BETTI-BITS-512(AES-256-GCM) packet creation failed for mailbox T-"
+            + std::to_string(msg->Destination_Task_Id));
+        return -1;
+    }
 
     mailbox_down(msg->Destination_Task_Id);
     destination_task->mailbox.push(*msg);
@@ -483,21 +622,21 @@ std::string ipc::get_mailbox_table(int Task_id) const {
     out << std::left
         << std::setw(8) << "Source"
         << std::setw(12) << "Dest"
-        << std::setw(34) << "Payload"
+        << std::setw(74) << "Payload"
         << std::setw(8) << "Size"
         << std::setw(14) << "Type"
         << std::setw(12) << "Security"
         << "Arrival Time\n";
-    out << std::string(102, '-') << "\n";
+    out << std::string(142, '-') << "\n";
 
     while (!mailbox_copy.empty()) {
         const Message& message = mailbox_copy.front();
-        std::string security_label = message.Is_Encrypted ? "ENC+ACL" :
+        std::string security_label = message.Is_Encrypted ? "AEAD+ACL" :
             (message.Access_Restricted ? "ACL" : "Plain");
         out << std::left
             << std::setw(8) << message.Source_Task_Id
             << std::setw(12) << message.Destination_Task_Id
-            << std::setw(34) << make_payload_preview(message)
+            << std::setw(74) << make_payload_preview(message)
             << std::setw(8) << message.Msg_Size
             << std::setw(14) << message.Msg_Type.Message_Type_Description
             << std::setw(12) << security_label
@@ -552,6 +691,7 @@ int ipc::Configure_Mailbox_Security(int Task_Id,
     profile.restricted_access_enabled = restricted_access;
     profile.encryption_enabled = encrypt_payload;
     profile.shared_secret = shared_secret;
+    profile.nonce_counter = 0;
     profile.authorized_senders.clear();
     profile.authorized_receivers.clear();
     profile.authorized_receivers.insert(Task_Id);
@@ -741,7 +881,7 @@ std::string ipc::get_security_summary(int Task_Id) const {
     }
 
     std::ostringstream out;
-    out << (profile->encryption_enabled ? "Encrypted" : "Plain")
+    out << (profile->encryption_enabled ? "BETTI-BITS-512(AES-256-GCM)" : "Plain")
         << " / "
         << (profile->restricted_access_enabled ? "Restricted" : "Open ACL")
         << " / senders=" << profile->authorized_senders.size()

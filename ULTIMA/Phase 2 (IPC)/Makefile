@@ -26,6 +26,8 @@ LDFLAGS  ?=
 TARGET    = phase2_test
 SMOKE_TARGET = phase2_smoke_test
 BETTI_TARGET = phase2_smoke_betti
+OPENSSL_CFLAGS ?= $(shell pkg-config --cflags openssl 2>/dev/null)
+OPENSSL_LIBS ?= $(shell pkg-config --libs openssl 2>/dev/null || echo -lcrypto)
 
 SOURCES  = Phase2_main.cpp ipc.cpp Sched.cpp Sema_sync.cpp
 OBJS     = $(SOURCES:.cpp=.o)
@@ -58,23 +60,23 @@ BETTI_LIBS := -L$(BETTI_LIB_DIR) -lbetti_ffi $(BETTI_RPATH)
 all: $(TARGET) $(SMOKE_TARGET)
 
 $(TARGET): $(OBJS)
-	$(CXX) $(LDFLAGS) -o $(TARGET) $(OBJS) $(CURSES_LIBS)
+	$(CXX) $(LDFLAGS) -o $(TARGET) $(OBJS) $(CURSES_LIBS) $(OPENSSL_LIBS)
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(OPENSSL_CFLAGS) -c $< -o $@
 
 $(SMOKE_TARGET): $(SMOKE_OBJS)
-	$(CXX) $(LDFLAGS) -o $(SMOKE_TARGET) $(SMOKE_OBJS)
+	$(CXX) $(LDFLAGS) -o $(SMOKE_TARGET) $(SMOKE_OBJS) $(OPENSSL_LIBS)
 
 %.smoke.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(OPENSSL_CFLAGS) -c $< -o $@
 
 $(BETTI_TARGET): $(BETTI_OBJS)
 	@test -f "$(BETTI_FFI_LIB)" || (echo "Missing Betti-FFI library: $(BETTI_FFI_LIB)"; exit 1)
-	$(CXX) $(LDFLAGS) -o $(BETTI_TARGET) $(BETTI_OBJS) $(BETTI_LIBS)
+	$(CXX) $(LDFLAGS) -o $(BETTI_TARGET) $(BETTI_OBJS) $(BETTI_LIBS) $(OPENSSL_LIBS)
 
 %.betti.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(BETTI_CPPFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(OPENSSL_CFLAGS) $(BETTI_CPPFLAGS) -c $< -o $@
 
 run: $(TARGET)
 	./$(TARGET)

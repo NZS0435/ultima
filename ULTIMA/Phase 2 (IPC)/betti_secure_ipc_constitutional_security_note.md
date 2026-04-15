@@ -26,11 +26,11 @@ The trusted runtime surface remains the existing Phase 2 mailbox and semaphore c
 
 3. Ciphertext-at-rest before authorized delivery
    - `ipc.cpp`
-   - The stored mailbox payload is ciphertext hex while the secure message waits in the queue.
+   - The stored mailbox payload is a hex-encoded `AES-256-GCM` packet while the secure message waits in the queue.
 
 4. Authorized decrypt only on lawful receive
    - `ipc.cpp`
-   - Plaintext is restored only for the lawful secure receive path.
+   - Plaintext is restored only for the lawful secure receive path after AEAD verification succeeds.
 
 5. Witness-bearing sidecar capture
    - `phase2_smoke_test.cpp`
@@ -72,7 +72,7 @@ Covered in this class submission:
 - plaintext exposure inside the mailbox queue
 
 Not covered:
-- real key management
+- hardened key management
 - adversarial cryptanalysis
 - external attestation
 - production runtime hardening

@@ -6,31 +6,31 @@
   "secure_mailbox": {
     "task_id": 2,
     "ciphertext_queue_depth": 1,
-    "ciphertext_preview": "3D29CF60485D04B49A43893015",
-    "security_overview": "Security profiles:\nT-1: Open mailbox\nT-2: Encrypted / Restricted / senders=1 / readers=2\nT-3: Open mailbox\n"
+    "ciphertext_preview": "424201020000000000000001C0B0A443",
+    "security_overview": "Security profiles:\nT-1: Open mailbox\nT-2: BETTI-BITS-512(AES-256-GCM) / Restricted / senders=1 / readers=2\nT-3: Open mailbox\n"
   },
   "betti_snapshot": {
     "domain": "sched",
     "seed_tick": 201,
     "load": 433,
-    "fragmentation": 26,
+    "fragmentation": 82,
     "queue_depth": 1,
     "locale": 2
   },
   "betti_risk": {
-    "structural": 0.513184,
+    "structural": 0.618652,
     "fragmentation": 0.422852,
-    "latency": 0.0143229,
-    "instability": 0.334961
+    "latency": 0.0247396,
+    "instability": 0.314453
   },
   "betti_ph": {
     "b0": 2,
-    "b1": 5,
-    "b2": 16,
-    "deltas": [-407, -5, 73]
+    "b1": 9,
+    "b2": 19,
+    "deltas": [-351, -19, 73]
   },
   "budgeted_task": {"task_id": 1, "cancel_rc": 0},
-  "focus_hash_hex": "a3c90c6de41bf90a280b7713201080b259fadb632b14d14b35be8c165b3ee657",
+  "focus_hash_hex": "1a8be5a97856fd68d05693f48e2ef4dacd57278e7964d4e69a48be270e64816c",
   "commit_move_kind": "P23",
   "commit_rc": 0
 }

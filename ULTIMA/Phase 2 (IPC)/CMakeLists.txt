@@ -20,6 +20,7 @@ set(BETTI_ROOT "/Users/stewartpawley/Desktop/betti_os" CACHE PATH "Path to the b
 
 find_package(Threads REQUIRED)
 find_package(Curses REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 if(CYGWIN)
     set(ULTIMA_PHASE2_OUTPUT_DIR "/cygdrive/c/Users/$ENV{USERNAME}/.ultima2/phase2/cygwin-debug")
@@ -59,6 +60,7 @@ target_include_directories(ultima_os_phase2
 target_link_libraries(ultima_os_phase2_core
     PRIVATE
         Threads::Threads
+        OpenSSL::Crypto
 )
 
 target_link_libraries(ultima_os_phase2

@@ -9,6 +9,19 @@ Important honesty boundary:
 - It now uses real BETTI runtime and evidence surfaces as a class-submission sidecar.
 - It is still not a fully BETTI-native production artifact.
 
+## Security Primitive Used In This Pass
+
+The secure Phase 2 runtime now uses the `BETTI-BITS-512` profile backed by the standard `AES-256-GCM` authenticated-encryption primitive.
+
+Important honesty boundary:
+- `BETTI-BITS-512` is not a stock BETTI runtime component and it is not a standards-body algorithm name.
+- It is a local 512-bit master-key profile added to the existing Phase 2 IPC runtime.
+- It derives 512 bits of master key material with `SHA-512` from the mailbox secret and mailbox identity.
+- It uses the first 256 bits of that master material as the working `AES-256-GCM` key.
+- It stores a full AEAD packet in `Msg_Cipher_Text`: nonce + ciphertext + authentication tag.
+- It authenticates message metadata as additional authenticated data before delivery.
+- The overall assignment remains class-scoped because secret provisioning, key lifecycle management, and external security review are still minimal.
+
 ## What From BETTI Was Used, Why, Where, and How
 
 | BETTI feature | Why it was used | Where it was used | How it was used | Status |
@@ -46,7 +59,10 @@ Second, it now provides actual runtime and evidence surfaces:
 - `ipc.h`
 - `Message.h`
 
-This is still the real Phase 2 runtime surface.
+This is still the real Phase 2 runtime surface. In this pass, it is also where the `BETTI-BITS-512` profile lives:
+- `derive_betti_bits_master_key(...)` derives the 512-bit master material used by the profile.
+- `encrypt_to_hex(...)` and `decrypt_from_hex(...)` run the real `AES-256-GCM` authenticated-encryption and verification path.
+- `betti_bits_digest_hex(...)` produces the full digest string shown for encrypted payload previews.
 
 ### 2. BETTI sidecar witness path
 
@@ -60,9 +76,11 @@ This is where BETTI moved from “method only” to “actual dependency and evi
 
 - `Phase2_main.cpp`
 
-The full `phase2_test` demo now shows Security/Privacy/Encryption from start to finish in the header, IPC panel, mailbox summaries, system-event panel, status panel, and transcript output.
+The full `phase2_test` demo now shows Security/Privacy/Encryption from start to finish in the header, IPC panel, mailbox summaries, system-event panel, status panel, and transcript output. Encrypted payload previews are labeled `BETTI-BITS-512:` and are derived from the authenticated `AES-256-GCM` packet, and the UI wrapping logic was extended so the full value remains visible inside the ncurses boxes.
 
 ## Generated BETTI Artifacts
+
+These are generated when the optional BETTI sidecar path is run:
 
 - `betti_phase2_secure_ipc_snapshot_witness.jcs`
 - `betti_phase2_secure_ipc_commit_witness.jcs`
@@ -108,7 +126,8 @@ The second pass does **not** justify these stronger claims:
 - native ULTIMA-to-BETTI compiler lowering
 - constitutional ratification
 - external live-operational evidence closure
-- production-grade cryptographic assurance
+- `BETTI-BITS-512` being itself a standards-body-named primitive
+- production-grade operational assurance around keys and deployment
 
 ## Bottom Line
 

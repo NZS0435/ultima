@@ -303,7 +303,7 @@ bool emit_betti_sidecar_artifacts(const ArtifactRequest& request,
         << "    \"No external live-operational evidence bundle from a classroom or lab environment.\",\n"
         << "    \"IchorIR/MorphIR lowering is a sidecar artifact, not a native BETTI-ingested production path.\",\n"
         << "    \"Constitutional promotion / trusted-path gating has not been run against an external ratification corpus.\",\n"
-        << "    \"The classroom secure IPC path uses deterministic simulation encryption, not production cryptography.\"\n"
+        << "    \"The classroom secure IPC path uses the BETTI-BITS-512 profile backed by the standard AES-256-GCM authenticated-encryption primitive; key handling remains assignment-scoped.\"\n"
         << "  ]\n"
         << "}\n";
 
@@ -440,7 +440,7 @@ int main(int argc, char* argv[]) {
     assert(received_message.Access_Restricted);
 
     const std::string secure_overview = sys_mcb.Messenger.get_security_overview();
-    assert(secure_overview.find("Encrypted / Restricted") != std::string::npos);
+    assert(secure_overview.find("BETTI-BITS-512(AES-256-GCM) / Restricted") != std::string::npos);
 
     #ifdef ULTIMA_BETTI_FFI_ENABLED
     if (artifact_request.enabled) {

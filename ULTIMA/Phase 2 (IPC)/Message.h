@@ -18,7 +18,10 @@
 #include <cstddef>
 
 constexpr std::size_t ULTIMA_MESSAGE_TEXT_CAPACITY = 65;
-constexpr std::size_t ULTIMA_MESSAGE_CIPHER_CAPACITY = (ULTIMA_MESSAGE_TEXT_CAPACITY - 1) * 2 + 1;
+constexpr std::size_t ULTIMA_BETTI_BITS_NONCE_BYTES = 12;
+constexpr std::size_t ULTIMA_BETTI_BITS_TAG_BYTES = 16;
+constexpr std::size_t ULTIMA_MESSAGE_CIPHER_CAPACITY =
+    (ULTIMA_BETTI_BITS_NONCE_BYTES + ULTIMA_BETTI_BITS_TAG_BYTES + (ULTIMA_MESSAGE_TEXT_CAPACITY - 1)) * 2 + 1;
 
 /**
  * Definitions matching the Phase II rubric requirements.
@@ -38,7 +41,7 @@ struct Message {
     Message_Type Msg_Type;
     int Msg_Size;
     char Msg_Text[ULTIMA_MESSAGE_TEXT_CAPACITY]; // Plaintext delivered to authorized receiver only
-    char Msg_Cipher_Text[ULTIMA_MESSAGE_CIPHER_CAPACITY]; // Hex-encoded ciphertext for encrypted-at-rest storage
+    char Msg_Cipher_Text[ULTIMA_MESSAGE_CIPHER_CAPACITY]; // Hex-encoded AEAD packet: nonce + ciphertext + tag
     bool Is_Encrypted;
     bool Access_Restricted;
     int Security_Tag;

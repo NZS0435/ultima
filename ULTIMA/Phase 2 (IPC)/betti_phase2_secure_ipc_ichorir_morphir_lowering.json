@@ -6,7 +6,7 @@
     {"id": "principal/t-1", "kind": "Sender"},
     {"id": "principal/t-2", "kind": "RestrictedReceiver"},
     {"id": "mailbox/t-2", "kind": "SecureMailbox", "ciphertext_queue_depth": 1},
-    {"id": "message/secure-phase2", "kind": "EncryptedPayload", "ciphertext_preview": "3D29CF60485D04B49A43893015"}
+    {"id": "message/secure-phase2", "kind": "EncryptedPayload", "ciphertext_preview": "424201020000000000000001C0B0A443"}
   ],
   "morph_transitions": [
     {"step": 13, "law": "configure_mailbox_security", "from": "mailbox/plain", "to": "mailbox/restricted_encrypted"},

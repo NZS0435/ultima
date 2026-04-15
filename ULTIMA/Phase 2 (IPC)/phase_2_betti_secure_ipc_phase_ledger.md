@@ -76,6 +76,26 @@ Law:
 7. Build `betti_millicent` and `betti_solver_ecology` as host-side proof-path surfaces.
 8. Record the result in the BETTI usage doc, ledger, evidence bundle, genealogy record, ratification-gap report, and constitutional security note.
 
+## Ordered Demo Steps
+
+1. Security baseline: configure Task 3 as a restricted encrypted mailbox before any Task 3 delivery occurs.
+2. Unauthorized sender denial: Task 1 attempts a secure send to Task 3 and is rejected immediately.
+3. Plain IPC path A: Task 3 sends the professor greeting to Task 1.
+4. Observation A: the Task 1 window shows the professor greeting.
+5. Plain IPC path B: Task 1 sends the team greeting to Task 2.
+6. Observation B: the Task 2 window shows the team greeting.
+7. Authorized secure send: Task 2 sends the secure service payload to Task 3, which is displayed as a full `BETTI-BITS-512:` digest over the `AES-256-GCM` packet while the mailbox holds ciphertext-at-rest.
+8. Plain receive A: Task 1 reads the professor greeting from its mailbox.
+9. Plain receive B: Task 2 reads the team greeting from its mailbox.
+10. Unauthorized reader denial: Task 1 attempts to read Task 3’s secure mailbox and is rejected while ciphertext remains queued.
+11. Authorized decrypt: Task 3 performs the allowed secure receive and recovers the plaintext service message.
+12. DeleteAll setup: three demo messages are queued for Task 1.
+13. DeleteAll completion: Task 1’s mailbox is emptied and the removal count is shown.
+14. Message_Count demonstration: Task 1, Task 2, and system totals are counted and displayed.
+15. Security summary: the demo closes the main walkthrough by restating restricted access, privacy, ciphertext-at-rest, and authorized decrypt.
+16. Cleanup: all tasks are marked dead and garbage collection removes them.
+17. Final secure closeout: the demo ends with Security / Privacy / Encryption shown as the through-line from the first step to the last.
+
 ## Build / Run Commands
 
 Standard class path:
@@ -99,7 +119,8 @@ make betti-full
 - Unauthorized secure read is denied.
 - Task 3 stores ciphertext-at-rest before authorized decryption.
 - The BETTI sidecar is observational; it does not weaken the Phase 2 ACL path.
-- The classroom cipher remains deterministic simulation code, not production cryptography.
+- The secure mailbox now uses the `BETTI-BITS-512` profile backed by the standard `AES-256-GCM` AEAD primitive.
+- The overall assignment is still not production-hardened because key provisioning and deployment controls remain class-scoped.
 
 ## Performance / Practical Targets
 
