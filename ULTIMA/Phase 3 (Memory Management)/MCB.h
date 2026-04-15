@@ -17,8 +17,8 @@
 #ifndef ULTIMA_PHASE3_MCB_H
 #define ULTIMA_PHASE3_MCB_H
 
-#include "../Phase 2 (IPC)/Sched.h"
-#include "../Phase 2 (IPC)/ipc.h"
+#include "../Phase 4 (IPC EC)/Sched.h"
+#include "../Phase 4 (IPC EC)/ipc.h"
 #include "../Phase 1 (Scheduler)/Sema.h"
 #include "mmu.h"
 

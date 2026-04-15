@@ -47,7 +47,7 @@ target_compile_definitions(ultima_os PRIVATE
 # 4. Link both libraries to your executable
 target_link_libraries(ultima_os Threads::Threads ${CURSES_LIBRARIES})
 
-add_subdirectory("ULTIMA/Phase 2 (IPC)")
+add_subdirectory("ULTIMA/Phase 4 (IPC EC)")
 add_subdirectory("ULTIMA/Phase 3 (Memory Management)")
 
 set(PHASE1_LEGACY_DIR "${CMAKE_SOURCE_DIR}/ULTIMA/Phase 1 (Scheduler)")

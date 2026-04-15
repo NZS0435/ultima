@@ -37,9 +37,9 @@ endif()
 
 set(ULTIMA_PHASE3_CORE_SOURCES
     "mmu.cpp"
-    "../Phase 2 (IPC)/ipc.cpp"
-    "../Phase 2 (IPC)/Sched.cpp"
-    "../Phase 2 (IPC)/Sema_sync.cpp"
+    "../Phase 4 (IPC EC)/ipc.cpp"
+    "../Phase 4 (IPC EC)/Sched.cpp"
+    "../Phase 4 (IPC EC)/Sema_sync.cpp"
 )
 
 add_library(ultima_os_phase3_core STATIC ${ULTIMA_PHASE3_CORE_SOURCES})

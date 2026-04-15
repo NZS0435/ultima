@@ -17,7 +17,7 @@
 
 #include "mmu.h"
 
-#include "../Phase 2 (IPC)/Sched.h"
+#include "../Phase 4 (IPC EC)/Sched.h"
 #include "../Phase 1 (Scheduler)/Sema.h"
 
 #include <algorithm>
