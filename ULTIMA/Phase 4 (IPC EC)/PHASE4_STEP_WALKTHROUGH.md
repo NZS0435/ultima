@@ -9,12 +9,12 @@
 
 # Phase 4 Secure IPC Step-by-Step Walkthrough
 
-This file explains the seventeen visible steps in the secure IPC extra-credit demo.
+This file explains the seventeen visible steps in the secure IPC extra-credit demo described in the Phase 4 PDF report and the matching runtime transcript.
 
 Important locality note:
 - The course labels this deliverable as Phase 4 extra credit.
-- In this workspace, the authoritative implementation lives in the cumulative secure IPC surface under `ULTIMA/Phase 2 (IPC)`.
-- The walkthrough therefore follows the real runtime in `Phase2_main.cpp`, `ipc.cpp`, `phase2_transcript.txt`, and the PDF report `Team Thunder #001 Phase 4 Extra Credit.pdf`.
+- In this workspace, the submission-local walkthrough belongs under `ULTIMA/Phase 4 (IPC EC)`.
+- The secure IPC capability is a cumulative extension of the original Phase 2 mailbox runtime, so the walkthrough follows the real runtime in `Phase2_main.cpp`, `ipc.cpp`, `phase2_transcript.txt`, and the PDF report `Team Thunder #001 Phase 4 Extra Credit.pdf`.
 
 Important theorem-status boundary:
 - Specified: the 17-step secure IPC story is described in the Phase 4 PDF and transcript.
@@ -22,8 +22,9 @@ Important theorem-status boundary:
 - Verified: the repo contains transcript evidence, smoke assertions, and BETTI sidecar verification artifacts.
 - Ratified: no. The BETTI integration here is a class-submission sidecar, not a constitutionally closed production BETTI runtime.
 
-## BETTI Surfaces Used Across The Demo
+## Revolutionary BETTI Uses Across The Demo
 
+- The Phase 4 PDF explicitly frames BETTI as the team's revolutionary six-pillar system: one doctrine, one object algebra, one artifact memory, one replay law, one promotion law, and one operational covenant.
 - `BETTI-BITS-512` is the local mailbox-key profile used by the secure path. It derives 512 bits of master material with `SHA-512`, uses the first 256 bits as the working `AES-256-GCM` key, and stores the nonce + ciphertext + authentication tag in `Msg_Cipher_Text`.
 - `IchorIR / MorphIR` lowering records the secure mailbox flow as a sidecar transition artifact covering configure, deny, encrypt-at-rest, and authorized decrypt.
 - `Betti-FFI` and `bettictl` support runtime witness emission and witness verification for the real secure mailbox smoke scenario.
@@ -43,7 +44,7 @@ What to observe:
 - Task 3's mailbox summary shows `BETTI-BITS-512(AES-256-GCM) / Restricted`.
 - The event log records the security configuration and ACL setup before any message delivery occurs.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI's discipline shows up as "configure the control surface before exposure."
 - The sidecar lowering treats this as the lawful `configure_secure_mailbox` transition that begins the secure chain.
 - The live-profile and shadow-cell artifacts use this step as the baseline secure mailbox state.
@@ -61,7 +62,7 @@ What to observe:
 - Task 3's mailbox count remains zero.
 - No ciphertext appears, because the packet is rejected before encryption and queue insertion.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - This is the fail-closed rule in action.
 - The trusted-path gate records this as the ACL sender-denial proof point.
 - The sidecar witness path uses this denial to prove that illegal transitions do not mutate secure state.
@@ -78,7 +79,7 @@ What to observe:
 - The event log shows semaphore entry, semaphore exit, and the plaintext send record.
 - The secure mailbox on Task 3 remains restricted, but the rest of the IPC system still behaves like Phase 2.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI's practical contribution here is architectural restraint.
 - Instead of forking IPC into a second subsystem, the secure phase extends the original mailbox path and preserves cumulative behavior.
 - Genealogy records this as secure functionality growing out of the original `Message_Send` surface rather than replacing it.
@@ -94,7 +95,7 @@ What to observe:
 - The scheduler, mailbox panes, and security pane remain stable.
 - The event log preserves the earlier plaintext send and the secure baseline context at the same time.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI sidecar value here is observability, not mutation.
 - The secure story stays cumulative: baseline security is still visible while ordinary IPC remains readable.
 - This is the kind of state snapshot that the live-profile and witness surfaces are meant to preserve.
@@ -110,7 +111,7 @@ What to observe:
 - The message category is visible as `Text`.
 - The event log again shows the semaphore bracket around queue access.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - This step proves the secure work did not break the base IPC semantics.
 - BETTI's "extend, do not duplicate" rule is visible because the same runtime still supports normal Text traffic next to the secure mailbox path.
 
@@ -125,7 +126,7 @@ What to observe:
 - Task 3 is still the designated secure mailbox target for the later encrypted send.
 - The status bar and event panes continue to frame the run as a security demo rather than a disconnected sequence of screenshots.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI contributes continuity.
 - Security is not turned on only when encryption appears; it remains a through-line while ordinary IPC still works.
 
@@ -144,7 +145,7 @@ What to observe:
 - The visible payload is shown as a `BETTI-BITS-512:` digest label rather than the plaintext service text.
 - Task 3's queue gains one secure message while the plaintext itself is no longer exposed in the mailbox dump.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - This is the most visible BETTI-branded step in the whole demo.
 - `BETTI-BITS-512` is the local profile name for the mailbox-key path layered over standard `AES-256-GCM`.
 - The sidecar ledger and trusted-path gate use this step as the ciphertext-at-rest proof point.
@@ -161,7 +162,7 @@ What to observe:
 - The event log prints the received Notification payload in plaintext.
 - Task 3's secure ciphertext remains queued and untouched.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI's contribution is unification of the receive path.
 - The same governed delivery function handles both plain and secure mail, which makes later secure proofs easier to reason about.
 
@@ -176,7 +177,7 @@ What to observe:
 - The event log shows the sender, type, and plaintext payload.
 - The secure ciphertext for Task 3 still remains in place for the denial and decrypt steps that follow.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - This is another cumulative-compatibility proof.
 - The secure phase does not turn the whole IPC runtime into encrypted-only behavior; it secures only the mailbox that was explicitly configured for protection.
 
@@ -192,7 +193,7 @@ What to observe:
 - The follow-up line confirms that Task 3's secure mailbox still holds ciphertext-at-rest only.
 - Queue state does not change even though a read was attempted.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - This is the second fail-closed gate and the read-side partner to Step 2.
 - The trusted-path record uses it as the unauthorized-reader denial proof point.
 - BETTI's admissibility discipline matters here because an illegal reader cannot even consume the ciphertext placeholder.
@@ -210,7 +211,7 @@ What to observe:
 - Task 3's queue count drops after delivery.
 - This is the first moment where the original service payload is visible again.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI's secure-law story culminates here: ciphertext-at-rest stays sealed until the lawful receiver performs the governed decrypt.
 - The sidecar lowering treats this as the `authorized_decrypt` transition that closes the protected communication loop.
 - The witness and verification artifacts use this step as the "good path" counterpart to the earlier denials.
@@ -226,7 +227,7 @@ What to observe:
 - The event log shows all three message categories entering the queue.
 - The secure mailbox story remains intact while the demo now pivots to utility coverage.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI's role here is less about cryptography and more about cumulative completeness.
 - The secure submission still has to prove that the old utility surface is alive after the security extension.
 
@@ -241,7 +242,7 @@ What to observe:
 - The log prints the exact removal count.
 - The utility behavior matches the visible mailbox state.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - This is a small but important integrity check.
 - Security hardening did not break queue cleanup or utility reporting.
 - In BETTI terms, the system preserved the pre-existing lawful transition for mailbox reset.
@@ -257,7 +258,7 @@ What to observe:
 - The distribution is intentionally uneven, so the totals prove real counting rather than a trivial mirrored case.
 - The UI counts line up with the utility output.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI's contribution is evidence discipline.
 - The demo does not merely claim that `Message_Count` still works; it constructs a visible state that makes a wrong implementation easy to catch.
 
@@ -271,7 +272,7 @@ What to observe:
 - The summary lines compress the whole run into one audit statement.
 - The security framing remains visible in the UI rather than being relegated to a report appendix.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - This is where the trusted-path gate, genealogy record, and evidence bundle all conceptually line up with the visible demo.
 - The system is not just "secure-looking"; it has a documented chain of denial, encryption, and lawful release.
 
@@ -287,7 +288,7 @@ What to observe:
 - Mailbox activity is over and the run transitions to shutdown.
 - The cleanup happens in the normal scheduler surface rather than through a fake report-only ending.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI's value here is honest closure.
 - The demo ends with a visible state transition back toward quiescence instead of just stopping after the successful decrypt.
 - The commit-witness sidecar exists to pair this end-state with the earlier secure-state evidence.
@@ -296,13 +297,14 @@ BETTI contribution in this step:
 
 What happens:
 - The demo emits the final `SECURE PHASE 2 DEMONSTRATION COMPLETE` banner.
+- The banner keeps the cumulative `Phase 2` runtime label because the Phase 4 extra-credit work hardens the original Phase 2 IPC subsystem instead of replacing it with a separate demo path.
 - The status line explicitly says that Security / Privacy / Encryption stayed visible from start to finish.
 
 What to observe:
 - The walkthrough closes with the same security framing it opened with.
 - The final frame acts as the bookend to the baseline in Step 1.
 
-BETTI contribution in this step:
+Revolutionary BETTI use in this step:
 - BETTI's strongest contribution here is narrative integrity plus honest status reporting.
 - The repo-local evidence supports specified, implemented, and verified for this classroom path.
 - The sidecar docs also make clear that ratification is still pending and that this remains a class-scoped secure IPC artifact rather than a production BETTI closure.
