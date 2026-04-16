@@ -212,7 +212,7 @@ struct DemoState {
     std::vector<std::string> snapshots;
 };
 
-static constexpr int kTotalWidth = 170;
+static constexpr int kTotalWidth = 200;
 static constexpr int kPanelGap = 1;
 static constexpr int kTotalDemoSteps = 12;
 
@@ -230,6 +230,10 @@ static DemoState demo;
 
 static std::string mark(bool value) {
     return value ? "[OK]" : "[--]";
+}
+
+static int panel_content_rows(const Panel& panel) {
+    return std::max(1, panel.rows - 2);
 }
 
 static std::string take_first_lines(const std::string& text, int line_limit) {
@@ -262,6 +266,44 @@ static std::string replace_all(std::string text, const std::string& from, const 
     }
 
     return text;
+}
+
+static std::vector<std::string> split_lines(const std::string& text, bool keep_empty = true) {
+    std::vector<std::string> lines;
+    std::istringstream input(text);
+    std::string line;
+
+    while (std::getline(input, line)) {
+        if (!keep_empty && line.empty()) {
+            continue;
+        }
+        lines.push_back(line);
+    }
+
+    return lines;
+}
+
+static std::string fit_panel_line(const std::string& line, int usable_width) {
+    if (usable_width <= 0 || static_cast<int>(line.size()) <= usable_width) {
+        return line;
+    }
+
+    if (usable_width <= 3) {
+        return line.substr(0, static_cast<std::size_t>(usable_width));
+    }
+
+    const std::size_t dump_marker = line.find(" : ");
+    if (dump_marker == std::string::npos) {
+        return line.substr(0, static_cast<std::size_t>(usable_width - 3)) + "...";
+    }
+
+    const std::string prefix = line.substr(0, dump_marker + 3);
+    const int body_width = usable_width - static_cast<int>(prefix.size());
+    if (body_width <= 3) {
+        return line.substr(0, static_cast<std::size_t>(usable_width - 3)) + "...";
+    }
+
+    return prefix + line.substr(dump_marker + 3, static_cast<std::size_t>(body_width - 3)) + "...";
 }
 
 static char task_letter_for_id(int task_id) {
@@ -368,6 +410,21 @@ static const char* state_name(State state) {
     }
 }
 
+static const char* state_code(State state) {
+    switch (state) {
+        case RUNNING:
+            return "RUN";
+        case READY:
+            return "RDY";
+        case BLOCKED:
+            return "BLK";
+        case DEAD:
+            return "DED";
+        default:
+            return "UNK";
+    }
+}
+
 static std::string format_handle_hex(int handle) {
     std::ostringstream out;
     out << "0x" << std::uppercase << std::hex << handle;
@@ -394,6 +451,38 @@ static std::string build_run_queue_display() {
     }
 
     return wrote_any ? out.str() : "[empty]";
+}
+
+static std::string build_run_queue_compact_display() {
+    const auto tasks = sys_mcb.Swapper.snapshot_tasks();
+    std::ostringstream out;
+    bool wrote_any = false;
+
+    for (const TaskSnapshot& task : tasks) {
+        if (task.task_state == DEAD) {
+            continue;
+        }
+
+        if (wrote_any) {
+            out << " -> ";
+        }
+
+        out << task_id_code(task.task_id) << ' ' << state_code(task.task_state);
+        wrote_any = true;
+    }
+
+    return wrote_any ? out.str() : "[empty]";
+}
+
+static std::string compact_scheduler_event_text(std::string text) {
+    text = display_text(text);
+    text = replace_all(text, "Task_A_Writer", "Task A");
+    text = replace_all(text, "Task_B_Writer", "Task B");
+    text = replace_all(text, "Task_C_Reader", "Task C");
+    text = replace_all(text, "Task_D_Waiter", "Task D");
+    text = replace_all(text, "Dispatching ", "Dispatch ");
+    text = replace_all(text, " at tick ", " @ ");
+    return text;
 }
 
 static std::string build_scheduler_dump(int level = 0) {
@@ -646,10 +735,10 @@ static void create_layout() {
     clear();
     refresh();
 
-    const int total_width = std::min(kTotalWidth, term_cols);
+    const int total_width = std::min(kTotalWidth, std::max(40, term_cols));
     const int left_margin = std::max(0, (term_cols - total_width) / 2);
     const int header_height = 3;
-    const int status_height = (term_rows >= 24) ? 6 : 5;
+    const int status_height = (term_rows >= 24) ? 5 : 4;
     const int body_height = std::max(10, term_rows - header_height - status_height);
 
     int row1_height = 3;
@@ -658,8 +747,8 @@ static void create_layout() {
     int extra_rows = std::max(0, body_height - (row1_height + row2_height + row3_height));
 
     const int row1_preferred_extra = 3;
-    const int row2_preferred_extra = 5;
-    const int row3_preferred_extra = 3;
+    const int row2_preferred_extra = 4;
+    const int row3_preferred_extra = 2;
 
     const int row1_add = std::min(extra_rows, row1_preferred_extra);
     row1_height += row1_add;
@@ -752,6 +841,16 @@ static std::string format_header_panel() {
 static std::string format_scheduler_panel() {
     demo.saw_scheduler = true;
     std::ostringstream out;
+
+    if (panel_content_rows(scheduler_panel) <= 4) {
+        out << "Tick: " << sys_mcb.Swapper.get_scheduler_tick()
+            << "  Current: " << task_label(sys_mcb.Swapper.get_current_task_id()) << '\n';
+        out << "Last: "
+            << compact_scheduler_event_text(sys_mcb.Swapper.get_last_scheduler_event()) << '\n';
+        out << "Queue: " << build_run_queue_compact_display() << '\n';
+        return out.str();
+    }
+
     out << "Scheduler Dump\n";
     out << "==============\n";
     out << "Tick: " << sys_mcb.Swapper.get_scheduler_tick() << '\n';
@@ -822,6 +921,37 @@ static std::string format_ipc_panel() {
     demo.saw_ipc = true;
 
     std::ostringstream out;
+
+    if (panel_content_rows(ipc_panel) <= 4) {
+        out << "Queued:" << sys_mcb.Messenger.Message_Count()
+            << "  Last:" << demo.last_ipc_summary << '\n';
+
+        std::vector<std::string> entries;
+        for (const TaskSnapshot& task : sys_mcb.Swapper.snapshot_tasks()) {
+            const std::size_t task_index = static_cast<std::size_t>(task.task_id);
+            const std::string visual =
+                task_index < demo.mailbox_visuals.size()
+                    ? demo.mailbox_visuals[task_index]
+                    : mailbox_queue_summary(task.task_id);
+            entries.push_back(task_label(task.task_id) + ": " + visual);
+        }
+
+        if (entries.empty()) {
+            out << "All mailboxes empty.\n";
+            return out.str();
+        }
+
+        for (std::size_t index = 0; index < entries.size(); index += 2) {
+            out << entries[index];
+            if (index + 1 < entries.size()) {
+                out << "  " << entries[index + 1];
+            }
+            out << '\n';
+        }
+
+        return out.str();
+    }
+
     out << "Queued:" << sys_mcb.Messenger.Message_Count()
         << "  Last:" << demo.last_ipc_summary << "\n";
     bool wrote_any_mailbox = false;
@@ -841,23 +971,70 @@ static std::string format_ipc_panel() {
 }
 
 static std::string format_memory_panel() {
+    if (panel_content_rows(memory_panel) <= 6) {
+        std::ostringstream out;
+        out << "Core:" << sys_mcb.MemMgr.capacity()
+            << "B Block:" << sys_mcb.MemMgr.page_size()
+            << " Free:" << sys_mcb.MemMgr.Mem_Left()
+            << " Wait:" << sys_mcb.MemMgr.waiting_task_count() << '\n';
+
+        for (const mmu::SegmentSnapshot& segment : sys_mcb.MemMgr.snapshot_segments()) {
+            if (segment.free) {
+                out << "MMU free " << segment.start << '-' << segment.end
+                    << "  " << segment.size << "B\n";
+                continue;
+            }
+
+            out << task_id_code(segment.owner_task_id)
+                << ' ' << format_handle_hex(segment.handle)
+                << ' ' << segment.start << '-' << segment.end
+                << ' ' << segment.size << "B"
+                << " req" << segment.requested_size
+                << " cur" << std::max(0, segment.current_location)
+                << '\n';
+        }
+
+        return out.str();
+    }
+
     return build_memory_ledger_dump();
 }
 
 static std::string format_dump_panel() {
-    const int text_rows = std::max(7, dump_panel.rows - 2);
-    const int usable_width = std::max(16, dump_panel.cols - 2);
-    const int hex_line_budget = std::clamp(text_rows / 3, 4, 5);
-    const int char_line_budget = std::max(5, text_rows - hex_line_budget);
-    const int char_body_lines = std::max(1, char_line_budget - 2);
-    const int max_char_bytes_per_line = std::clamp(usable_width - 7, 16, 64);
-    const int desired_char_bytes_per_line = std::max(16, (224 + char_body_lines - 1) / char_body_lines);
-    const int char_bytes_per_line = std::clamp(desired_char_bytes_per_line, 16, max_char_bytes_per_line);
-    const int char_bytes = std::min(256, char_bytes_per_line * char_body_lines);
+    const int content_rows = panel_content_rows(dump_panel);
+    const int usable_width = std::max(8, dump_panel.cols - 2);
+    const int char_bytes_per_line = 64;
+    const int hex_bytes_per_line = (dump_panel.cols >= 82) ? 16 : 8;
 
+    if (content_rows <= 6) {
+        const auto char_lines = split_lines(
+            sys_mcb.MemMgr.memory_char_dump_string(0, 256, char_bytes_per_line)
+        );
+        const auto hex_lines = split_lines(
+            sys_mcb.MemMgr.memory_hex_dump_string(0, hex_bytes_per_line, hex_bytes_per_line)
+        );
+
+        std::ostringstream out;
+        out << "Character View\n";
+        for (std::size_t index = 2; index < char_lines.size() && index < 6; ++index) {
+            out << fit_panel_line(char_lines[index], usable_width) << '\n';
+        }
+
+        out << "HEX / ASCII";
+        if (content_rows >= 7 && hex_lines.size() > 2) {
+            out << '\n' << fit_panel_line(hex_lines[2], usable_width);
+        } else {
+            out << '\n';
+        }
+
+        return out.str();
+    }
+
+    const int char_line_budget = std::max(5, content_rows - 3);
+    const int hex_line_budget = std::max(2, content_rows - char_line_budget);
+    const int char_body_lines = std::max(1, char_line_budget - 2);
     const int hex_body_lines = std::max(1, hex_line_budget - 2);
-    const int max_hex_bytes_per_line = std::max(4, std::min(16, (usable_width - 9) / 4));
-    const int hex_bytes_per_line = std::max(4, std::min(8, max_hex_bytes_per_line));
+    const int char_bytes = std::min(256, char_bytes_per_line * char_body_lines);
     const int hex_bytes = std::min(64, hex_bytes_per_line * hex_body_lines);
 
     std::ostringstream out;
@@ -891,6 +1068,20 @@ static std::string format_event_panel() {
 
 static std::string format_test_panel() {
     std::ostringstream out;
+
+    if (panel_content_rows(test_panel) <= 2) {
+        out << "1. Step the same task graph through alloc/write/read/free.\n";
+        out << "2. Snapshot each transition. 3. Keep all windows visible.\n";
+        return out.str();
+    }
+
+    if (panel_content_rows(test_panel) <= 3) {
+        out << "1. Step the same task graph through alloc/write/read/free.\n";
+        out << "2. Capture cumulative snapshots after each visible transition.\n";
+        out << "3. Keep scheduler, semaphores, IPC, and MMU visible together.\n";
+        return out.str();
+    }
+
     out << "Testing Approach\n";
     out << "1. Step the same task graph through alloc/write/read/free.\n";
     out << "2. Capture cumulative snapshots after each visible transition.\n";
