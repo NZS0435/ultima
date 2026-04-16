@@ -22,6 +22,7 @@
 #include <array>
 #include <cstring>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -97,14 +98,46 @@ struct Panel {
         std::string line;
 
         while (std::getline(input, line) && row < rows - 1) {
-            if (color_pair > 0) {
-                wattron(win, COLOR_PAIR(color_pair));
+            std::size_t offset = 0;
+
+            if (line.empty()) {
+                if (color_pair > 0) {
+                    wattron(win, COLOR_PAIR(color_pair));
+                }
+                mvwprintw(win, row, 1, "%-*.*s", usable_width, usable_width, "");
+                if (color_pair > 0) {
+                    wattroff(win, COLOR_PAIR(color_pair));
+                }
+                ++row;
+                continue;
             }
-            mvwprintw(win, row, 1, "%-*.*s", usable_width, usable_width, line.c_str());
-            if (color_pair > 0) {
-                wattroff(win, COLOR_PAIR(color_pair));
+
+            while (offset < line.size() && row < rows - 1) {
+                std::size_t remaining = line.size() - offset;
+                std::size_t chunk_size = std::min<std::size_t>(remaining, static_cast<std::size_t>(usable_width));
+
+                if (remaining > static_cast<std::size_t>(usable_width)) {
+                    const std::size_t break_at = line.rfind(' ', offset + chunk_size);
+                    if (break_at != std::string::npos && break_at > offset) {
+                        chunk_size = break_at - offset;
+                    }
+                }
+
+                std::string chunk = line.substr(offset, chunk_size);
+                if (color_pair > 0) {
+                    wattron(win, COLOR_PAIR(color_pair));
+                }
+                mvwprintw(win, row, 1, "%-*.*s", usable_width, usable_width, chunk.c_str());
+                if (color_pair > 0) {
+                    wattroff(win, COLOR_PAIR(color_pair));
+                }
+
+                offset += chunk_size;
+                while (offset < line.size() && line[offset] == ' ') {
+                    ++offset;
+                }
+                ++row;
             }
-            ++row;
         }
 
         return row;
@@ -217,6 +250,73 @@ static std::string take_first_lines(const std::string& text, int line_limit) {
     return out.str();
 }
 
+static std::string replace_all(std::string text, const std::string& from, const std::string& to) {
+    if (from.empty()) {
+        return text;
+    }
+
+    std::size_t offset = 0;
+    while ((offset = text.find(from, offset)) != std::string::npos) {
+        text.replace(offset, from.size(), to);
+        offset += to.size();
+    }
+
+    return text;
+}
+
+static char task_letter_for_id(int task_id) {
+    return (task_id >= 1 && task_id <= 4) ? static_cast<char>('A' + task_id - 1) : '\0';
+}
+
+static std::string task_id_code(int task_id) {
+    const char letter = task_letter_for_id(task_id);
+    if (letter != '\0') {
+        return std::string(1, letter);
+    }
+    if (task_id < 0) {
+        return "none";
+    }
+    return std::to_string(task_id);
+}
+
+static std::string task_label(int task_id) {
+    const char letter = task_letter_for_id(task_id);
+    if (letter != '\0') {
+        return "Task " + std::string(1, letter);
+    }
+    if (task_id < 0) {
+        return "none";
+    }
+    return "Task " + std::to_string(task_id);
+}
+
+static std::string owner_label(int task_id) {
+    const char letter = task_letter_for_id(task_id);
+    if (letter != '\0') {
+        return std::string(1, letter);
+    }
+    return (task_id < 0) ? "none" : std::to_string(task_id);
+}
+
+static std::string display_text(std::string text) {
+    text = replace_all(text, "T-1", "Task A");
+    text = replace_all(text, "T-2", "Task B");
+    text = replace_all(text, "T-3", "Task C");
+    text = replace_all(text, "T-4", "Task D");
+
+    text = replace_all(text, "id=1", "id=A");
+    text = replace_all(text, "id=2", "id=B");
+    text = replace_all(text, "id=3", "id=C");
+    text = replace_all(text, "id=4", "id=D");
+
+    text = replace_all(text, "Current Task: -1", "Current Task: none");
+    text = replace_all(text, "Task Number: 1", "Task: Task A");
+    text = replace_all(text, "Task Number: 2", "Task: Task B");
+    text = replace_all(text, "Task Number: 3", "Task: Task C");
+    text = replace_all(text, "Task Number: 4", "Task: Task D");
+    return text;
+}
+
 static std::string build_step_progress_bar(int step, int total, int width) {
     const int usable_width = std::max(10, width);
     const int filled = std::clamp((usable_width * std::max(step, 0)) / std::max(total, 1), 0, usable_width);
@@ -253,6 +353,220 @@ static std::string short_message_type(const Message& message) {
     return "msg";
 }
 
+static const char* state_name(State state) {
+    switch (state) {
+        case RUNNING:
+            return "RUNNING";
+        case READY:
+            return "READY";
+        case BLOCKED:
+            return "BLOCKED";
+        case DEAD:
+            return "DEAD";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+static std::string format_handle_hex(int handle) {
+    std::ostringstream out;
+    out << "0x" << std::uppercase << std::hex << handle;
+    return out.str();
+}
+
+static std::string build_run_queue_display() {
+    const auto tasks = sys_mcb.Swapper.snapshot_tasks();
+    std::ostringstream out;
+    bool wrote_any = false;
+
+    for (const TaskSnapshot& task : tasks) {
+        if (task.task_state == DEAD) {
+            continue;
+        }
+
+        if (wrote_any) {
+            out << " -> ";
+        }
+
+        out << task.task_name << '(' << task_label(task.task_id)
+            << ", " << state_name(task.task_state) << ')';
+        wrote_any = true;
+    }
+
+    return wrote_any ? out.str() : "[empty]";
+}
+
+static std::string build_scheduler_dump(int level = 0) {
+    std::ostringstream out;
+    const auto tasks = sys_mcb.Swapper.snapshot_tasks();
+
+    out << "Scheduler Dump\n";
+    out << "==============\n";
+    out << "Tick: " << sys_mcb.Swapper.get_scheduler_tick() << '\n';
+    out << "Current Task: " << task_id_code(sys_mcb.Swapper.get_current_task_id()) << '\n';
+    out << "Last Event: " << display_text(sys_mcb.Swapper.get_last_scheduler_event()) << '\n';
+    out << "Run Queue: " << build_run_queue_display() << "\n\n";
+
+    if (tasks.empty()) {
+        out << "[Process table empty after garbage collection]\n\n";
+        return out.str();
+    }
+
+    out << std::left
+        << std::setw(8) << "Task"
+        << std::setw(16) << "Name"
+        << std::setw(10) << "State"
+        << std::setw(8) << "Run"
+        << std::setw(8) << "Yield"
+        << std::setw(8) << "Block"
+        << std::setw(8) << "Wake"
+        << "Details\n";
+    out << "--------------------------------------------------------------------------\n";
+
+    for (const TaskSnapshot& task : tasks) {
+        out << std::left
+            << std::setw(8) << task_id_code(task.task_id)
+            << std::setw(16) << task.task_name
+            << std::setw(10) << state_name(task.task_state)
+            << std::setw(8) << task.dispatch_count
+            << std::setw(8) << task.yield_count
+            << std::setw(8) << task.block_count
+            << std::setw(8) << task.unblock_count
+            << display_text(task.detail_note)
+            << '\n';
+
+        if (level > 0) {
+            out << "         Last transition: " << display_text(task.last_transition) << '\n';
+        }
+    }
+
+    out << '\n';
+    return out.str();
+}
+
+static std::string build_semaphore_dump() {
+    std::ostringstream out;
+    const auto tasks = sys_mcb.Swapper.snapshot_tasks();
+
+    out << "Semaphore Summary\n";
+    out << "=================\n";
+    out << "Core Memory Semaphore\n";
+    out << "  value=" << sys_mcb.Core.get_sema_value()
+        << " owner=" << owner_label(sys_mcb.Core.get_owner_task_id())
+        << " wait=" << display_text(sys_mcb.Core.describe_wait_queue()) << '\n';
+    out << "Printer Semaphore\n";
+    out << "  value=" << sys_mcb.Printer.get_sema_value()
+        << " owner=" << owner_label(sys_mcb.Printer.get_owner_task_id())
+        << " wait=" << display_text(sys_mcb.Printer.describe_wait_queue()) << "\n\n";
+
+    out << "Mailbox Semaphores\n";
+    if (tasks.empty()) {
+        out << "  [none]\n";
+        return out.str();
+    }
+
+    for (const TaskSnapshot& task : tasks) {
+        TCB* tcb = sys_mcb.Swapper.get_tcb(task.task_id);
+        if (tcb == nullptr || tcb->mailbox_semaphore == nullptr) {
+            continue;
+        }
+
+        out << task_label(task.task_id)
+            << " owner=" << owner_label(tcb->mailbox_semaphore->get_owner_task_id())
+            << " wait=" << tcb->mailbox_semaphore->waiting_task_count()
+            << " down=" << tcb->mailbox_semaphore->get_down_operations()
+            << " up=" << tcb->mailbox_semaphore->get_up_operations()
+            << '\n';
+    }
+
+    return out.str();
+}
+
+static std::string build_ipc_dump() {
+    std::ostringstream out;
+    const auto tasks = sys_mcb.Swapper.snapshot_tasks();
+
+    out << "IPC Mailboxes\n";
+    out << "=============\n";
+    out << "Queued: " << sys_mcb.Messenger.Message_Count()
+        << "  Last: " << demo.last_ipc_summary << "\n\n";
+
+    if (tasks.empty()) {
+        out << "All mailboxes empty.\n";
+        return out.str();
+    }
+
+    for (const TaskSnapshot& task : tasks) {
+        std::queue<Message> mailbox_copy = sys_mcb.Messenger.get_mailbox_copy(task.task_id);
+        out << task_label(task.task_id) << ": " << mailbox_copy.size() << " queued\n";
+
+        if (mailbox_copy.empty()) {
+            out << "  [empty]\n";
+            continue;
+        }
+
+        while (!mailbox_copy.empty()) {
+            const Message& message = mailbox_copy.front();
+            out << "  From " << task_label(message.Source_Task_Id)
+                << " [" << message.Msg_Type.Message_Type_Description << "] "
+                << '"' << message.Msg_Text << '"'
+                << '\n';
+            mailbox_copy.pop();
+        }
+    }
+
+    return out.str();
+}
+
+static std::string build_memory_ledger_dump() {
+    std::ostringstream out;
+    const auto segments = sys_mcb.MemMgr.snapshot_segments();
+
+    out << "Memory Usage Ledger\n";
+    out << "===================\n";
+    out << "Core Bytes: " << sys_mcb.MemMgr.capacity()
+        << " | Block Size: " << sys_mcb.MemMgr.page_size()
+        << " | Free: " << sys_mcb.MemMgr.Mem_Left()
+        << " | Largest: " << sys_mcb.MemMgr.Mem_Largest()
+        << " | Smallest: " << sys_mcb.MemMgr.Mem_Smallest()
+        << " | Waiting: " << sys_mcb.MemMgr.waiting_task_count() << "\n\n";
+
+    out << std::left
+        << std::setw(10) << "Status"
+        << std::setw(12) << "Handle"
+        << std::setw(10) << "Start"
+        << std::setw(10) << "End"
+        << std::setw(10) << "Bytes"
+        << std::setw(12) << "Requested"
+        << std::setw(12) << "Current"
+        << "Task-ID\n";
+    out << std::string(78, '-') << "\n";
+
+    for (const mmu::SegmentSnapshot& segment : segments) {
+        out << std::left
+            << std::setw(10) << (segment.free ? "Free" : "Used")
+            << std::setw(12) << (segment.free ? "MMU" : format_handle_hex(segment.handle))
+            << std::setw(10) << segment.start
+            << std::setw(10) << segment.end
+            << std::setw(10) << segment.size
+            << std::setw(12) << (segment.free ? "NA" : std::to_string(segment.requested_size))
+            << std::setw(12)
+            << (segment.free ? "NA" : std::to_string(std::max(0, segment.current_location)))
+            << (segment.free ? "MMU" : task_id_code(segment.owner_task_id))
+            << '\n';
+    }
+
+    out << '\n';
+    return out.str();
+}
+
+static std::string build_core_dump_dump(int char_bytes_per_line, int char_bytes, int hex_bytes_per_line, int hex_bytes) {
+    std::ostringstream out;
+    out << sys_mcb.MemMgr.memory_char_dump_string(0, char_bytes, char_bytes_per_line);
+    out << sys_mcb.MemMgr.memory_hex_dump_string(0, hex_bytes, hex_bytes_per_line);
+    return out.str();
+}
+
 static std::string mailbox_queue_summary(int task_id) {
     std::queue<Message> mailbox_copy = sys_mcb.Messenger.get_mailbox_copy(task_id);
     if (mailbox_copy.empty()) {
@@ -262,7 +576,7 @@ static std::string mailbox_queue_summary(int task_id) {
     const Message& front = mailbox_copy.front();
     std::ostringstream out;
     out << "q=" << mailbox_copy.size()
-        << " from T-" << front.Source_Task_Id
+        << " from " << task_label(front.Source_Task_Id)
         << ' ' << short_message_type(front);
     return out.str();
 }
@@ -278,8 +592,8 @@ static void note_mailbox_enqueue(int task_id) {
     if (!mailbox_copy.empty()) {
         const Message& front = mailbox_copy.front();
         demo.last_ipc_summary =
-            "T-" + std::to_string(front.Source_Task_Id)
-            + "->T-" + std::to_string(front.Destination_Task_Id)
+            task_label(front.Source_Task_Id)
+            + " -> " + task_label(front.Destination_Task_Id)
             + ' ' + short_message_type(front);
     }
 }
@@ -287,12 +601,12 @@ static void note_mailbox_enqueue(int task_id) {
 static void note_mailbox_receive(int task_id, const Message& message) {
     if (task_id >= 1 && task_id < static_cast<int>(demo.mailbox_visuals.size())) {
         demo.mailbox_visuals[static_cast<std::size_t>(task_id)] =
-            "empty after rx T-" + std::to_string(message.Source_Task_Id);
+            "empty after rx " + task_label(message.Source_Task_Id);
     }
 
     demo.last_ipc_summary =
-        "T-" + std::to_string(task_id)
-        + "<=T-" + std::to_string(message.Source_Task_Id)
+        task_label(task_id)
+        + " <= " + task_label(message.Source_Task_Id)
         + ' ' + short_message_type(message);
 }
 
@@ -311,28 +625,17 @@ static void set_demo_step(int step, const std::string& title, const std::string&
 static void record_snapshot(const std::string& title) {
     std::ostringstream out;
     out << "=== Snapshot " << (++demo.snapshot_count) << ": " << title << " ===\n\n";
-    out << sys_mcb.Swapper.dump_string(1) << '\n';
-    out << "Semaphore Summary\n";
-    out << "=================\n";
-    out << "Core: value=" << sys_mcb.Core.get_sema_value()
-        << " owner=" << sys_mcb.Core.get_owner_task_id()
-        << " wait=" << sys_mcb.Core.describe_wait_queue() << '\n';
-    out << "Printer: value=" << sys_mcb.Printer.get_sema_value()
-        << " owner=" << sys_mcb.Printer.get_owner_task_id()
-        << " wait=" << sys_mcb.Printer.describe_wait_queue() << "\n\n";
-    out << sys_mcb.Messenger.ipc_Message_Dump_String() << '\n';
-    out << sys_mcb.MemMgr.layout_table_string();
-    out << sys_mcb.MemMgr.memory_char_dump_string(0, 256, 64);
+    out << build_scheduler_dump(1) << '\n';
+    out << build_semaphore_dump() << "\n\n";
+    out << build_ipc_dump() << "\n\n";
+    out << build_memory_ledger_dump();
+    out << build_core_dump_dump(64, 256, 16, 64);
     demo.snapshots.push_back(out.str());
 }
 
-static void update_coalesce_snapshot(const std::string& title) {
+static void update_coalesce_snapshot(const std::string& title, const std::string& body) {
     demo.latest_coalesce_title = title;
-    demo.latest_coalesce_body =
-        "Before Mem_Coalesce\n"
-        + take_first_lines(sys_mcb.MemMgr.get_last_pre_coalesce_dump(), 10)
-        + "\nAfter Mem_Coalesce\n"
-        + take_first_lines(sys_mcb.MemMgr.get_last_post_coalesce_dump(), 10);
+    demo.latest_coalesce_body = body;
     demo.saw_coalesce = true;
 }
 
@@ -448,7 +751,14 @@ static std::string format_header_panel() {
 
 static std::string format_scheduler_panel() {
     demo.saw_scheduler = true;
-    return sys_mcb.Swapper.dump_string(1);
+    std::ostringstream out;
+    out << "Scheduler Dump\n";
+    out << "==============\n";
+    out << "Tick: " << sys_mcb.Swapper.get_scheduler_tick() << '\n';
+    out << "Current Task: " << task_id_code(sys_mcb.Swapper.get_current_task_id()) << '\n';
+    out << "Last Event: " << display_text(sys_mcb.Swapper.get_last_scheduler_event()) << '\n';
+    out << "Run Queue: " << build_run_queue_display() << '\n';
+    return out.str();
 }
 
 static std::string format_semaphore_panel() {
@@ -457,10 +767,10 @@ static std::string format_semaphore_panel() {
     std::ostringstream out;
     if (semaphore_panel.rows <= 6) {
         out << "Core v=" << sys_mcb.Core.get_sema_value()
-            << " own=" << sys_mcb.Core.get_owner_task_id() << "\n";
+            << " own=" << owner_label(sys_mcb.Core.get_owner_task_id()) << "\n";
         out << "Printer v=" << sys_mcb.Printer.get_sema_value()
-            << " own=" << sys_mcb.Printer.get_owner_task_id() << "\n";
-        out << "Mailbox sema down/up\n";
+            << " own=" << owner_label(sys_mcb.Printer.get_owner_task_id()) << "\n";
+        out << "Mailbox down/up\n";
 
         bool first = true;
         for (const TaskSnapshot& task : sys_mcb.Swapper.snapshot_tasks()) {
@@ -472,7 +782,7 @@ static std::string format_semaphore_panel() {
             if (!first) {
                 out << "  ";
             }
-            out << "T-" << task.task_id
+            out << task_id_code(task.task_id)
                 << ' ' << tcb->mailbox_semaphore->get_down_operations()
                 << '/' << tcb->mailbox_semaphore->get_up_operations();
             first = false;
@@ -483,12 +793,12 @@ static std::string format_semaphore_panel() {
 
     out << "Core Memory Semaphore\n";
     out << "  value=" << sys_mcb.Core.get_sema_value()
-        << " owner=" << sys_mcb.Core.get_owner_task_id()
-        << " wait=" << sys_mcb.Core.describe_wait_queue() << "\n";
+        << " owner=" << owner_label(sys_mcb.Core.get_owner_task_id())
+        << " wait=" << display_text(sys_mcb.Core.describe_wait_queue()) << "\n";
     out << "Printer Semaphore\n";
     out << "  value=" << sys_mcb.Printer.get_sema_value()
-        << " owner=" << sys_mcb.Printer.get_owner_task_id()
-        << " wait=" << sys_mcb.Printer.describe_wait_queue() << "\n\n";
+        << " owner=" << owner_label(sys_mcb.Printer.get_owner_task_id())
+        << " wait=" << display_text(sys_mcb.Printer.describe_wait_queue()) << "\n\n";
 
     out << "Mailbox Semaphores\n";
     for (const TaskSnapshot& task : sys_mcb.Swapper.snapshot_tasks()) {
@@ -497,8 +807,8 @@ static std::string format_semaphore_panel() {
             continue;
         }
 
-        out << "T-" << task.task_id
-            << " owner=" << tcb->mailbox_semaphore->get_owner_task_id()
+        out << task_label(task.task_id)
+            << " owner=" << owner_label(tcb->mailbox_semaphore->get_owner_task_id())
             << " wait=" << tcb->mailbox_semaphore->waiting_task_count()
             << " down=" << tcb->mailbox_semaphore->get_down_operations()
             << " up=" << tcb->mailbox_semaphore->get_up_operations()
@@ -514,40 +824,62 @@ static std::string format_ipc_panel() {
     std::ostringstream out;
     out << "Queued:" << sys_mcb.Messenger.Message_Count()
         << "  Last:" << demo.last_ipc_summary << "\n";
+    bool wrote_any_mailbox = false;
     for (const TaskSnapshot& task : sys_mcb.Swapper.snapshot_tasks()) {
         const std::size_t task_index = static_cast<std::size_t>(task.task_id);
         const std::string visual =
             task_index < demo.mailbox_visuals.size()
                 ? demo.mailbox_visuals[task_index]
                 : mailbox_queue_summary(task.task_id);
-        out << "Mailbox T-" << task.task_id << ": " << visual << '\n';
+        out << "Mailbox " << task_label(task.task_id) << ": " << visual << '\n';
+        wrote_any_mailbox = true;
     }
-    if (ipc_panel.rows >= 9) {
-        out << "\n";
-        out << take_first_lines(sys_mcb.Messenger.ipc_Message_Dump_String(), 8);
+    if (!wrote_any_mailbox) {
+        out << "All mailboxes empty.\n";
     }
     return out.str();
 }
 
 static std::string format_memory_panel() {
-    return sys_mcb.MemMgr.layout_table_string();
+    return build_memory_ledger_dump();
 }
 
 static std::string format_dump_panel() {
+    const int text_rows = std::max(7, dump_panel.rows - 2);
+    const int usable_width = std::max(16, dump_panel.cols - 2);
+    const int hex_line_budget = std::clamp(text_rows / 3, 4, 5);
+    const int char_line_budget = std::max(5, text_rows - hex_line_budget);
+    const int char_body_lines = std::max(1, char_line_budget - 2);
+    const int max_char_bytes_per_line = std::clamp(usable_width - 7, 16, 64);
+    const int desired_char_bytes_per_line = std::max(16, (224 + char_body_lines - 1) / char_body_lines);
+    const int char_bytes_per_line = std::clamp(desired_char_bytes_per_line, 16, max_char_bytes_per_line);
+    const int char_bytes = std::min(256, char_bytes_per_line * char_body_lines);
+
+    const int hex_body_lines = std::max(1, hex_line_budget - 2);
+    const int max_hex_bytes_per_line = std::max(4, std::min(16, (usable_width - 9) / 4));
+    const int hex_bytes_per_line = std::max(4, std::min(8, max_hex_bytes_per_line));
+    const int hex_bytes = std::min(64, hex_bytes_per_line * hex_body_lines);
+
     std::ostringstream out;
-    out << take_first_lines(sys_mcb.MemMgr.memory_char_dump_string(0, 256, 64), 8) << '\n';
-    out << take_first_lines(sys_mcb.MemMgr.memory_hex_dump_string(0, 128, 16), 10);
+    out << take_first_lines(
+        sys_mcb.MemMgr.memory_char_dump_string(0, char_bytes, char_bytes_per_line),
+        char_line_budget
+    ) << '\n';
+    out << take_first_lines(
+        sys_mcb.MemMgr.memory_hex_dump_string(0, hex_bytes, hex_bytes_per_line),
+        hex_line_budget
+    );
     return out.str();
 }
 
 static std::string format_event_panel() {
     std::ostringstream out;
     auto entries = EventLog::instance().get_all();
-    const int max_entries = 18;
+    const int max_entries = std::max(6, log_panel.rows * 2);
     const int start = std::max(0, static_cast<int>(entries.size()) - max_entries);
 
     for (int index = start; index < static_cast<int>(entries.size()); ++index) {
-        out << entries[static_cast<std::size_t>(index)] << '\n';
+        out << display_text(entries[static_cast<std::size_t>(index)]) << '\n';
     }
 
     if (entries.empty()) {
@@ -584,7 +916,7 @@ static std::string format_test_panel() {
 
     if (!demo.latest_coalesce_title.empty()) {
         out << demo.latest_coalesce_title << '\n';
-        out << take_first_lines(demo.latest_coalesce_body, 10);
+        out << take_first_lines(display_text(demo.latest_coalesce_body), 10);
     } else {
         out << "Latest Coalesce: waiting for first free.\n";
     }
@@ -694,9 +1026,9 @@ static void writer_a_task() {
         demo.writer_a_handle = sys_mcb.MemMgr.Mem_Alloc(130);
         push_memory_event();
         if (demo.writer_a_handle < 0) {
-            set_demo_step(2, "Task_A allocation + IPC ready", "Task_A failed unexpectedly during initial allocation.");
+            set_demo_step(2, "Task A allocation and IPC ready", "Task A failed unexpectedly during initial allocation.");
             sys_mcb.Swapper.kill_task(demo.writer_a_id);
-            record_snapshot("Task_A unexpected allocation failure");
+            record_snapshot("Task A unexpected allocation failure");
             return;
         }
 
@@ -711,18 +1043,18 @@ static void writer_a_task() {
         push_memory_event();
         sys_mcb.Messenger.Message_Send(demo.writer_a_id, demo.reader_c_id, "Task_A buffer ready", 0);
         note_mailbox_enqueue(demo.reader_c_id);
-        push_event("Task_A sent IPC text to Task_C after its first-fit allocation.");
+        push_event("Task A sent IPC text to Task C after its first-fit allocation.");
         sys_mcb.Swapper.set_task_note(
             demo.writer_a_id,
             "Allocated 130 bytes (192 reserved) and published readiness."
         );
         set_demo_step(
             2,
-            "Task_A allocation + IPC ready",
-            "Task_A allocated 130 bytes (rounded to 192), wrote its payload, and sent IPC to Task_C."
+            "Task A allocation and IPC ready",
+            "Task A allocated 130 bytes, reserved 192 bytes, wrote its payload, and sent IPC to Task C."
         );
         demo.writer_a_phase = 1;
-        record_snapshot("Task_A allocation + IPC ready");
+        record_snapshot("Task A allocation and IPC ready");
         return;
     }
 
@@ -737,8 +1069,8 @@ static void writer_a_task() {
             demo.writer_a_mailbox_text = incoming.Msg_Text;
             note_mailbox_receive(demo.writer_a_id, incoming);
             push_event(
-                "Task_A received mailbox text from T-"
-                + std::to_string(incoming.Source_Task_Id)
+                "Task A received mailbox text from "
+                + task_label(incoming.Source_Task_Id)
                 + ": \"" + incoming.Msg_Text + "\""
             );
         }
@@ -749,11 +1081,11 @@ static void writer_a_task() {
         );
         set_demo_step(
             6,
-            "Task_A read-back + mailbox receive",
-            "Task_A read back its own partition and emptied its mailbox by receiving Task_B's update."
+            "Task A read-back and mailbox receive",
+            "Task A read back its own partition and emptied its mailbox by receiving Task B's update."
         );
         demo.writer_a_phase = 2;
-        record_snapshot("Task_A read-back + mailbox receive");
+        record_snapshot("Task A read-back and mailbox receive");
         return;
     }
 
@@ -763,21 +1095,24 @@ static void writer_a_task() {
             push_memory_event();
             if (rc == -1) {
                 demo.saw_protection = true;
-                push_event("Task_A attempted a foreign write into Task_D memory and the MMU rejected it.");
+                push_event("Task A attempted a foreign write into Task D memory and the MMU rejected it.");
             }
         }
 
         sys_mcb.MemMgr.Mem_Free(demo.writer_a_handle);
         push_memory_event();
-        update_coalesce_snapshot("Task_A free snapshot");
+        update_coalesce_snapshot(
+            "Task A free snapshot",
+            "Task A released the front partition. The freed bytes turned into hashes first, and the coalescer could only merge with adjacent free space after ownership barriers were removed."
+        );
         sys_mcb.Swapper.kill_task(demo.writer_a_id);
         set_demo_step(
             10,
-            "Task_A protection test + free",
-            "Task_A proved base/limit protection by attempting a foreign write, then freed its partition and exited."
+            "Task A protection test and free",
+            "Task A proved base-and-limit protection with a blocked foreign write, then freed its own partition and exited."
         );
         demo.writer_a_phase = 3;
-        record_snapshot("Task_A protection test + free");
+        record_snapshot("Task A protection test and free");
     }
 }
 
@@ -786,9 +1121,9 @@ static void writer_b_task() {
         demo.writer_b_handle = sys_mcb.MemMgr.Mem_Alloc(200);
         push_memory_event();
         if (demo.writer_b_handle < 0) {
-            set_demo_step(3, "Task_B allocation + service message", "Task_B failed unexpectedly during initial allocation.");
+            set_demo_step(3, "Task B allocation and service message", "Task B failed unexpectedly during initial allocation.");
             sys_mcb.Swapper.kill_task(demo.writer_b_id);
-            record_snapshot("Task_B unexpected allocation failure");
+            record_snapshot("Task B unexpected allocation failure");
             return;
         }
 
@@ -803,33 +1138,36 @@ static void writer_b_task() {
         push_memory_event();
         sys_mcb.Messenger.Message_Send(demo.writer_b_id, demo.writer_a_id, "Task_B middle block allocated", 1);
         note_mailbox_enqueue(demo.writer_a_id);
-        push_event("Task_B sent a service-style IPC note to Task_A.");
+        push_event("Task B sent a service-style IPC note to Task A.");
         sys_mcb.Swapper.set_task_note(
             demo.writer_b_id,
             "Allocated 200 bytes (256 reserved) in the middle of core memory."
         );
         set_demo_step(
             3,
-            "Task_B allocation + service message",
-            "Task_B allocated the middle partition and sent a service-style IPC update to Task_A."
+            "Task B allocation and service message",
+            "Task B allocated the middle partition and sent a service-style IPC update to Task A."
         );
         demo.writer_b_phase = 1;
-        record_snapshot("Task_B allocation + service message");
+        record_snapshot("Task B allocation and service message");
         return;
     }
 
     if (demo.writer_b_phase == 1) {
         sys_mcb.MemMgr.Mem_Free(demo.writer_b_handle);
         push_memory_event();
-        update_coalesce_snapshot("Task_B free snapshot");
+        update_coalesce_snapshot(
+            "Task B free snapshot",
+            "Task B freed the middle partition. The just-released region is visible as hashes, and Mem_Coalesce performed zero merges because Task A and Task C still bound the hole."
+        );
         sys_mcb.Swapper.kill_task(demo.writer_b_id);
         set_demo_step(
             7,
-            "Task_B free / first coalesce view",
-            "Task_B freed the middle partition, exposing hashes before coalesce and the first coalesce view."
+            "Task B free and first coalesce view",
+            "Task B freed the middle partition, exposing a visible hash band while the ledger kept that middle hole as a separate free segment."
         );
         demo.writer_b_phase = 2;
-        record_snapshot("Task_B free");
+        record_snapshot("Task B free and first coalesce view");
     }
 }
 
@@ -838,9 +1176,9 @@ static void reader_c_task() {
         demo.reader_c_handle = sys_mcb.MemMgr.Mem_Alloc(100);
         push_memory_event();
         if (demo.reader_c_handle < 0) {
-            set_demo_step(4, "Task_C single-byte write + mailbox receive", "Task_C failed unexpectedly during initial allocation.");
+            set_demo_step(4, "Task C single-byte write and mailbox receive", "Task C failed unexpectedly during initial allocation.");
             sys_mcb.Swapper.kill_task(demo.reader_c_id);
-            record_snapshot("Task_C unexpected allocation failure");
+            record_snapshot("Task C unexpected allocation failure");
             return;
         }
 
@@ -849,15 +1187,15 @@ static void reader_c_task() {
         for (char ch : payload) {
             sys_mcb.MemMgr.Mem_Write(demo.reader_c_handle, ch);
         }
-        push_event("Task_C completed single-byte Mem_Write calls across its partition.");
+        push_event("Task C completed single-byte Mem_Write calls across its partition.");
 
         Message incoming {};
         if (sys_mcb.Messenger.Message_Receive(demo.reader_c_id, &incoming) == 1) {
             demo.reader_c_mailbox_text = incoming.Msg_Text;
             note_mailbox_receive(demo.reader_c_id, incoming);
             push_event(
-                "Task_C received mailbox text from T-"
-                + std::to_string(incoming.Source_Task_Id)
+                "Task C received mailbox text from "
+                + task_label(incoming.Source_Task_Id)
                 + ": \"" + incoming.Msg_Text + "\""
             );
         }
@@ -868,32 +1206,35 @@ static void reader_c_task() {
         );
         set_demo_step(
             4,
-            "Task_C single-byte write + mailbox receive",
-            "Task_C proved current_location advances by streaming single-byte writes, then consumed Task_A's mailbox text."
+            "Task C single-byte write and mailbox receive",
+            "Task C proved current_location advances through single-byte writes, then consumed Task A's mailbox text."
         );
         demo.reader_c_phase = 1;
-        record_snapshot("Task_C single-byte write + mailbox receive");
+        record_snapshot("Task C single-byte write and mailbox receive");
         return;
     }
 
     if (demo.reader_c_phase == 1) {
         sys_mcb.MemMgr.Mem_Free(demo.reader_c_handle);
         push_memory_event();
-        update_coalesce_snapshot("Task_C free snapshot");
+        update_coalesce_snapshot(
+            "Task C free snapshot",
+            "Task C freed the trailing partition, letting the middle hole, the trailing block, and the tail free space merge into one 832-byte coalesced region. The hashes were replaced with dots after coalescing."
+        );
 
         if (sys_mcb.Swapper.get_task_state(demo.waiter_d_id) == READY) {
             demo.saw_shark_pond = true;
-            push_event("Shark-pond wake-up: Task_D returned to READY after Task_C freed memory.");
+            push_event("Shark-pond wake-up: Task D returned to READY after Task C freed memory.");
         }
 
         sys_mcb.Swapper.kill_task(demo.reader_c_id);
         set_demo_step(
             8,
-            "Task_C free + shark pond wake-up",
-            "Task_C freed the trailing partition; the shark-pond wake-up lets Task_D compete again."
+            "Task C free and shark-pond wake-up",
+            "Task C freed the trailing partition, coalescing the free space and returning Task D from BLOCKED to READY."
         );
         demo.reader_c_phase = 2;
-        record_snapshot("Task_C free + shark pond wake-up");
+        record_snapshot("Task C free and shark-pond wake-up");
     }
 }
 
@@ -911,17 +1252,17 @@ static void waiter_d_task() {
             );
             set_demo_step(
                 5,
-                "Task_D blocked on insufficient contiguous memory",
-                "Task_D requested 500 bytes (512 reserved), but the largest free segment was too small, so it became BLOCKED."
+                "Task D blocked on insufficient contiguous memory",
+                "Task D requested 500 bytes, but the largest contiguous free region was only 448 bytes, so it became BLOCKED."
             );
-            record_snapshot("Task_D blocked on insufficient contiguous memory");
+            record_snapshot("Task D blocked on insufficient contiguous memory");
             return;
         }
 
         if (demo.saw_blocked_request) {
             demo.saw_shark_pond = true;
             demo.waiter_status = "Woke from shark pond and acquired the coalesced partition.";
-            push_event("Task_D woke after the shark-pond retry path and won the coalesced segment.");
+            push_event("Task D woke after the shark-pond retry path and won the coalesced segment.");
         } else {
             demo.waiter_status = "Allocated without blocking.";
         }
@@ -936,33 +1277,36 @@ static void waiter_d_task() {
         push_memory_event();
         sys_mcb.Messenger.Message_Send(demo.waiter_d_id, demo.writer_a_id, "Task_D acquired coalesced memory", 2);
         note_mailbox_enqueue(demo.writer_a_id);
-        push_event("Task_D sent a notification to Task_A after acquiring coalesced memory.");
+        push_event("Task D sent a notification to Task A after acquiring coalesced memory.");
         sys_mcb.Swapper.set_task_note(
             demo.waiter_d_id,
             "Acquired 500 bytes (512 reserved) after the shark-pond wake-up."
         );
         set_demo_step(
             9,
-            "Task_D acquired coalesced partition",
-            "Task_D retried Mem_Alloc successfully after coalescing and now owns the coalesced partition."
+            "Task D acquired coalesced partition",
+            "Task D retried Mem_Alloc after coalescing, acquired 512 reserved bytes, and wrote into the coalesced region."
         );
         demo.waiter_d_phase = 1;
-        record_snapshot("Task_D acquired coalesced partition");
+        record_snapshot("Task D acquired coalesced partition");
         return;
     }
 
     if (demo.waiter_d_phase == 1) {
         sys_mcb.MemMgr.Mem_Free(demo.waiter_d_handle);
         push_memory_event();
-        update_coalesce_snapshot("Task_D free snapshot");
+        update_coalesce_snapshot(
+            "Task D free snapshot",
+            "Task D released the coalesced partition. The final free path merged the remaining regions back into one 1024-byte segment filled with dots."
+        );
         sys_mcb.Swapper.kill_task(demo.waiter_d_id);
         set_demo_step(
             11,
-            "Task_D final free",
-            "Task_D freed the coalesced partition, proving the system can return to one large free region."
+            "Task D final free",
+            "Task D freed the coalesced partition, and the full core returned to one contiguous free region."
         );
         demo.waiter_d_phase = 2;
-        record_snapshot("Task_D final free");
+        record_snapshot("Task D final free");
     }
 }
 
@@ -985,10 +1329,10 @@ static void setup_demo() {
     demo.reader_c_id = sys_mcb.Swapper.create_task("Task_C_Reader", reader_c_task);
     demo.waiter_d_id = sys_mcb.Swapper.create_task("Task_D_Waiter", waiter_d_task);
 
-    push_event("Created Task_A_Writer id=" + std::to_string(demo.writer_a_id));
-    push_event("Created Task_B_Writer id=" + std::to_string(demo.writer_b_id));
-    push_event("Created Task_C_Reader id=" + std::to_string(demo.reader_c_id));
-    push_event("Created Task_D_Waiter id=" + std::to_string(demo.waiter_d_id));
+    push_event("Created Task_A_Writer id=" + task_id_code(demo.writer_a_id));
+    push_event("Created Task_B_Writer id=" + task_id_code(demo.writer_b_id));
+    push_event("Created Task_C_Reader id=" + task_id_code(demo.reader_c_id));
+    push_event("Created Task_D_Waiter id=" + task_id_code(demo.waiter_d_id));
 
     sys_mcb.Swapper.set_task_note(demo.writer_a_id, "Will allocate first-fit memory, publish readiness, and validate protection.");
     sys_mcb.Swapper.set_task_note(demo.writer_b_id, "Will allocate the middle partition, then free it to create a hole.");
@@ -1013,7 +1357,7 @@ static std::string build_transcript() {
 
     out << "=== Event Log ===\n";
     for (const std::string& entry : EventLog::instance().get_all()) {
-        out << "  " << entry << '\n';
+        out << "  " << display_text(entry) << '\n';
     }
 
     out << "\n=== End Transcript ===\n";

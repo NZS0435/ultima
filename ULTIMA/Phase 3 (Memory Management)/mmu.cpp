@@ -731,21 +731,18 @@ int mmu::coalesce_locked() {
         if (segment_it->free && next_it->free) {
             segment_it->size += next_it->size;
             segments_.erase(next_it);
+            // Only repaint free memory back to dots when a real merge occurs.
+            // A freshly freed but non-merged segment must stay visible as hashes.
+            fill_memory(
+                segment_it->start,
+                segment_it->size,
+                static_cast<unsigned char>(default_initial_value_)
+            );
             ++merges;
             continue;
         }
 
         ++segment_it;
-    }
-
-    for (const Segment& segment : segments_) {
-        if (segment.free) {
-            fill_memory(
-                segment.start,
-                segment.size,
-                static_cast<unsigned char>(default_initial_value_)
-            );
-        }
     }
 
     return merges;
