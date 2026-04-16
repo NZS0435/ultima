@@ -71,10 +71,10 @@ else()
     )
 endif()
 
-add_executable(ultima_os_phase3 "Phase3_main.cpp")
-add_executable(ultima_os_phase3_smoke "phase3_smoke_test.cpp")
+add_executable(Phase3_test "Phase3_main.cpp")
+add_executable(Phase3_smoke_test "phase3_smoke_test.cpp")
 
-target_link_libraries(ultima_os_phase3
+target_link_libraries(Phase3_test
     PRIVATE
         ultima_os_phase3_core
         ${ULTIMA_PHASE3_IPC_LINK_TARGETS}
@@ -82,12 +82,12 @@ target_link_libraries(ultima_os_phase3
         ${CURSES_LIBRARIES}
 )
 
-target_include_directories(ultima_os_phase3
+target_include_directories(Phase3_test
     PRIVATE
         ${CURSES_INCLUDE_DIR}
 )
 
-target_link_libraries(ultima_os_phase3_smoke
+target_link_libraries(Phase3_smoke_test
     PRIVATE
         ultima_os_phase3_core
         ${ULTIMA_PHASE3_IPC_LINK_TARGETS}
@@ -99,11 +99,11 @@ set_target_properties(ultima_os_phase3_core PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${ULTIMA_PHASE3_OUTPUT_DIR}"
 )
 
-set_target_properties(ultima_os_phase3 PROPERTIES
+set_target_properties(Phase3_test PROPERTIES
     OUTPUT_NAME "phase3_test"
     RUNTIME_OUTPUT_DIRECTORY "${ULTIMA_PHASE3_OUTPUT_DIR}"
 )
 
-set_target_properties(ultima_os_phase3_smoke PROPERTIES
+set_target_properties(Phase3_smoke_test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${ULTIMA_PHASE3_OUTPUT_DIR}"
 )
