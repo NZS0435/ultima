@@ -1,0 +1,112 @@
+ULTIMA 2.0 - Phase 1 transcript
+================================
+=== ULTIMA Phase 1 terminal demonstration / cycle 1 ===
+Scheduler purpose: manage the dynamic process table and choose the next READY task to run.
+Semaphore purpose: prevent a shared Printer_Output race by blocking and queueing contenders.
+Memory manager purpose: provide deterministic first-fit task buffers and show their lifetime in the proof board.
+Pthread purpose: protect ncurses writes so the proof-board display stays coherent.
+Continuous mode: the interactive demo will restart automatically until you press q.
+
+--- INITIAL SYSTEM STATE ---
+Scheduler Dump
+==============
+Tick: 0
+Current Task: -1
+Last Event: Scheduler reset; process table cleared.
+Run Queue: [empty]
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+
+
+Semaphore Dump
+==============
+Resource: Printer_Output
+Value: 1
+Owner: -1
+Wait Queue: [empty]
+Operations: down=0 up=0 contention=0
+Last Transition: Semaphore reset and available.
+
+
+Memory Manager Dump
+===================
+Capacity: 1024 bytes
+Used: 0 bytes
+Free: 1024 bytes
+Allocations: 0
+Segments:
+  [0..1023] FREE size=1024
+Internal segment count: 1
+
+
+--- BEGINNING EXECUTION ---
+
+--- FINAL STATE DUMP (Before Garbage Collection) ---
+Scheduler Dump
+==============
+Tick: 0
+Current Task: -1
+Last Event: Scheduler reset; process table cleared.
+Run Queue: [empty]
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+
+
+Semaphore Dump
+==============
+Resource: Printer_Output
+Value: 1
+Owner: -1
+Wait Queue: [empty]
+Operations: down=0 up=0 contention=0
+Last Transition: Semaphore reset and available.
+
+
+Memory Manager Dump
+===================
+Capacity: 1024 bytes
+Used: 0 bytes
+Free: 1024 bytes
+Allocations: 0
+Segments:
+  [0..1023] FREE size=1024
+Internal segment count: 1
+
+
+
+--- POST-GARBAGE-COLLECTION DUMP ---
+Scheduler Dump
+==============
+Tick: 0
+Current Task: -1
+Last Event: Garbage collection found no DEAD tasks.
+Run Queue: [empty]
+
+Task ID Name            State     Run     Yield   Block   Wake    Details
+--------------------------------------------------------------------------
+
+
+Semaphore Dump
+==============
+Resource: Printer_Output
+Value: 1
+Owner: -1
+Wait Queue: [empty]
+Operations: down=0 up=0 contention=0
+Last Transition: Semaphore reset and available.
+
+
+Memory Manager Dump
+===================
+Capacity: 1024 bytes
+Used: 0 bytes
+Free: 1024 bytes
+Allocations: 0
+Segments:
+  [0..1023] FREE size=1024
+Internal segment count: 1
+
+
+System shutting down safely.
